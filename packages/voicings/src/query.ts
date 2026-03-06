@@ -34,6 +34,13 @@ const ARTIST_STYLE_MAP: Record<string, { style?: VoicingStyle; era?: string }> =
   "drop 2 and 4": { style: "Drop 2+4" },
   "drop 2": { style: "Drop 2" },
   "locked hands": { style: "Drop 2" },
+  "spread": { style: "Spread" },
+  "sax section": { style: "Spread" },
+  "sammy nestico": { style: "4-Note Closed" },
+  "nestico": { style: "4-Note Closed" },
+  "4-note closed": { style: "4-Note Closed" },
+  "four note closed": { style: "4-Note Closed" },
+  "trumpet section": { style: "4-Note Closed" },
 };
 
 /**

@@ -370,6 +370,106 @@ const drop24: VoicingEntry[] = [
 ];
 
 // ============================================================
+// CATEGORY G: SPREAD VOICINGS (BIG BAND / SAX SECTION)
+// Fundamentals (root, 3rd, 7th) in lower octave,
+// color tones (9th, #11, 13th) in upper octave.
+// Wide range, idiomatic for sax section writing.
+// ============================================================
+
+const spread: VoicingEntry[] = [
+  {
+    id: "spread-maj7",
+    name: "Spread Maj7 (3+7 low, 9+5 high)",
+    quality: "maj7",
+    intervals: [0, 4, 11, 14, 19], // Root, M3, M7, M9(+12), P5(+12)
+    tags: { era: "Modern", style: "Spread", source: "Big Band Arranging" },
+    range: { min: 36, max: 72 },
+  },
+  {
+    id: "spread-min7",
+    name: "Spread m7 (3+7 low, 9+5 high)",
+    quality: "min7",
+    intervals: [0, 3, 10, 14, 19], // Root, m3, m7, M9(+12), P5(+12)
+    tags: { era: "Modern", style: "Spread", source: "Big Band Arranging" },
+    range: { min: 36, max: 72 },
+  },
+  {
+    id: "spread-dom7",
+    name: "Spread Dom7 (3+7 low, 9+13 high)",
+    quality: "dom7",
+    intervals: [0, 4, 10, 14, 21], // Root, M3, m7, M9(+12), M13(+12)
+    tags: { era: "Modern", style: "Spread", source: "Big Band Arranging" },
+    range: { min: 36, max: 72 },
+  },
+  {
+    id: "spread-dom7-sharp11",
+    name: "Spread Dom7#11 (3+7 low, #11+9 high)",
+    quality: "dom7",
+    intervals: [0, 4, 10, 14, 18], // Root, M3, m7, M9(+12), #11(+12)
+    tags: { era: "Modern", style: "Spread", source: "Big Band Arranging" },
+    range: { min: 36, max: 72 },
+  },
+  {
+    id: "spread-m7b5",
+    name: "Spread m7b5 (3+7 low, 9+b5 high)",
+    quality: "m7b5",
+    intervals: [0, 3, 10, 13, 18], // Root, m3, m7, b9(+12), b5(+12)
+    tags: { era: "Modern", style: "Spread", source: "Big Band Arranging" },
+    range: { min: 36, max: 72 },
+  },
+];
+
+// ============================================================
+// CATEGORY H: 4-NOTE CLOSED VOICINGS (NESTICO / TRUMPET SECTION)
+// Sammy Nestico style: 4-note close position prioritizing
+// color tones (9, #11, 13) over fundamentals (5, sometimes 7)
+// in the upper register. Best in low-to-mid register.
+// ============================================================
+
+const fourNoteClosed: VoicingEntry[] = [
+  {
+    id: "4close-maj7",
+    name: "4-Note Closed Maj7 (1-3-7-9)",
+    quality: "maj7",
+    intervals: [0, 4, 11, 14], // Root, M3, M7, M9
+    tags: { era: "Modern", style: "4-Note Closed", artist: "Sammy Nestico", source: "Big Band Arranging" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "4close-min7",
+    name: "4-Note Closed m7 (1-3-7-9)",
+    quality: "min7",
+    intervals: [0, 3, 10, 14], // Root, m3, m7, M9
+    tags: { era: "Modern", style: "4-Note Closed", artist: "Sammy Nestico", source: "Big Band Arranging" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "4close-dom7",
+    name: "4-Note Closed Dom7 (3-13-7-9)",
+    quality: "dom7",
+    intervals: [4, 9, 10, 14], // M3, M13, m7, M9 — prioritize 13th over root/5th
+    tags: { era: "Modern", style: "4-Note Closed", artist: "Sammy Nestico", source: "Big Band Arranging" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "4close-dom13",
+    name: "4-Note Closed Dom13 (3-13-9-7)",
+    quality: "dom7",
+    intervals: [4, 10, 14, 21], // M3, m7, M9, M13 — color-heavy, no root/5th
+    tags: { era: "Modern", style: "4-Note Closed", artist: "Sammy Nestico", source: "Big Band Arranging" },
+    range: { min: 55, max: 72 },
+  },
+  {
+    id: "4close-m7b5",
+    name: "4-Note Closed m7b5 (1-b3-b5-9)",
+    quality: "m7b5",
+    intervals: [0, 3, 6, 14], // Root, m3, dim5, M9 — 9th replaces 7th
+    tags: { era: "Modern", style: "4-Note Closed", artist: "Sammy Nestico", source: "Big Band Arranging" },
+    range: { min: 48, max: 72 },
+  },
+];
+
+// ============================================================
 // FULL LIBRARY
 // ============================================================
 
@@ -380,4 +480,6 @@ export const VOICING_LIBRARY: VoicingEntry[] = [
   ...upperStructures,
   ...drop2,
   ...drop24,
+  ...spread,
+  ...fourNoteClosed,
 ];

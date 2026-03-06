@@ -13,7 +13,9 @@ export type VoicingStyle =
   | "Quartal"
   | "Upper Structure"
   | "Drop 2"
-  | "Drop 2+4";
+  | "Drop 2+4"
+  | "Spread"
+  | "4-Note Closed";
 
 export type VoicingQuality =
   | "maj7"
