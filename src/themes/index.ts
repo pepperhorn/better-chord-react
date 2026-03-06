@@ -1,9 +1,11 @@
 import type { ColorTheme } from "../types";
 import { boomwhackerTheme } from "./boomwhacker";
+import { crfTheme } from "./crf";
 import { createSimpleTheme } from "./simple";
 
 const themeRegistry: Record<string, ColorTheme> = {
   boomwhacker: boomwhackerTheme,
+  crf: crfTheme,
   simple: createSimpleTheme(),
 };
 
