@@ -13,7 +13,9 @@
       "require": "./dist/better-chord-react.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -27,6 +29,7 @@
   },
   "dependencies": {
     "@better-chord/voicings": "*",
+    "smplr": "^0.18.1",
     "tonal": "^6.3.0"
   },
   "devDependencies": {

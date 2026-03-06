@@ -17,6 +17,8 @@ export interface KeyboardProps {
   highlightKeys?: NoteName[];
   theme?: ColorTheme | string;
   highlightColor?: string;
+  showPlayback?: boolean;
+  chordLabel?: string;
   className?: string;
   style?: CSSProperties;
 }

@@ -163,6 +163,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
       highlightKeys={notes}
       theme={theme}
       highlightColor={highlightColor}
+      chordLabel={parsed.chordName}
       className={className}
       style={style}
     />

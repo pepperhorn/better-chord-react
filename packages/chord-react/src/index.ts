@@ -4,6 +4,8 @@ export { resolveChord } from "./resolver/chord-resolver";
 export { calculateLayout } from "./resolver/auto-layout";
 export { parseChordDescription } from "./parser/natural-language";
 export { getTheme } from "./themes";
+export { playBlock, playArpeggiated } from "./audio/playback";
+export { generateMidiFile, downloadMidi } from "./audio/midi-export";
 
 // Re-export voicings from the workspace package
 export {
