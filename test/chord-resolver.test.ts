@@ -36,4 +36,30 @@ describe("resolveChord", () => {
   it("throws for unknown chords", () => {
     expect(() => resolveChord("Xmaj99")).toThrow("Unknown chord");
   });
+
+  // Compound jazz chords (fallback resolver)
+  it("resolves Dmaj7#5#11 via fallback", () => {
+    const result = resolveChord("Dmaj7#5#11");
+    expect(result.notes).toEqual(["D", "F#", "A#", "C#", "G#"]);
+  });
+
+  it("resolves D7#5#11 via fallback", () => {
+    const result = resolveChord("D7#5#11");
+    expect(result.notes).toEqual(["D", "F#", "A#", "C", "G#"]);
+  });
+
+  it("resolves Dm7#11 via fallback", () => {
+    const result = resolveChord("Dm7#11");
+    expect(result.notes).toEqual(["D", "F", "A", "C", "G#"]);
+  });
+
+  it("resolves Cmaj7#5#11 via fallback", () => {
+    const result = resolveChord("Cmaj7#5#11");
+    expect(result.notes).toEqual(["C", "E", "G#", "B", "F#"]);
+  });
+
+  it("still resolves standard chords directly", () => {
+    const result = resolveChord("G7#9");
+    expect(result.notes).toEqual(["G", "B", "D", "F", "A#"]);
+  });
 });
