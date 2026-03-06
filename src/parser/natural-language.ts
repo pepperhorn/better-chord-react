@@ -22,7 +22,11 @@ const SPAN_RE =
   /spanning\s+([A-Ga-g][#b]?)\s+to\s+([A-Ga-g][#b]?)/i;
 
 const STARTING_NOTE_RE =
-  /start(?:s|ing)?\s+(?:on|from|at|around)\s+([A-Ga-g][#b]?)/i;
+  /start(?:s|ing)?\s+(?:on|from|at|around)\s+(?:the\s+)?([A-Ga-g][#b]?)/i;
+
+// "starting on the 5th" or "starting on the 3rd"
+const STARTING_DEGREE_RE =
+  /start(?:s|ing)?\s+(?:on|from|at|around)\s+(?:the\s+)?(\d+)(?:st|nd|rd|th)/i;
 
 // Quality word mapping for descriptive chord names
 const QUALITY_WORDS: Record<string, string> = {
@@ -75,9 +79,12 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     result.spanTo = capitalizeNote(spanMatch[2]);
   }
 
-  // Extract starting note
+  // Extract starting note or degree
+  const startDegreeMatch = input.match(STARTING_DEGREE_RE);
   const startMatch = input.match(STARTING_NOTE_RE);
-  if (startMatch) {
+  if (startDegreeMatch) {
+    result.startingDegree = parseInt(startDegreeMatch[1], 10);
+  } else if (startMatch) {
     result.startingNote = capitalizeNote(startMatch[1]);
   }
 
@@ -88,6 +95,7 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     .replace(INVERSION_WORD_RE, "")
     .replace(ROOT_POSITION_RE, "")
     .replace(SPAN_RE, "")
+    .replace(STARTING_DEGREE_RE, "")
     .replace(STARTING_NOTE_RE, "")
     .replace(FILLER_WORDS, "")
     .replace(/,/g, "")

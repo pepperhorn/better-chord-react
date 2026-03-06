@@ -37,6 +37,7 @@ export interface ParsedChordRequest {
   chordName: string;
   inversion?: number;
   startingNote?: string;
+  startingDegree?: number;
   spanFrom?: string;
   spanTo?: string;
   format?: Format;

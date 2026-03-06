@@ -1,5 +1,5 @@
 import type { WhiteNote } from "../types";
-import { WHITE_NOTE_ORDER } from "../engine/svg-constants";
+import { WHITE_NOTE_ORDER, FLAT_TO_SHARP } from "../engine/svg-constants";
 
 const NOTE_TO_SEMITONE: Record<string, number> = {
   C: 0, "C#": 1,
@@ -13,11 +13,12 @@ const NOTE_TO_SEMITONE: Record<string, number> = {
 
 // Map a note to its nearest white key (the white key it sits on or just below)
 function nearestWhiteKey(note: string): WhiteNote {
-  const base = note.replace("#", "");
+  // Normalize flats to sharps first
+  const normalized = FLAT_TO_SHARP[note] ?? note;
+  const base = normalized.replace("#", "");
   if (WHITE_NOTE_ORDER.includes(base as WhiteNote)) {
     return base as WhiteNote;
   }
-  // For sharps, return the white key they belong to
   return base as WhiteNote;
 }
 
@@ -31,6 +32,7 @@ function whiteKeySpan(from: WhiteNote, to: WhiteNote): number {
 
 export interface LayoutOptions {
   padding?: number;
+  startingNote?: string;
   spanFrom?: string;
   spanTo?: string;
 }
@@ -44,7 +46,26 @@ export function calculateLayout(
   notes: string[],
   options: LayoutOptions = {}
 ): LayoutResult {
-  const { padding = 1, spanFrom, spanTo } = options;
+  const { padding = 1, startingNote, spanFrom, spanTo } = options;
+
+  // Explicit starting note: anchor the keyboard there
+  if (startingNote) {
+    const start = nearestWhiteKey(startingNote);
+    // Size the keyboard to fit all notes with padding on the right
+    const startIdx = WHITE_NOTE_ORDER.indexOf(start);
+    if (notes.length > 0) {
+      const whiteKeys = notes.map(nearestWhiteKey);
+      const indices = whiteKeys.map((w) => {
+        let idx = WHITE_NOTE_ORDER.indexOf(w);
+        if (idx < startIdx) idx += 7;
+        return idx;
+      });
+      const maxIdx = Math.max(...indices);
+      const span = maxIdx - startIdx + 1 + padding;
+      return { startFrom: start, size: Math.max(span, notes.length + 2) };
+    }
+    return { startFrom: start, size: 8 };
+  }
 
   if (spanFrom && spanTo) {
     const from = nearestWhiteKey(spanFrom);

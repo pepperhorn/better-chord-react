@@ -19,8 +19,19 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
 
   const parsed = parseChordDescription(chord);
   const resolved = resolveChord(parsed.chordName, parsed.inversion);
+
+  // Resolve startingDegree to a note name (1-indexed into chord notes)
+  let startingNote = parsed.startingNote;
+  if (!startingNote && parsed.startingDegree != null) {
+    const degreeIdx = parsed.startingDegree - 1;
+    if (degreeIdx >= 0 && degreeIdx < resolved.notes.length) {
+      startingNote = resolved.notes[degreeIdx];
+    }
+  }
+
   const layout = calculateLayout(resolved.notes, {
     padding: padding ?? 1,
+    startingNote,
     spanFrom: parsed.spanFrom,
     spanTo: parsed.spanTo,
   });
