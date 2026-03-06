@@ -13,10 +13,12 @@ const ALTERATION_RE =
 const ALTERATION_TO_INTERVAL: Record<string, string> = {
   "#5": "5A",
   "b5": "5d",
-  "#9": "2A",   // #9 = augmented 2nd (enharmonic minor 3rd, but voiced as 9th)
-  "b9": "2m",   // b9 = minor 2nd
-  "#11": "4A",  // #11 = augmented 4th
-  "b13": "6m",  // b13 = minor 6th
+  "#9": "2A",
+  "b9": "2m",
+  "#11": "4A",
+  "b11": "4d",
+  "#13": "6A",
+  "b13": "6m",
   "add9": "2M",
   "add11": "4P",
   "add13": "6M",
@@ -82,17 +84,98 @@ export interface ResolvedChord {
   type: string;
 }
 
+// Normalize chord symbols that Tonal doesn't recognize into equivalents
+function normalizeChordName(name: string): string {
+  // Extract root note first
+  const rootMatch = name.match(/^([A-G][#b]?)/i);
+  if (!rootMatch) return name;
+  const root = rootMatch[1];
+  let suffix = name.slice(root.length);
+
+  // m7sus is special — handled by buildSpecialChord, don't normalize it away
+
+  // Cmaug → Cm#5 (minor augmented)
+  suffix = suffix.replace(/^maug$/i, "m#5");
+
+  // Cm6/9 → Cm6add9 (Tonal doesn't know m6/9 but knows the notes)
+  // Actually build it manually below via special handling
+
+  // CmMaj → CmM (Tonal recognizes mM but not mmaj for some roots)
+  // Dbmmaj7 → DbmMaj7 — ensure proper casing
+  suffix = suffix.replace(/mmaj/i, "mMaj");
+
+  // omit3 → remove, we'll handle it post-resolution
+  // Keep it for now, handle in resolveChord
+
+  return root + suffix;
+}
+
+// Special chord builders for symbols Tonal can't handle at all
+function buildSpecialChord(name: string): { notes: string[]; root: string; type: string } | null {
+  const rootMatch = name.match(/^([A-G][#b]?)/i);
+  if (!rootMatch) return null;
+  const root = rootMatch[1];
+  const suffix = name.slice(root.length);
+
+  // X7omit3 → root, 5th, b7 (no 3rd)
+  if (/^7omit3$/i.test(suffix)) {
+    return {
+      notes: [root, Note.transpose(root, "5P"), Note.transpose(root, "7m")].map(normalizeToSharp),
+      root: normalizeToSharp(root),
+      type: "7omit3",
+    };
+  }
+
+  // Xm7sus / Xm7sus4 → root, m3, P4, m7
+  if (/^m7sus4?$/i.test(suffix)) {
+    return {
+      notes: [
+        root,
+        Note.transpose(root, "3m"),
+        Note.transpose(root, "4P"),
+        Note.transpose(root, "7m"),
+      ].map(normalizeToSharp),
+      root: normalizeToSharp(root),
+      type: "m7sus4",
+    };
+  }
+
+  // Xm6/9 → root, m3, 5, 6, 9
+  if (/^m6\/9$/i.test(suffix)) {
+    return {
+      notes: [
+        root,
+        Note.transpose(root, "3m"),
+        Note.transpose(root, "5P"),
+        Note.transpose(root, "6M"),
+        Note.transpose(root, "2M"),
+      ].map(normalizeToSharp),
+      root: normalizeToSharp(root),
+      type: "m6/9",
+    };
+  }
+
+  return null;
+}
+
 export function resolveChord(
   chordName: string,
   inversion?: number
 ): ResolvedChord {
+  chordName = normalizeChordName(chordName);
   const chord = Chord.get(chordName);
 
   let notes: string[];
   let root: string;
   let type: string;
 
-  if (!chord.empty) {
+  // Try special chord builders first (omit3, m6/9, etc.)
+  const special = buildSpecialChord(chordName);
+  if (special) {
+    notes = special.notes;
+    root = special.root;
+    type = special.type;
+  } else if (!chord.empty) {
     notes = chord.notes.map(normalizeToSharp);
     root = normalizeToSharp(chord.tonic ?? notes[0]);
     type = chord.type;

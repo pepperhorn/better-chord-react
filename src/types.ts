@@ -38,6 +38,8 @@ export interface ParsedChordRequest {
   inversion?: number;
   startingNote?: string;
   startingDegree?: number;
+  bassNote?: string;
+  bassDegree?: number;
   spanFrom?: string;
   spanTo?: string;
   format?: Format;

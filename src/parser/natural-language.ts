@@ -28,6 +28,12 @@ const STARTING_NOTE_RE =
 const STARTING_DEGREE_RE =
   /start(?:s|ing)?\s+(?:on|from|at|around)\s+(?:the\s+)?(\d+)(?:st|nd|rd|th)/i;
 
+// "with the 5th in the bottom/bass" or "with G in the bass"
+const BASS_DEGREE_RE =
+  /(?:with\s+)?(?:the\s+)?(\d+)(?:st|nd|rd|th)\s+(?:in\s+)?(?:the\s+)?(?:bottom|bass|lowest)/i;
+const BASS_NOTE_RE =
+  /(?:with\s+)?([A-Ga-g][#b]?)\s+(?:in\s+)?(?:the\s+)?(?:bottom|bass|lowest)/i;
+
 // Quality word mapping for descriptive chord names
 const QUALITY_WORDS: Record<string, string> = {
   major: "",
@@ -79,6 +85,15 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     result.spanTo = capitalizeNote(spanMatch[2]);
   }
 
+  // Extract bass note or degree ("with the 5th in the bottom")
+  const bassDegreeMatch = input.match(BASS_DEGREE_RE);
+  const bassNoteMatch = input.match(BASS_NOTE_RE);
+  if (bassDegreeMatch) {
+    result.bassDegree = parseInt(bassDegreeMatch[1], 10);
+  } else if (bassNoteMatch) {
+    result.bassNote = capitalizeNote(bassNoteMatch[1]);
+  }
+
   // Extract starting note or degree
   const startDegreeMatch = input.match(STARTING_DEGREE_RE);
   const startMatch = input.match(STARTING_NOTE_RE);
@@ -95,6 +110,8 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     .replace(INVERSION_WORD_RE, "")
     .replace(ROOT_POSITION_RE, "")
     .replace(SPAN_RE, "")
+    .replace(BASS_DEGREE_RE, "")
+    .replace(BASS_NOTE_RE, "")
     .replace(STARTING_DEGREE_RE, "")
     .replace(STARTING_NOTE_RE, "")
     .replace(FILLER_WORDS, "")
