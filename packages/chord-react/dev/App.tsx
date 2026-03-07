@@ -259,7 +259,7 @@ function Collapsible({ title, children }: { title: string; children: React.React
 }
 
 function App() {
-  const [uiTheme, setUiTheme] = useState<UIThemeMode>("dark");
+  const [uiTheme, setUiTheme] = useState<UIThemeMode>("light");
 
   return (
     <div
