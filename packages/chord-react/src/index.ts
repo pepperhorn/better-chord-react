@@ -7,7 +7,7 @@ export type { ProgressionViewProps, GroupMode } from "./components/ProgressionVi
 export { resolveChord, calculateLayout, parseChordDescription } from "@better-chord/core";
 export { getTheme, resolveTheme } from "@better-chord/core";
 export { playBlock, playArpeggiated } from "./audio/playback";
-export { generateMidiFile, downloadMidi } from "./audio/midi-export";
+export { generateMidiFile, downloadMidi } from "@better-chord/core";
 export { downloadSvg, downloadPng } from "./audio/svg-export";
 export { autoFingering } from "@better-chord/core";
 

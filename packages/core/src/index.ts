@@ -33,5 +33,8 @@ export type { FormTemplate } from "./progression/form-templates";
 export { resolveProgressionRequest } from "./progression/progression-resolver";
 export type { ProgressionRequest, ProgressionResult, ProgressionExample, ProgressionChord } from "./progression/progression-resolver";
 
+// Audio
+export { generateMidiFile, downloadMidi } from "./audio/midi-export";
+
 // Themes
 export { getTheme, resolveTheme } from "./themes";

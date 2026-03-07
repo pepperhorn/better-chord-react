@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { playBlock, playArpeggiated } from "../audio/playback";
-import { downloadMidi } from "../audio/midi-export";
+import { downloadMidi } from "@better-chord/core";
 import { downloadSvg, downloadPng } from "../audio/svg-export";
 import { useUITheme } from "../ui-theme";
 
