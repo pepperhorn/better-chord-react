@@ -1,15 +1,14 @@
 import { Note } from "tonal";
-import type { ChordProps, KeyboardProps, HandBracket } from "../types";
+import type { ChordProps, KeyboardProps, HandBracket, WhiteNote } from "../types";
 import { PianoKeyboard } from "./PianoKeyboard";
 import { parseChordDescription } from "../parser/natural-language";
 import { resolveChord } from "../resolver/chord-resolver";
 import { calculateLayout } from "../resolver/auto-layout";
-import { computeKeyboard } from "../engine/keyboard-layout";
-import { normalizeNote } from "../engine/highlight-mapper";
-import { FLAT_TO_SHARP, WHITE_NOTE_ORDER } from "../engine/svg-constants";
+import {
+  computeKeyboard, normalizeNote, autoFingering,
+  FLAT_TO_SHARP, WHITE_NOTE_ORDER,
+} from "@better-chord/core";
 import { findVoicing, voicingPitchClasses, mapToVoicingQuality } from "@better-chord/voicings";
-import { autoFingering } from "../engine/auto-fingering";
-import type { WhiteNote } from "../types";
 import type { ProgressionChord } from "../progression";
 import { ChordGroup } from "./ChordGroup";
 import { resolveUITheme, UIThemeProvider } from "../ui-theme";

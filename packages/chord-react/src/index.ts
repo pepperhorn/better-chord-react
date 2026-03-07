@@ -11,7 +11,7 @@ export { getTheme } from "./themes";
 export { playBlock, playArpeggiated } from "./audio/playback";
 export { generateMidiFile, downloadMidi } from "./audio/midi-export";
 export { downloadSvg, downloadPng } from "./audio/svg-export";
-export { autoFingering } from "./engine/auto-fingering";
+export { autoFingering } from "@better-chord/core";
 
 // Re-export voicings from the workspace package
 export {

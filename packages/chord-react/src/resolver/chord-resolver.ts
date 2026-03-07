@@ -1,5 +1,5 @@
 import { Chord, Note, Interval } from "tonal";
-import { FLAT_TO_SHARP } from "../engine/svg-constants";
+import { FLAT_TO_SHARP } from "@better-chord/core";
 
 function normalizeToSharp(note: string): string {
   const simplified = Note.simplify(note);
