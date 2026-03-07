@@ -159,12 +159,29 @@ function InteractiveInput({ uiTheme }: { uiTheme: UIThemeMode }) {
           value={keyFormat}
           onChange={setKeyFormat}
         />
-        <PillGroup
-          label="Size"
-          options={SCALE_OPTIONS}
-          value={scale}
-          onChange={setScale}
-        />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <span style={{ fontSize: "0.7rem", color: "var(--text-dim)", letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 500 }}>
+            Size
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="range"
+              min={50}
+              max={100}
+              step={10}
+              value={scale * 100}
+              onChange={(e) => setScale(parseInt(e.target.value, 10) / 100)}
+              style={{
+                width: 100,
+                accentColor: "var(--accent)",
+                cursor: "pointer",
+              }}
+            />
+            <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "var(--pill-active-text)", minWidth: 32 }}>
+              {Math.round(scale * 100)}%
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Error */}
