@@ -205,7 +205,7 @@ export function PianoKeyboard({
     .filter(({ key }) => key.isBlack);
 
   // Position controls in top-right
-  const controlsX = width - 134; // 5 buttons * 22px + 4 gaps * 4px = 126, plus margin
+  const controlsX = width - 144; // 5 buttons * 22px + 4 gaps * 4px + 10px section gap = 136, plus margin
   const controlsY = 4;
 
   const svg = (

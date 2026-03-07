@@ -20,6 +20,7 @@ interface PlaybackControlsProps {
 const ICON_SIZE = 16;
 const BTN_SIZE = 22;
 const GAP = 4;
+const SECTION_GAP = 10;
 
 export function PlaybackControls({ notes, lhNotes, rhOctave, lhOctave, chordName, x, y }: PlaybackControlsProps) {
   const { tokens: ui } = useUITheme();
@@ -150,7 +151,7 @@ export function PlaybackControls({ notes, lhNotes, rhOctave, lhOctave, chordName
 
       {/* MIDI download button */}
       <g
-        transform={`translate(${x + 2 * (BTN_SIZE + GAP)}, ${y})`}
+        transform={`translate(${x + 2 * (BTN_SIZE + GAP) + SECTION_GAP}, ${y})`}
         onClick={handleMidi}
         style={{ cursor: "pointer" }}
         role="button"
@@ -173,7 +174,7 @@ export function PlaybackControls({ notes, lhNotes, rhOctave, lhOctave, chordName
 
       {/* SVG download button */}
       <g
-        transform={`translate(${x + 3 * (BTN_SIZE + GAP)}, ${y})`}
+        transform={`translate(${x + 3 * (BTN_SIZE + GAP) + SECTION_GAP}, ${y})`}
         onClick={handleSvgDownload}
         style={{ cursor: "pointer" }}
         role="button"
@@ -201,7 +202,7 @@ export function PlaybackControls({ notes, lhNotes, rhOctave, lhOctave, chordName
 
       {/* PNG download button */}
       <g
-        transform={`translate(${x + 4 * (BTN_SIZE + GAP)}, ${y})`}
+        transform={`translate(${x + 4 * (BTN_SIZE + GAP) + SECTION_GAP}, ${y})`}
         onClick={handlePngDownload}
         style={{ cursor: "pointer" }}
         role="button"

@@ -54,7 +54,7 @@ function InteractiveInput({ uiTheme }: { uiTheme: UIThemeMode }) {
   const [input, setInput] = useState("Cmaj7#5 starting on G#");
   const [theme, setTheme] = useState<string>("simple");
   const [keyFormat, setKeyFormat] = useState<"compact" | "exact">("compact");
-  const [scale, setScale] = useState(0.5);
+  const [scale, setScale] = useState(0.7);
   const [highlightColor, setHighlightColor] = useState("#a0c6e8");
   const [error, setError] = useState<string | null>(null);
 
@@ -178,6 +178,7 @@ function InteractiveInput({ uiTheme }: { uiTheme: UIThemeMode }) {
               </span>
             </div>
           </div>
+        </div>
         {theme === "simple" && (
           <div className="control-item">
             <span className="control-label">Color</span>
@@ -199,7 +200,6 @@ function InteractiveInput({ uiTheme }: { uiTheme: UIThemeMode }) {
             </div>
           </div>
         )}
-        </div>
       </div>
 
       {/* Error */}

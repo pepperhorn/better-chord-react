@@ -42,76 +42,89 @@ export function ProgressionView({
   const [keyFormat, setKeyFormat] = useState<Format>("compact");
   const [scale, setScale] = useState(0.5);
 
-  const toggleStyle = (active: boolean) => ({
-    padding: "4px 12px",
-    fontSize: 12,
-    border: `1px solid ${ui.border}`,
-    borderRadius: 4,
-    background: active ? ui.btnBgActive : ui.btnBg,
+  const pillGroupStyle = {
+    display: "inline-flex" as const,
+    background: ui.btnBg,
+    borderRadius: 10,
+    padding: 3,
+    gap: 2,
+  };
+
+  const pillBtnStyle = (active: boolean) => ({
+    fontFamily: "inherit",
+    fontSize: "0.8rem",
+    fontWeight: active ? 600 : 500,
+    padding: "6px 14px",
+    border: "none",
+    borderRadius: 8,
+    background: active ? ui.btnBgActive : "transparent",
     color: active ? ui.btnTextActive : ui.btnText,
     cursor: "pointer" as const,
+    transition: "all 0.2s ease",
+    whiteSpace: "nowrap" as const,
+    letterSpacing: "0.01em",
+    boxShadow: active ? `0 1px 4px rgba(0,0,0,0.15)` : "none",
   });
 
   return (
     <UIThemeProvider value={uiCtx}>
     <div className="bc-progression" data-bc-theme={uiCtx.mode} style={{ width: "100%", maxWidth: "100vw", color: ui.text }}>
-      <div className="bc-progression__controls" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+      <div className="bc-progression__controls" style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 16,
+      }}>
         <span className="bc-progression__title" style={{ fontWeight: 700, fontSize: 16 }}>
           {result.progressionName} in {result.key}
         </span>
-        <div className="bc-progression__group-toggle" style={{ display: "flex", gap: 4 }}>
-          <button
-            className="bc-progression__btn"
-            style={toggleStyle(groupMode === "by-progression")}
-            onClick={() => setGroupMode("by-progression")}
-          >
-            By Progression
-          </button>
-          <button
-            className="bc-progression__btn"
-            style={toggleStyle(groupMode === "by-chord")}
-            onClick={() => setGroupMode("by-chord")}
-          >
-            By Chord
-          </button>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+          <div className="bc-progression__group-toggle" style={pillGroupStyle}>
+            <button
+              className="bc-progression__btn"
+              style={pillBtnStyle(groupMode === "by-progression")}
+              onClick={() => setGroupMode("by-progression")}
+            >
+              By Progression
+            </button>
+            <button
+              className="bc-progression__btn"
+              style={pillBtnStyle(groupMode === "by-chord")}
+              onClick={() => setGroupMode("by-chord")}
+            >
+              By Chord
+            </button>
+          </div>
+          <div className="bc-progression__format-toggle" style={pillGroupStyle}>
+            <button
+              className="bc-progression__btn"
+              style={pillBtnStyle(keyFormat === "compact")}
+              onClick={() => setKeyFormat("compact")}
+            >
+              Compact
+            </button>
+            <button
+              className="bc-progression__btn"
+              style={pillBtnStyle(keyFormat === "exact")}
+              onClick={() => setKeyFormat("exact")}
+            >
+              Full
+            </button>
+          </div>
+          <div className="bc-progression__scale-toggle" style={pillGroupStyle}>
+            {SCALE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className="bc-progression__btn"
+                style={pillBtnStyle(scale === opt.value)}
+                onClick={() => setScale(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="bc-progression__format-toggle" style={{ display: "flex", gap: 4 }}>
-          <button
-            className="bc-progression__btn"
-            style={toggleStyle(keyFormat === "compact")}
-            onClick={() => setKeyFormat("compact")}
-          >
-            Compact
-          </button>
-          <button
-            className="bc-progression__btn"
-            style={toggleStyle(keyFormat === "exact")}
-            onClick={() => setKeyFormat("exact")}
-          >
-            Full
-          </button>
-        </div>
-        <select
-          className="bc-progression__scale-select"
-          value={scale}
-          onChange={(e) => setScale(parseFloat(e.target.value))}
-          style={{
-            padding: "4px 8px",
-            fontSize: 12,
-            border: `1px solid ${ui.border}`,
-            borderRadius: 4,
-            background: ui.inputBg,
-            color: ui.inputText,
-            cursor: "pointer",
-          }}
-          aria-label="Chord size"
-        >
-          {SCALE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {groupMode === "by-progression" ? (

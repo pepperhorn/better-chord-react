@@ -36,7 +36,8 @@ export function computeKeyboard(
 
   const keys: KeyDescriptor[] = [];
   const startIndex = WHITE_NOTE_ORDER.indexOf(startFrom);
-  let whiteX = 0;
+  // Offset by half stroke width so left border isn't clipped
+  let whiteX = 0.5;
   let relativeOctave = 0;
 
   for (let i = 0; i < size; i++) {
@@ -84,10 +85,11 @@ export function computeSvgDimensions(
   format: Format = "compact"
 ): { width: number; height: number } {
   const isExact = format === "exact";
-  const height = isExact ? WHITE_KEY_HEIGHT_EXACT : WHITE_KEY_HEIGHT_COMPACT;
+  const keyHeight = isExact ? WHITE_KEY_HEIGHT_EXACT : WHITE_KEY_HEIGHT_COMPACT;
   const whiteW = isExact ? WHITE_KEY_WIDTH_EXACT : WHITE_KEY_WIDTH;
+  // Add padding so strokes + rounded corners aren't clipped at edges
   return {
-    width: size * whiteW,
-    height,
+    width: size * whiteW + 1,
+    height: keyHeight + 2,
   };
 }
