@@ -16,6 +16,10 @@ better-chord-react — a React project (details to be filled in once the codebas
 - **Test**: `npm test`
 - **Single test**: `npm test -- --grep "test name"`
 
+## Workflow
+
+- **Commit as you go**: Make commits incrementally as features/fixes are completed. Don't batch everything into one big commit at the end.
+
 ## Architecture
 
 <!-- Document key architectural decisions here as the project takes shape -->
