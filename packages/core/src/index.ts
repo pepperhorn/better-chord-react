@@ -25,3 +25,13 @@ export type { ResolvedChord } from "./resolver/chord-resolver";
 export { calculateLayout } from "./resolver/auto-layout";
 export type { LayoutOptions, LayoutResult } from "./resolver/auto-layout";
 export { MAX_EXAMPLES, ENABLE_CHORD_LOGGING } from "./config";
+
+// Progression
+export { resolveProgression, tokenizeProgression } from "./progression/roman-numeral";
+export { FORM_TEMPLATES, findTemplate } from "./progression/form-templates";
+export type { FormTemplate } from "./progression/form-templates";
+export { resolveProgressionRequest } from "./progression/progression-resolver";
+export type { ProgressionRequest, ProgressionResult, ProgressionExample, ProgressionChord } from "./progression/progression-resolver";
+
+// Themes
+export { getTheme, resolveTheme } from "./themes";

@@ -5,7 +5,7 @@ export { ProgressionView } from "./components/ProgressionView";
 export type { ChordGroupProps } from "./components/ChordGroup";
 export type { ProgressionViewProps, GroupMode } from "./components/ProgressionView";
 export { resolveChord, calculateLayout, parseChordDescription } from "@better-chord/core";
-export { getTheme } from "./themes";
+export { getTheme, resolveTheme } from "@better-chord/core";
 export { playBlock, playArpeggiated } from "./audio/playback";
 export { generateMidiFile, downloadMidi } from "./audio/midi-export";
 export { downloadSvg, downloadPng } from "./audio/svg-export";
@@ -46,14 +46,14 @@ export {
   FORM_TEMPLATES,
   findTemplate,
   resolveProgressionRequest,
-} from "./progression";
+} from "@better-chord/core";
 export type {
   FormTemplate,
   ProgressionRequest,
   ProgressionResult,
   ProgressionExample,
   ProgressionChord,
-} from "./progression";
+} from "@better-chord/core";
 export {
   isProgressionRequest,
   parseProgressionRequest,

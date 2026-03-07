@@ -1,5 +1,5 @@
 import type { ColorTheme } from "../types";
-import { DEFAULT_WHITE_FILL, DEFAULT_BLACK_FILL } from "@better-chord/core";
+import { DEFAULT_WHITE_FILL, DEFAULT_BLACK_FILL } from "../engine/svg-constants";
 
 const DEFAULT_HIGHLIGHT = "#a0c6e8";
 const DEFAULT_BLACK_HIGHLIGHT = "#5a8ab5";

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ProgressionResult } from "../progression";
+import type { ProgressionResult } from "@better-chord/core";
 import type { Format, ColorTheme } from "../types";
 import type { UIThemeMode } from "../config";
 import { ChordGroup } from "./ChordGroup";

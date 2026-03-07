@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { resolveProgression, tokenizeProgression } from "../src/progression/roman-numeral";
-import { findTemplate, FORM_TEMPLATES } from "../src/progression/form-templates";
-import { resolveProgressionRequest } from "../src/progression/progression-resolver";
-import { isProgressionRequest, parseProgressionRequest } from "@better-chord/core";
+import {
+  resolveProgression, tokenizeProgression,
+  findTemplate, FORM_TEMPLATES,
+  resolveProgressionRequest,
+  isProgressionRequest, parseProgressionRequest,
+} from "@better-chord/core";
 
 describe("tokenizeProgression", () => {
   it("splits on hyphens", () => {

@@ -1,5 +1,5 @@
 import type { ColorTheme } from "../types";
-import { DEFAULT_WHITE_FILL, DEFAULT_BLACK_FILL } from "@better-chord/core";
+import { DEFAULT_WHITE_FILL, DEFAULT_BLACK_FILL } from "../engine/svg-constants";
 
 // Creative Ranges Foundation piano keyboard colors
 const PITCH_COLORS: Record<string, string> = {

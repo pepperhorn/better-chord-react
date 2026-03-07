@@ -5,8 +5,8 @@ import {
   WHITE_KEY_RY, BLACK_KEY_RY,
   WHITE_KEY_WIDTH, BLACK_KEY_WIDTH,
   DEFAULT_STROKE, DEFAULT_STROKE_WIDTH,
+  resolveTheme,
 } from "@better-chord/core";
-import { resolveTheme } from "../themes";
 import { SHOW_NOTE_NAMES } from "../config";
 import { PlaybackControls } from "./PlaybackControls";
 import { useUITheme, resolveUITheme, UIThemeProvider } from "../ui-theme";

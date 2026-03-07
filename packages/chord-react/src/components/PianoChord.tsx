@@ -6,8 +6,8 @@ import {
   computeKeyboard, normalizeNote, autoFingering,
   FLAT_TO_SHARP, WHITE_NOTE_ORDER,
 } from "@better-chord/core";
+import type { ProgressionChord } from "@better-chord/core";
 import { findVoicing, voicingPitchClasses, mapToVoicingQuality } from "@better-chord/voicings";
-import type { ProgressionChord } from "../progression";
 import { ChordGroup } from "./ChordGroup";
 import { resolveUITheme, UIThemeProvider } from "../ui-theme";
 

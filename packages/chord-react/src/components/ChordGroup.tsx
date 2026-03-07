@@ -1,7 +1,7 @@
-import type { ProgressionChord } from "../progression";
 import type { Format, ColorTheme, WhiteNote } from "../types";
 import { PianoKeyboard } from "./PianoKeyboard";
 import { calculateLayout, normalizeNote, WHITE_NOTE_ORDER } from "@better-chord/core";
+import type { ProgressionChord } from "@better-chord/core";
 import { useUITheme } from "../ui-theme";
 
 export interface ChordGroupProps {

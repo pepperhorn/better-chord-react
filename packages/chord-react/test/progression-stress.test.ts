@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { resolveProgression } from "../src/progression/roman-numeral";
-import { resolveProgressionRequest } from "../src/progression/progression-resolver";
-import { isProgressionRequest, parseProgressionRequest } from "@better-chord/core";
+import {
+  resolveProgression,
+  resolveProgressionRequest,
+  isProgressionRequest, parseProgressionRequest,
+} from "@better-chord/core";
 
 describe("progression stress tests — full pipeline end-to-end", () => {
   // These simulate real user prompts parsed through the full pipeline
