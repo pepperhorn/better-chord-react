@@ -8,10 +8,15 @@ A React component library for rendering interactive SVG piano chord diagrams wit
 - **Natural Language Input** — describe chords in plain English: `"Cmaj7#5 starting on G#"`
 - **Audio Playback** — block chord and arpeggiated playback via Web Audio (smplr)
 - **MIDI Export** — download any chord as a standard MIDI file
+- **SVG/PNG Export** — download chord diagrams as SVG or PNG (2x retina)
 - **Jazz Voicing Library** — 46 voicings across 8 categories with artist/era metadata
 - **Polychord & Slash Chord Solver** — upper structure triads, slash chords with LH/RH assignments
 - **Locked Hands** — George Shearing block chord algorithm
+- **Note Names & Fingering** — display note names and fingering numbers below keys, with auto-fingering engine
+- **Progression Resolver** — roman numeral progressions with form templates (ii-V-I, blues, rhythm changes)
 - **Color Themes** — Boomwhacker, CRF (Creative Ranges Foundation), Simple, or custom
+- **UI Theme** — light/dark mode support for chrome elements
+- **Scale Control** — 50%–100% display scaling in 10% increments
 - **Chord Resolution** — Tonal.js with fallback resolver for compound jazz alterations
 
 ## Installation
@@ -62,6 +67,13 @@ The parser extracts structured data from freeform text:
 | `"Cmaj7 spread"` | chord=Cmaj7, style=spread |
 | `"G7 nestico"` | chord=G7, style=nestico |
 | `"C spanning E to E compact"` | chord=C, span=E-E, format=compact |
+| `"Cmaj7 with note names"` | chord=Cmaj7, showNoteNames=true |
+| `"Cmaj7 with note names in xl"` | chord=Cmaj7, showNoteNames=true, noteNameSize=xl |
+| `"Cmaj7 fingering 1 2 3 5"` | chord=Cmaj7, fingering=[1,2,3,5] |
+| `"Cmaj7 with fingerings"` | chord=Cmaj7, autoFingering=true |
+| `"Cmaj7 chord down an octave"` | chord=Cmaj7, chordOctaveShift=-1 |
+| `"Cmaj7 bass up an octave"` | chord=Cmaj7, bassOctaveShift=+1 |
+| `"Cmaj7 all inversions"` | chord=Cmaj7, allInversions=true |
 
 ### Starting Note / Degree
 
@@ -76,11 +88,13 @@ If the requested note or degree isn't in the chord, you get a helpful error:
 
 ## Audio Playback & MIDI
 
-Every chord diagram includes three control buttons (top-right):
+Every chord diagram includes five control buttons (top-right):
 
 - **Speaker** — plays all notes simultaneously (block chord)
 - **Arpeggio** — plays notes bottom-to-top with stagger
-- **Download** — exports the chord as a `.mid` file
+- **MIDI** — exports the chord as a `.mid` file
+- **SVG** — downloads the chord diagram as an SVG file
+- **PNG** — downloads the chord diagram as a PNG file (2x retina)
 
 Controls appear automatically when notes are highlighted. Disable with `showPlayback={false}`.
 
@@ -100,6 +114,18 @@ const midiBytes = generateMidiFile({
   tempo: 120,
   arpeggiated: true,
 });
+```
+
+### SVG/PNG Export
+
+```ts
+import { downloadSvg, downloadPng } from "@better-chord/react";
+
+// Pass the SVG element from the DOM
+const svgEl = document.querySelector("svg") as SVGSVGElement;
+downloadSvg(svgEl, "Cmaj7.svg");
+downloadPng(svgEl, "Cmaj7.png");        // 2x retina by default
+downloadPng(svgEl, "Cmaj7.png", 3);     // custom pixel ratio
 ```
 
 ## Voicing Library
@@ -207,6 +233,54 @@ const myTheme: ColorTheme = {
 <PianoKeyboard highlightKeys={["C", "E", "G"]} theme={myTheme} />
 ```
 
+## Note Names & Fingering
+
+Display note names and fingering numbers below highlighted keys:
+
+```tsx
+// Via natural language
+<PianoChord chord="Cmaj7 with note names" />
+<PianoChord chord="Cmaj7 with note names in xl" />
+<PianoChord chord="Cmaj7 fingering 1 2 3 5" />
+<PianoChord chord="Cmaj7 with fingerings" />  // auto-computed
+
+// Via props
+<PianoKeyboard
+  highlightKeys={["C", "E", "G", "B"]}
+  showNoteNames
+  noteNameSize="lg"
+  fingering={[1, 2, 3, 5]}
+  fingeringSize="xl"
+/>
+```
+
+### Text Sizes
+
+Note names and fingering sizes use a Tailwind-inspired scale and can be set independently:
+
+| Size | Scale |
+|------|-------|
+| `base` | 1× (default) |
+| `lg` | 1.25× |
+| `xl` | 1.5× |
+| `2xl` | 1.875× |
+
+### Auto-Fingering
+
+The auto-fingering engine scores candidate patterns based on:
+- Thumb-on-black-key avoidance
+- Stretch comfort between fingers
+- Conventional hand positions (thumb start, pinky end)
+
+Works for both hands — LH fingering mirrors RH (finger N → 6-N).
+
+```ts
+import { autoFingering } from "@better-chord/react";
+
+autoFingering(["C", "E", "G", "B"], "rh"); // [1, 2, 3, 5]
+autoFingering(["C", "Eb", "G"], "lh");     // [5, 3, 1]
+```
+
 ## Chord Resolution
 
 Resolves chord symbols using Tonal.js with a fallback for compound jazz alterations:
@@ -232,7 +306,8 @@ resolveChord("C7omit3");      // Special builder: [C, G, Bb]
 | `theme` | `string \| ColorTheme` | `"simple"` | Color theme |
 | `highlightColor` | `string` | `"#a0c6e8"` | Shortcut for simple theme color |
 | `padding` | `number` | `1` | Extra white keys on each side |
-| `showPlayback` | `boolean` | `true` | Show audio/MIDI controls |
+| `scale` | `number` | `1` | Display scale (0.5–1.0) |
+| `uiTheme` | `"light" \| "dark"` | `"light"` | UI chrome theme |
 | `className` | `string` | — | CSS class |
 | `style` | `CSSProperties` | — | Inline styles |
 
@@ -246,8 +321,15 @@ resolveChord("C7omit3");      // Special builder: [C, G, Bb]
 | `highlightKeys` | `string[]` | `[]` | Notes to highlight |
 | `theme` | `string \| ColorTheme` | `"simple"` | Color theme |
 | `highlightColor` | `string` | `"#a0c6e8"` | Shortcut for simple theme |
-| `showPlayback` | `boolean` | `true` | Show audio/MIDI controls |
+| `showPlayback` | `boolean` | `true` | Show audio/MIDI/export controls |
 | `chordLabel` | `string` | — | Label for MIDI filename |
+| `scale` | `number` | `1` | Display scale (0.5–1.0) |
+| `showNoteNames` | `boolean` | `false` | Show note names below keys |
+| `noteNameSize` | `TextSize` | `"base"` | Note name text size |
+| `fingering` | `number[]` | — | Fingering numbers (aligned with highlightKeys) |
+| `fingeringSize` | `TextSize` | `"base"` | Fingering text size |
+| `handBrackets` | `HandBracket[]` | — | L.H./R.H. bracket annotations |
+| `uiTheme` | `"light" \| "dark"` | `"light"` | UI chrome theme |
 | `className` | `string` | — | CSS class |
 | `style` | `CSSProperties` | — | Inline styles |
 
@@ -257,11 +339,11 @@ resolveChord("C7omit3");      // Special builder: [C, G, Bb]
 packages/
   chord-react/          @better-chord/react (main package)
     src/
-      components/       PianoKeyboard, PianoChord, PlaybackControls
-      engine/           SVG layout, highlight mapping, constants
+      components/       PianoKeyboard, PianoChord, ChordGroup, ProgressionView
+      engine/           SVG layout, highlight mapping, auto-fingering, constants
       resolver/         Chord resolution, auto-layout
-      parser/           Natural language parser
-      audio/            Playback (smplr), MIDI export
+      parser/           Natural language parser, progression parser
+      audio/            Playback (smplr), MIDI export, SVG/PNG export
       themes/           Boomwhacker, CRF, Simple
     test/               Vitest tests
     dev/                Vite dev playground
@@ -293,10 +375,14 @@ npm run test -w @better-chord/react -- --run
 
 ## Test Coverage
 
-93 tests across 8 test files:
+170 tests across 10 test files:
 
 - **Voicings** (43): library structure, query filtering, style inference (Basie/Ellington/Nestico/etc.), voicing realization, polychord solving, locked hands algorithm
-- **Chord React** (50): NL parser (22 cases), chord resolution (12), auto-layout (5), MIDI export (5), keyboard rendering (6)
+- **Chord React** (127): NL parser (22), chord resolution (12), auto-layout (5), playback controls (5), keyboard rendering (6), progression resolver (54), progression stress tests (23)
+
+## Acknowledgments
+
+This project was inspired by and builds upon [amypellegrini/piano-chord-chart](https://github.com/amypellegrini/piano-chord-chart) — the original SVG piano chord rendering approach that served as the foundation for this library.
 
 ## License
 
