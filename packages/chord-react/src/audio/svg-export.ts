@@ -25,7 +25,8 @@ export function downloadSvg(svgElement: SVGSVGElement, filename: string): void {
   a.href = url;
   a.download = `${sanitizeFilename(filename)}.svg`;
   a.click();
-  URL.revokeObjectURL(url);
+  // Defer revocation so the browser has time to read the blob
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function downloadPng(svgElement: SVGSVGElement, filename: string, pixelRatio = 2): void {
@@ -53,20 +54,32 @@ export function downloadPng(svgElement: SVGSVGElement, filename: string, pixelRa
     const canvas = document.createElement("canvas");
     canvas.width = w * pixelRatio;
     canvas.height = h * pixelRatio;
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      URL.revokeObjectURL(url);
+      console.error("PNG export: could not get canvas 2d context");
+      return;
+    }
     ctx.scale(pixelRatio, pixelRatio);
     ctx.drawImage(img, 0, 0, w, h);
     URL.revokeObjectURL(url);
 
     canvas.toBlob((blob) => {
-      if (!blob) return;
+      if (!blob) {
+        console.error("PNG export: canvas.toBlob returned null");
+        return;
+      }
       const pngUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = pngUrl;
       a.download = `${sanitizeFilename(filename)}.png`;
       a.click();
-      URL.revokeObjectURL(pngUrl);
+      setTimeout(() => URL.revokeObjectURL(pngUrl), 1000);
     }, "image/png");
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    console.error("PNG export: failed to load SVG as image");
   };
   img.src = url;
 }

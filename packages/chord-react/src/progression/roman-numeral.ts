@@ -1,6 +1,6 @@
 import { Note } from "tonal";
 
-const ROMAN_TO_DEGREE: Record<string, number> = {
+const ROMAN_TO_SEMITONE: Record<string, number> = {
   i: 0, ii: 2, iii: 4, iv: 5, v: 7, vi: 9, vii: 11,
 };
 
@@ -18,7 +18,9 @@ function parseRomanToken(token: string): {
   quality: string;
   hasFlat: boolean;
 } | null {
-  // Match: optional accidental, roman numeral (must be non-empty), optional quality suffix
+  // Alternation order matters: "iv" before "i" (otherwise "i" matches first
+  // in "iv"), "vi{1,2}" before "v" (otherwise "v" matches first in "vi").
+  // "i{1,3}" handles i, ii, iii. Suffix group (.*) captures quality markers.
   const re = /^([#b]?)(iv|vi{1,2}|i{1,3}|v)(.*)/i;
   const m = token.match(re);
   if (!m) return null;
@@ -28,7 +30,7 @@ function parseRomanToken(token: string): {
   const suffix = m[3];
 
   const lower = numeral.toLowerCase();
-  const base = ROMAN_TO_DEGREE[lower];
+  const base = ROMAN_TO_SEMITONE[lower];
   if (base === undefined) return null;
 
   let semitones = base;

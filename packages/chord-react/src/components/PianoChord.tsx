@@ -201,7 +201,8 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     // Default: one full octave above LH. Shifts adjust this.
     // "chord down" reduces gap, "bass up" also reduces gap (from the other side)
     const octaveGap = 1 + (parsed.chordOctaveShift ?? 0) - (parsed.bassOctaveShift ?? 0);
-    const rhOctaveOffset = Math.max(octaveGap, 0) * 7; // in white keys (0 = adjacent)
+    // 7 white keys = 1 octave; clamp to 0 so negative gaps don't produce negative offsets
+    const rhOctaveOffset = Math.max(octaveGap, 0) * 7;
     const rhOffsets = notes.map((n) => {
       const norm = normalizeNote(n);
       const whiteKey = norm.replace("#", "") as WhiteNote;
@@ -212,7 +213,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     });
     const maxRhOffset = Math.max(...rhOffsets);
 
-    // Keyboard start: one padding step below LH note
+    // Keyboard start: padding steps below LH note (positive-mod wrap to 0-6 range)
     const startIdx = ((lhWhiteIdx - layoutPadding) % 7 + 7) % 7;
     const startNote = WHITE_NOTE_ORDER[startIdx] as WhiteNote;
     const lhPositionOnKb = ((lhWhiteIdx - startIdx) % 7 + 7) % 7;

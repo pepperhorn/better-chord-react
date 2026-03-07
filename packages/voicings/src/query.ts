@@ -48,6 +48,10 @@ const ARTIST_STYLE_MAP: Record<string, { style?: VoicingStyle; era?: string }> =
 /**
  * Map a chord quality string (from our resolver) to a VoicingQuality.
  * Handles the many names Tonal/our resolver can produce.
+ *
+ * IMPORTANT: Check order matters. More specific types (alt, dim7, m7b5, sus)
+ * must be tested before general ones (min, maj, dom7) because the general
+ * checks use broad substring matching (e.g., "7" would match "m7b5").
  */
 export function mapToVoicingQuality(chordType: string, notes?: string[]): VoicingQuality | undefined {
   const t = chordType.toLowerCase();

@@ -33,7 +33,7 @@ function InteractiveInput({ uiTheme }: { uiTheme: UIThemeMode }) {
         styleHint: parsed.styleHint,
       });
     } catch (e: any) {
-      // will show via error boundary
+      setError(e?.message ?? String(e));
     }
   }
 

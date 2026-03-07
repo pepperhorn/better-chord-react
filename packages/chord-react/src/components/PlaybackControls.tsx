@@ -41,15 +41,23 @@ export function PlaybackControls({ notes, lhNotes, rhOctave, lhOctave, chordName
   const handleBlock = useCallback(async () => {
     if (playing) return;
     setPlaying("block");
-    await playBlock(playableNotes);
-    setTimeout(() => setPlaying(null), 1500);
+    try {
+      await playBlock(playableNotes);
+      setTimeout(() => setPlaying(null), 1500);
+    } catch {
+      setPlaying(null);
+    }
   }, [playableNotes, playing]);
 
   const handleArp = useCallback(async () => {
     if (playing) return;
     setPlaying("arp");
-    await playArpeggiated(playableNotes);
-    setTimeout(() => setPlaying(null), 1500);
+    try {
+      await playArpeggiated(playableNotes);
+      setTimeout(() => setPlaying(null), 1500);
+    } catch {
+      setPlaying(null);
+    }
   }, [playableNotes, playing]);
 
   const handleMidi = useCallback(() => {

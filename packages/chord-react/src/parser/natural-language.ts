@@ -97,6 +97,13 @@ function capitalizeNote(note: string): string {
   return note.charAt(0).toUpperCase() + note.slice(1);
 }
 
+/**
+ * Extract modifiers first (format, inversion, bass, style, etc.) using
+ * dedicated regexes, then strip ALL matched patterns plus filler words
+ * from the input. Whatever remains is treated as the chord symbol.
+ * This "strip everything known, keep the residual" approach avoids needing
+ * a single monolithic chord regex that accounts for all possible contexts.
+ */
 export function parseChordDescription(input: string): ParsedChordRequest {
   const result: ParsedChordRequest = { chordName: "" };
 

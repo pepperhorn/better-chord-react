@@ -47,7 +47,10 @@ const RH_PATTERNS: Record<number, number[][]> = {
 
 /**
  * Score a candidate fingering for a set of notes (RH perspective).
- * Lower is better.
+ * Lower is better. Penalty weights are empirically tuned:
+ * - Thumb on black key (10) dominates all other penalties
+ * - Stretch/cramp thresholds: 5 semitones (~P4) and 1 semitone (~m2)
+ * - Position preferences (1) are tiebreakers only
  */
 function scoreFingering(notes: string[], fingers: number[]): number {
   let penalty = 0;
@@ -126,7 +129,8 @@ export function autoFingering(notes: string[], hand: Hand = "rh"): number[] {
     }
   }
 
-  // LH: mirror the fingering (1↔5, 2↔4, 3↔3)
+  // LH: mirror via (5+1)-f so 1↔5, 2↔4, 3 stays.
+  // LH lowest note gets pinky (5) where RH lowest gets thumb (1).
   if (hand === "lh") {
     return bestPattern.map((f) => 6 - f);
   }
