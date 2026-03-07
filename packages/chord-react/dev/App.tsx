@@ -30,23 +30,21 @@ function PillGroup<T extends string | number>({
   label?: string;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-      {label && (
-        <span style={{ fontSize: "0.7rem", color: "var(--text-dim)", letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 500 }}>
-          {label}
-        </span>
-      )}
-      <div className="pill-group">
-        {options.map((opt) => (
-          <button
-            key={String(opt.value)}
-            className="pill-btn"
-            data-active={value === opt.value}
-            onClick={() => onChange(opt.value)}
-          >
-            {opt.label}
-          </button>
-        ))}
+    <div className="control-item">
+      {label && <span className="control-label">{label}</span>}
+      <div className="control-content">
+        <div className="pill-group">
+          {options.map((opt) => (
+            <button
+              key={String(opt.value)}
+              className="pill-btn"
+              data-active={value === opt.value}
+              onClick={() => onChange(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -133,7 +131,7 @@ function InteractiveInput({ uiTheme }: { uiTheme: UIThemeMode }) {
       <div style={{
         display: "flex",
         gap: "0.75rem",
-        alignItems: "flex-end",
+        alignItems: "stretch",
         flexWrap: "wrap",
         justifyContent: "center",
         opacity: 0.55,
@@ -157,27 +155,27 @@ function InteractiveInput({ uiTheme }: { uiTheme: UIThemeMode }) {
           value={keyFormat}
           onChange={setKeyFormat}
         />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: "0.7rem", color: "var(--text-dim)", letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 500 }}>
-            Size
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input
-              type="range"
-              min={50}
-              max={100}
-              step={10}
-              value={scale * 100}
-              onChange={(e) => setScale(parseInt(e.target.value, 10) / 100)}
-              style={{
-                width: 100,
-                accentColor: "var(--accent)",
-                cursor: "pointer",
-              }}
-            />
-            <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "var(--pill-active-text)", minWidth: 32 }}>
-              {Math.round(scale * 100)}%
-            </span>
+        <div className="control-item">
+          <span className="control-label">Size</span>
+          <div className="control-content">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="range"
+                min={50}
+                max={100}
+                step={10}
+                value={scale * 100}
+                onChange={(e) => setScale(parseInt(e.target.value, 10) / 100)}
+                style={{
+                  width: 100,
+                  accentColor: "var(--accent)",
+                  cursor: "pointer",
+                }}
+              />
+              <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "var(--pill-active-text)", minWidth: 32 }}>
+                {Math.round(scale * 100)}%
+              </span>
+            </div>
           </div>
         </div>
       </div>
