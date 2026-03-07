@@ -12,8 +12,47 @@ const SCALE_OPTIONS = [
   { label: "100%", value: 1.0 },
 ];
 
+const THEME_OPTIONS = [
+  { label: "Simple", value: "simple" },
+  { label: "CRF", value: "crf" },
+  { label: "Boom", value: "boomwhacker" },
+];
+
+function PillGroup<T extends string | number>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { label: string; value: T }[];
+  value: T;
+  onChange: (v: T) => void;
+  label?: string;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+      {label && (
+        <span style={{ fontSize: "0.7rem", color: "var(--text-dim)", letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 500 }}>
+          {label}
+        </span>
+      )}
+      <div className="pill-group">
+        {options.map((opt) => (
+          <button
+            key={String(opt.value)}
+            className="pill-btn"
+            data-active={value === opt.value}
+            onClick={() => onChange(opt.value)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function InteractiveInput({ uiTheme }: { uiTheme: UIThemeMode }) {
-  const isDark = uiTheme === "dark";
   const [input, setInput] = useState("Cmaj7#5 starting on G#");
   const [theme, setTheme] = useState<string>("simple");
   const [keyFormat, setKeyFormat] = useState<"compact" | "exact">("compact");
@@ -37,87 +76,112 @@ function InteractiveInput({ uiTheme }: { uiTheme: UIThemeMode }) {
     }
   }
 
-  const selectStyle = {
-    padding: "0.75rem",
-    fontSize: "1rem",
-    background: isDark ? "#0f3460" : "#fff",
-    border: `1px solid ${isDark ? "#a0c6e8" : "#ccc"}`,
-    borderRadius: 6,
-    color: isDark ? "#eee" : "#333",
-  };
-
   return (
-    <div className="interactive">
-      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.25rem" }}>
+      {/* Hero input */}
+      <div style={{ width: "100%", maxWidth: 640, position: "relative" }}>
         <input
           type="text"
           value={input}
           onChange={(e) => { setInput(e.target.value); setError(null); }}
-          placeholder='Try: "ii-V-I in G" or "D minor seventh in first inversion"'
+          placeholder='Tell me what chord(s) you&apos;d like to visualize..'
           style={{
-            flex: 1,
-            minWidth: 300,
-            padding: "0.75rem 1rem",
-            fontSize: "1rem",
-            background: isDark ? "#0f3460" : "#fff",
-            border: `1px solid ${isDark ? "#a0c6e8" : "#ccc"}`,
-            borderRadius: 6,
-            color: isDark ? "#eee" : "#333",
-            fontFamily: "system-ui, sans-serif",
+            width: "100%",
+            padding: "1rem 1.25rem",
+            fontSize: "1.05rem",
+            fontFamily: "'DM Sans', system-ui, sans-serif",
+            fontWeight: 400,
+            background: "var(--input-bg)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "1.5px solid var(--input-border)",
+            borderRadius: 14,
+            color: "var(--text)",
+            outline: "none",
+            transition: "border-color 0.25s ease, box-shadow 0.25s ease",
+            boxShadow: "0 2px 16px rgba(0,0,0,0.03)",
+            letterSpacing: "-0.01em",
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = "var(--input-focus)";
+            e.currentTarget.style.boxShadow = "0 0 0 3px var(--accent-soft), 0 2px 16px rgba(0,0,0,0.03)";
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = "var(--input-border)";
+            e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.03)";
           }}
         />
-        <select
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          style={selectStyle}
-        >
-          <option value="simple">Simple</option>
-          <option value="crf">CRF</option>
-          <option value="boomwhacker">Boomwhacker</option>
-        </select>
-        <div style={{ display: "flex", gap: 2 }}>
-          {(["compact", "exact"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setKeyFormat(f)}
-              style={{
-                padding: "0.5rem 0.75rem",
-                fontSize: "0.85rem",
-                background: keyFormat === f
-                  ? (isDark ? "#fff" : "#333")
-                  : (isDark ? "#0f3460" : "#e8e8e8"),
-                color: keyFormat === f
-                  ? (isDark ? "#333" : "#fff")
-                  : (isDark ? "#eee" : "#333"),
-                border: `1px solid ${isDark ? "#a0c6e8" : "#ccc"}`,
-                borderRadius: f === "compact" ? "6px 0 0 6px" : "0 6px 6px 0",
-                cursor: "pointer",
-              }}
-            >
-              {f === "compact" ? "Compact" : "Full"}
-            </button>
-          ))}
-        </div>
-        <select
-          value={scale}
-          onChange={(e) => setScale(parseFloat(e.target.value))}
-          style={selectStyle}
-          aria-label="Chord size"
-        >
-          {SCALE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        {isProg && (
+          <span style={{
+            position: "absolute",
+            right: 14,
+            top: "50%",
+            transform: "translateY(-50%)",
+            fontSize: "0.7rem",
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            background: "var(--tag-bg)",
+            color: "var(--tag-text)",
+            padding: "3px 8px",
+            borderRadius: 6,
+          }}>
+            Progression
+          </span>
+        )}
       </div>
-      {isProg && (
-        <div style={{ fontSize: 12, color: isDark ? "#a0c6e8" : "#4a90d9", marginTop: 4 }}>
-          Detected as progression
-        </div>
+
+      {/* Controls row — muted, secondary */}
+      <div style={{
+        display: "flex",
+        gap: "0.75rem",
+        alignItems: "flex-start",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        opacity: 0.75,
+        transition: "opacity 0.2s ease",
+      }}
+        onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+        onMouseLeave={(e) => e.currentTarget.style.opacity = "0.75"}
+      >
+        <PillGroup
+          label="Theme"
+          options={THEME_OPTIONS}
+          value={theme}
+          onChange={setTheme}
+        />
+        <PillGroup
+          label="Layout"
+          options={[
+            { label: "Compact", value: "compact" as const },
+            { label: "Full", value: "exact" as const },
+          ]}
+          value={keyFormat}
+          onChange={setKeyFormat}
+        />
+        <PillGroup
+          label="Size"
+          options={SCALE_OPTIONS}
+          value={scale}
+          onChange={setScale}
+        />
+      </div>
+
+      {/* Error */}
+      {error && (
+        <p style={{
+          color: "var(--error)",
+          fontSize: "0.85rem",
+          fontWeight: 500,
+          margin: 0,
+          textAlign: "center",
+        }}>
+          {error}
+        </p>
       )}
-      {error && <p style={{ color: "#ff6b6b", margin: "0.5rem 0" }}>{error}</p>}
-      <div style={{ marginTop: "1rem" }}>
+
+      {/* Chord output */}
+      <div className="chord-output" style={{ width: "100%" }}>
         <ErrorBoundary key={input + theme + keyFormat + scale} onError={setError}>
           {isProg && progressionResult ? (
             <ProgressionView result={progressionResult} theme={theme} uiTheme={uiTheme} />
@@ -152,35 +216,24 @@ function Collapsible({ title, children }: { title: string; children: React.React
   }, [open]);
 
   return (
-    <div style={{ marginBottom: 8 }}>
-      <h2
+    <div style={{ marginBottom: 4 }}>
+      <div
+        className="collapsible-header"
         onClick={() => setOpen(!open)}
-        style={{
-          cursor: "pointer",
-          userSelect: "none",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}
       >
         <span
-          style={{
-            display: "inline-block",
-            transform: open ? "rotate(90deg)" : "rotate(0deg)",
-            transition: "transform 0.25s ease",
-            fontSize: "0.8em",
-          }}
+          className="collapsible-arrow"
+          style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
         >
           &#9654;
         </span>
         {title}
-      </h2>
+      </div>
       <div
         ref={contentRef}
+        className="collapsible-body"
         style={{
           maxHeight: open ? height : 0,
-          overflow: "hidden",
-          transition: "max-height 0.3s ease, opacity 0.25s ease",
           opacity: open ? 1 : 0,
         }}
       >
@@ -191,130 +244,150 @@ function Collapsible({ title, children }: { title: string; children: React.React
 }
 
 function App() {
-  const [uiTheme, setUiTheme] = useState<UIThemeMode>("light");
-  const isDark = uiTheme === "dark";
+  const [uiTheme, setUiTheme] = useState<UIThemeMode>("dark");
 
   return (
     <div
       data-bc-theme={uiTheme}
       style={{
-        background: isDark ? "#1a1a2e" : "#f8f8fa",
-        color: isDark ? "#eee" : "#1a1a1a",
         minHeight: "100vh",
-        padding: "2rem 1rem",
-        maxWidth: 900,
+        padding: "2.5rem 1.5rem",
+        maxWidth: 960,
         margin: "0 auto",
-        fontFamily: "system-ui, sans-serif",
-        transition: "background 0.3s, color 0.3s",
+        transition: "color 0.4s ease",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ color: isDark ? "#a0c6e8" : "#2a6496" }}>better-chord-react</h1>
-        <select
+      {/* Header */}
+      <div className="fade-in" style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "2.5rem",
+      }}>
+        <div>
+          <h1 style={{
+            fontSize: "1.6rem",
+            fontWeight: 600,
+            letterSpacing: "-0.03em",
+            color: "var(--text)",
+            lineHeight: 1.2,
+          }}>
+            better-chord
+            <span style={{ color: "var(--accent)", fontWeight: 300 }}>.react</span>
+          </h1>
+          <p style={{
+            fontSize: "0.82rem",
+            color: "var(--text-muted)",
+            marginTop: 4,
+            fontWeight: 300,
+            letterSpacing: "0.01em",
+          }}>
+            Interactive piano chord visualization
+          </p>
+        </div>
+        <PillGroup
+          options={[
+            { label: "Light", value: "light" as UIThemeMode },
+            { label: "Dark", value: "dark" as UIThemeMode },
+          ]}
           value={uiTheme}
-          onChange={(e) => setUiTheme(e.target.value as UIThemeMode)}
-          style={{
-            padding: "0.5rem 0.75rem",
-            fontSize: "0.9rem",
-            background: isDark ? "#0f3460" : "#fff",
-            border: `1px solid ${isDark ? "#a0c6e8" : "#ccc"}`,
-            borderRadius: 6,
-            color: isDark ? "#eee" : "#333",
-          }}
-        >
-          <option value="light">Light Mode</option>
-          <option value="dark">Dark Mode</option>
-        </select>
+          onChange={setUiTheme}
+        />
       </div>
 
-      <h2 style={{ color: isDark ? "#ccc" : "#555", marginTop: "2rem" }}>Try it</h2>
-      <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-        <label style={{ color: isDark ? "#888" : "#777" }}>Enter a chord description in natural language:</label>
+      {/* Hero card */}
+      <div className="glass-card fade-in fade-in-delay-1" style={{
+        padding: "2rem 1.75rem",
+        marginBottom: "2rem",
+      }}>
         <InteractiveInput uiTheme={uiTheme} />
       </div>
 
-      <Collapsible title="Explicit Props (PianoKeyboard)">
-        <div className="row">
-          <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-            <label style={{ color: isDark ? "#888" : "#777" }}>C major triad: highlightKeys=["C","E","G"]</label>
-            <PianoKeyboard highlightKeys={["C", "E", "G"]} uiTheme={uiTheme} />
+      {/* Example sections */}
+      <div className="fade-in fade-in-delay-2">
+        <Collapsible title="Explicit Props">
+          <div className="row" style={{ marginBottom: "1rem" }}>
+            <div className="glass-card">
+              <span className="example-label">highlightKeys=["C","E","G"]</span>
+              <PianoKeyboard highlightKeys={["C", "E", "G"]} uiTheme={uiTheme} />
+            </div>
+            <div className="glass-card">
+              <span className="example-label">F#m7 · startFrom="E" size={"{6}"}</span>
+              <PianoKeyboard
+                highlightKeys={["F#", "A", "C#", "E"]}
+                startFrom="E"
+                size={6}
+                uiTheme={uiTheme}
+              />
+            </div>
+            <div className="glass-card">
+              <span className="example-label">startFrom="G" size={"{10}"} format="exact"</span>
+              <PianoKeyboard startFrom="G" size={10} format="exact" uiTheme={uiTheme} />
+            </div>
           </div>
-          <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-            <label style={{ color: isDark ? "#888" : "#777" }}>F#m7: highlightKeys=["F#","A","C#","E"] startFrom="E" size={"{6}"}</label>
-            <PianoKeyboard
-              highlightKeys={["F#", "A", "C#", "E"]}
-              startFrom="E"
-              size={6}
+        </Collapsible>
+
+        <Collapsible title="Chord Strings">
+          <div className="row" style={{ marginBottom: "1rem" }}>
+            <div className="glass-card">
+              <span className="example-label">chord="Cmaj7"</span>
+              <PianoChord chord="Cmaj7" uiTheme={uiTheme} />
+            </div>
+            <div className="glass-card">
+              <span className="example-label">chord="Cmaj7#5 starting on G#"</span>
+              <PianoChord chord="Cmaj7#5 starting on G#" uiTheme={uiTheme} />
+            </div>
+            <div className="glass-card">
+              <span className="example-label">chord="D minor seventh 1st inversion"</span>
+              <PianoChord chord="D minor seventh in first inversion" uiTheme={uiTheme} />
+            </div>
+          </div>
+        </Collapsible>
+
+        <Collapsible title="Themes">
+          <div className="row" style={{ marginBottom: "1rem" }}>
+            <div className="glass-card">
+              <span className="example-label">Boomwhacker · chord="C"</span>
+              <PianoChord chord="C" theme="boomwhacker" uiTheme={uiTheme} />
+            </div>
+            <div className="glass-card">
+              <span className="example-label">Simple · chord="C"</span>
+              <PianoChord chord="C" theme="simple" uiTheme={uiTheme} />
+            </div>
+            <div className="glass-card">
+              <span className="example-label">Custom · highlightColor="#ff6b6b"</span>
+              <PianoChord chord="Am" highlightColor="#ff6b6b" uiTheme={uiTheme} />
+            </div>
+          </div>
+        </Collapsible>
+
+        <Collapsible title="Progressions">
+          <div className="glass-card" style={{ marginBottom: "1rem" }}>
+            <span className="example-label">ii-V-I in G — 3 voicing styles</span>
+            <ProgressionView
+              result={resolveProgressionRequest({
+                progression: "ii-V-I",
+                key: "G",
+                numExamples: 3,
+              })}
               uiTheme={uiTheme}
             />
           </div>
-          <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-            <label style={{ color: isDark ? "#888" : "#777" }}>Custom size/start: startFrom="G" size={"{10}"} format="exact"</label>
-            <PianoKeyboard startFrom="G" size={10} format="exact" uiTheme={uiTheme} />
+          <div className="glass-card" style={{ marginBottom: "1rem" }}>
+            <span className="example-label">Blues in Bb — Bill Evans style</span>
+            <ProgressionView
+              result={resolveProgressionRequest({
+                progression: "blues",
+                key: "Bb",
+                numExamples: 1,
+                styleHint: "Bill Evans",
+              })}
+              showPlayback={false}
+              uiTheme={uiTheme}
+            />
           </div>
-        </div>
-      </Collapsible>
-
-      <Collapsible title="Chord Strings (PianoChord)">
-        <div className="row">
-          <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-            <label style={{ color: isDark ? "#888" : "#777" }}>chord="Cmaj7"</label>
-            <PianoChord chord="Cmaj7" uiTheme={uiTheme} />
-          </div>
-          <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-            <label style={{ color: isDark ? "#888" : "#777" }}>chord="Cmaj7#5 starting on G#"</label>
-            <PianoChord chord="Cmaj7#5 starting on G#" uiTheme={uiTheme} />
-          </div>
-          <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-            <label style={{ color: isDark ? "#888" : "#777" }}>chord="D minor seventh in first inversion"</label>
-            <PianoChord chord="D minor seventh in first inversion" uiTheme={uiTheme} />
-          </div>
-        </div>
-      </Collapsible>
-
-      <Collapsible title="Themes">
-        <div className="row">
-          <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-            <label style={{ color: isDark ? "#888" : "#777" }}>Boomwhacker theme: chord="C" (C major triad)</label>
-            <PianoChord chord="C" theme="boomwhacker" uiTheme={uiTheme} />
-          </div>
-          <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-            <label style={{ color: isDark ? "#888" : "#777" }}>Simple theme (default): chord="C"</label>
-            <PianoChord chord="C" theme="simple" uiTheme={uiTheme} />
-          </div>
-          <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-            <label style={{ color: isDark ? "#888" : "#777" }}>Custom highlight color: chord="Am" highlightColor="#ff6b6b"</label>
-            <PianoChord chord="Am" highlightColor="#ff6b6b" uiTheme={uiTheme} />
-          </div>
-        </div>
-      </Collapsible>
-
-      <Collapsible title="Progressions">
-        <div className="example" style={{ background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-          <label style={{ color: isDark ? "#888" : "#777" }}>ii-V-I in G — 3 contrasting voicing styles</label>
-          <ProgressionView
-            result={resolveProgressionRequest({
-              progression: "ii-V-I",
-              key: "G",
-              numExamples: 3,
-            })}
-            uiTheme={uiTheme}
-          />
-        </div>
-        <div className="example" style={{ marginTop: "2rem", background: isDark ? "#16213e" : "#fff", border: isDark ? "none" : "1px solid #e0e0e0" }}>
-          <label style={{ color: isDark ? "#888" : "#777" }}>Blues in Bb — Bill Evans style</label>
-          <ProgressionView
-            result={resolveProgressionRequest({
-              progression: "blues",
-              key: "Bb",
-              numExamples: 1,
-              styleHint: "Bill Evans",
-            })}
-            showPlayback={false}
-            uiTheme={uiTheme}
-          />
-        </div>
-      </Collapsible>
+        </Collapsible>
+      </div>
     </div>
   );
 }

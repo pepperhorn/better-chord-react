@@ -4,36 +4,214 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>better-chord-react — Dev Playground</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
     <style>
-      * { box-sizing: border-box; }
+      :root {
+        --bg: #f0ede8;
+        --bg-mesh-1: rgba(180, 200, 230, 0.25);
+        --bg-mesh-2: rgba(220, 200, 180, 0.2);
+        --bg-mesh-3: rgba(200, 220, 200, 0.15);
+        --glass-bg: rgba(255, 255, 255, 0.55);
+        --glass-border: rgba(255, 255, 255, 0.7);
+        --glass-shadow: rgba(0, 0, 0, 0.04);
+        --text: #1a1a2e;
+        --text-muted: #6b7280;
+        --text-dim: #9ca3af;
+        --accent: #3b6eb5;
+        --accent-soft: rgba(59, 110, 181, 0.08);
+        --input-bg: rgba(255, 255, 255, 0.75);
+        --input-border: rgba(59, 110, 181, 0.2);
+        --input-focus: rgba(59, 110, 181, 0.35);
+        --pill-bg: rgba(0, 0, 0, 0.04);
+        --pill-active-bg: rgba(255, 255, 255, 0.9);
+        --pill-active-shadow: rgba(0, 0, 0, 0.08);
+        --pill-text: #6b7280;
+        --pill-active-text: #1a1a2e;
+        --tag-bg: rgba(59, 110, 181, 0.08);
+        --tag-text: #3b6eb5;
+        --error: #dc4545;
+        --collapsible-arrow: #9ca3af;
+      }
+
+      [data-bc-theme="dark"] {
+        --bg: #0f1219;
+        --bg-mesh-1: rgba(30, 60, 120, 0.3);
+        --bg-mesh-2: rgba(60, 30, 80, 0.2);
+        --bg-mesh-3: rgba(20, 60, 60, 0.15);
+        --glass-bg: rgba(25, 30, 45, 0.6);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-shadow: rgba(0, 0, 0, 0.3);
+        --text: #e8e8f0;
+        --text-muted: #8892a4;
+        --text-dim: #505868;
+        --accent: #6ea8e6;
+        --accent-soft: rgba(110, 168, 230, 0.1);
+        --input-bg: rgba(20, 26, 42, 0.7);
+        --input-border: rgba(110, 168, 230, 0.2);
+        --input-focus: rgba(110, 168, 230, 0.4);
+        --pill-bg: rgba(255, 255, 255, 0.04);
+        --pill-active-bg: rgba(255, 255, 255, 0.1);
+        --pill-active-shadow: rgba(0, 0, 0, 0.3);
+        --pill-text: #8892a4;
+        --pill-active-text: #e8e8f0;
+        --tag-bg: rgba(110, 168, 230, 0.12);
+        --tag-text: #6ea8e6;
+        --error: #f87171;
+        --collapsible-arrow: #505868;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
       body {
-        font-family: system-ui, sans-serif;
-        margin: 0;
-        padding: 0;
-        background: #f8f8fa;
-        transition: background 0.3s;
+        font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        transition: background 0.4s ease, color 0.4s ease;
+        -webkit-font-smoothing: antialiased;
       }
-      h2 { margin-top: 2rem; }
-      .example {
+
+      /* Mesh gradient background */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(ellipse 60% 50% at 20% 20%, var(--bg-mesh-1), transparent),
+          radial-gradient(ellipse 50% 60% at 80% 30%, var(--bg-mesh-2), transparent),
+          radial-gradient(ellipse 40% 40% at 50% 80%, var(--bg-mesh-3), transparent);
+        pointer-events: none;
+        z-index: 0;
+        transition: background 0.4s ease;
+      }
+
+      #root {
+        position: relative;
+        z-index: 1;
+      }
+
+      /* Glass card */
+      .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(24px) saturate(1.4);
+        -webkit-backdrop-filter: blur(24px) saturate(1.4);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        box-shadow: 0 2px 20px var(--glass-shadow), 0 0 0 0.5px var(--glass-border);
+        padding: 1.25rem 1.5rem;
+        transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+      }
+
+      /* Pill segmented control */
+      .pill-group {
+        display: inline-flex;
+        background: var(--pill-bg);
+        border-radius: 10px;
+        padding: 3px;
+        gap: 2px;
+      }
+
+      .pill-btn {
+        font-family: 'DM Sans', system-ui, sans-serif;
+        font-size: 0.8rem;
+        font-weight: 500;
+        padding: 6px 14px;
+        border: none;
         border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
+        background: transparent;
+        color: var(--pill-text);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        letter-spacing: 0.01em;
       }
-      .example label {
+
+      .pill-btn:hover {
+        color: var(--pill-active-text);
+      }
+
+      .pill-btn[data-active="true"] {
+        background: var(--pill-active-bg);
+        color: var(--pill-active-text);
+        box-shadow: 0 1px 4px var(--pill-active-shadow);
+        font-weight: 600;
+      }
+
+      /* Collapsible sections */
+      .collapsible-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text);
+        padding: 0.5rem 0;
+        letter-spacing: -0.01em;
+      }
+
+      .collapsible-header:hover {
+        color: var(--accent);
+      }
+
+      .collapsible-arrow {
+        display: inline-block;
+        font-size: 0.65em;
+        color: var(--collapsible-arrow);
+        transition: transform 0.25s ease;
+      }
+
+      .collapsible-body {
+        overflow: hidden;
+        transition: max-height 0.35s ease, opacity 0.3s ease;
+      }
+
+      /* Example cards inside collapsibles */
+      .example-label {
         display: block;
-        font-size: 0.85rem;
+        font-size: 0.78rem;
+        font-family: 'DM Sans', monospace;
+        color: var(--text-dim);
         margin-bottom: 0.5rem;
-        font-family: monospace;
+        letter-spacing: 0.02em;
       }
+
       .row {
         display: flex;
-        gap: 2rem;
+        gap: 1rem;
         flex-wrap: wrap;
       }
-      .row > .example {
+
+      .row > .glass-card {
         flex: 1 1 0;
-        min-width: 200px;
+        min-width: 220px;
       }
+
+      /* Chord output area */
+      .chord-output {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+
+      /* Fade-in animation */
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .fade-in {
+        animation: fadeUp 0.5s ease both;
+      }
+
+      .fade-in-delay-1 { animation-delay: 0.1s; }
+      .fade-in-delay-2 { animation-delay: 0.2s; }
+      .fade-in-delay-3 { animation-delay: 0.3s; }
     </style>
   </head>
   <body>
