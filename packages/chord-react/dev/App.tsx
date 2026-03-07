@@ -93,7 +93,7 @@ function InteractiveInput({ uiTheme }: { uiTheme: UIThemeMode }) {
             fontWeight: 400,
             background: "var(--input-floating-bg)",
             border: "1px solid var(--input-floating-border)",
-            borderRadius: 50,
+            borderRadius: 24,
             color: "var(--text)",
             outline: "none",
             transition: "border-color 0.25s ease, box-shadow 0.25s ease",
