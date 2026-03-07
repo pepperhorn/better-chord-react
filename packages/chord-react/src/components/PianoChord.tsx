@@ -17,6 +17,8 @@ import { resolveUITheme, UIThemeProvider } from "../ui-theme";
 /**
  * Map semitones (mod 12) from root to a scale degree number.
  * Handles both major and minor variants of each degree.
+ * Note: does not distinguish quality (e.g. b9 vs M9 both map to degree 2).
+ * This means degree-based lookups may match the wrong quality in altered chords.
  */
 function semitonesToDegree(semitones: number): number {
   const s = ((semitones % 12) + 12) % 12;
@@ -86,6 +88,9 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
   const uiCtx = resolveUITheme(uiTheme);
 
   const parsed = parseChordDescription(chord);
+  if (!parsed.chordName) {
+    throw new Error(`Couldn't find a chord name in "${chord}"`);
+  }
   const resolved = resolveChord(parsed.chordName, parsed.inversion);
 
   // All inversions: render a ChordGroup with root position + each inversion

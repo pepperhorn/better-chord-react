@@ -3,6 +3,7 @@ import { FLAT_TO_SHARP } from "../engine/svg-constants";
 
 function normalizeToSharp(note: string): string {
   const simplified = Note.simplify(note);
+  if (!simplified) return note; // Tonal couldn't simplify — keep original
   return FLAT_TO_SHARP[simplified] ?? simplified;
 }
 

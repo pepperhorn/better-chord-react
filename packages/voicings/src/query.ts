@@ -193,5 +193,10 @@ export function findVoicing(
 
   // Fallback: any voicing for this quality
   const any = queryVoicings({ quality });
-  return any.length > 0 ? any[0] : undefined;
+  if (any.length > 0) return any[0];
+
+  if (styleHint) {
+    console.warn(`No voicing found for quality "${quality}" with style hint "${styleHint}"`);
+  }
+  return undefined;
 }
