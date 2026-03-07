@@ -40,6 +40,8 @@ export interface LayoutOptions {
 export interface LayoutResult {
   startFrom: WhiteNote;
   size: number;
+  /** Relative octave where the lowest chord note sits (for octave-qualified highlights). */
+  chordOctave: number;
 }
 
 export function calculateLayout(
@@ -62,9 +64,9 @@ export function calculateLayout(
       });
       const maxIdx = Math.max(...indices);
       const span = maxIdx - startIdx + 1 + padding;
-      return { startFrom: start, size: Math.max(span, notes.length + 2) };
+      return { startFrom: start, size: Math.max(span, notes.length + 2), chordOctave: 0 };
     }
-    return { startFrom: start, size: 8 };
+    return { startFrom: start, size: 8, chordOctave: 0 };
   }
 
   if (spanFrom && spanTo) {
@@ -74,41 +76,48 @@ export function calculateLayout(
     return {
       startFrom: from,
       size: span === 0 ? 8 : span + 1,
+      chordOctave: 0,
     };
   }
 
   if (notes.length === 0) {
-    return { startFrom: "C", size: 8 };
+    return { startFrom: "C", size: 8, chordOctave: 0 };
   }
 
-  // Find semitone positions
-  const semitones = notes.map((n) => NOTE_TO_SEMITONE[n] ?? 0);
-
-  // Find bounding white keys
+  // Treat notes as an ascending sequence: each note that is at or below
+  // the previous one (in white-key index) wraps into the next octave.
   const whiteKeys = notes.map(nearestWhiteKey);
-  const indices = whiteKeys.map((w) => WHITE_NOTE_ORDER.indexOf(w));
-
-  // Find min and max, accounting for wrapping
-  const minIdx = Math.min(...indices);
-  const maxIdx = Math.max(...indices);
-
-  // Check if the chord wraps around (e.g., B to C)
-  const span = maxIdx - minIdx;
-
-  let startIdx = minIdx - padding;
-  let endIdx = maxIdx + padding;
-
-  // Ensure we don't go below 0
-  if (startIdx < 0) startIdx += 7;
-  if (endIdx >= 7) {
-    // Need extra keys to wrap
+  const ascending: number[] = [];
+  for (const w of whiteKeys) {
+    let idx = WHITE_NOTE_ORDER.indexOf(w);
+    if (ascending.length > 0) {
+      const lastIdx = ascending[ascending.length - 1];
+      while (idx <= lastIdx) idx += 7;
+    }
+    ascending.push(idx);
   }
+
+  const minAsc = ascending[0];
+  const maxAsc = ascending[ascending.length - 1];
+
+  let startIdx = minAsc - padding;
+  const endIdx = maxAsc + padding;
 
   const startNote = WHITE_NOTE_ORDER[((startIdx % 7) + 7) % 7] as WhiteNote;
-  const keyCount = (endIdx - minIdx + padding) + 1;
+  const keyCount = endIdx - startIdx + 1;
+
+  // Calculate which relative octave the chord notes live in.
+  // Count how many times we cross C going from startNote to the first chord note.
+  const startNoteIdx = WHITE_NOTE_ORDER.indexOf(startNote);
+  let chordOctave = 0;
+  for (let i = 1; i <= padding; i++) {
+    const noteIdx = (startNoteIdx + i) % 7;
+    if (WHITE_NOTE_ORDER[noteIdx] === "C") chordOctave++;
+  }
 
   return {
     startFrom: startNote,
     size: Math.max(keyCount, notes.length + 2),
+    chordOctave,
   };
 }

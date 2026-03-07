@@ -1,12 +1,18 @@
 import { Note } from "tonal";
-import type { ChordProps, KeyboardProps } from "../types";
+import type { ChordProps, KeyboardProps, HandBracket } from "../types";
 import { PianoKeyboard } from "./PianoKeyboard";
 import { parseChordDescription } from "../parser/natural-language";
 import { resolveChord } from "../resolver/chord-resolver";
 import { calculateLayout } from "../resolver/auto-layout";
-import { FLAT_TO_SHARP } from "../engine/svg-constants";
+import { computeKeyboard } from "../engine/keyboard-layout";
+import { normalizeNote } from "../engine/highlight-mapper";
+import { FLAT_TO_SHARP, WHITE_NOTE_ORDER } from "../engine/svg-constants";
 import { findVoicing, voicingPitchClasses, mapToVoicingQuality } from "@better-chord/voicings";
+import { autoFingering } from "../engine/auto-fingering";
 import type { WhiteNote } from "../types";
+import type { ProgressionChord } from "../progression";
+import { ChordGroup } from "./ChordGroup";
+import { resolveUITheme, UIThemeProvider } from "../ui-theme";
 
 /**
  * Map semitones (mod 12) from root to a scale degree number.
@@ -75,11 +81,42 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     return <PianoKeyboard {...props} />;
   }
 
-  const { chord, format, theme, highlightColor, padding, className, style } =
+  const { chord, format, theme, highlightColor, padding, scale, uiTheme, className, style } =
     props;
+  const uiCtx = resolveUITheme(uiTheme);
 
   const parsed = parseChordDescription(chord);
   const resolved = resolveChord(parsed.chordName, parsed.inversion);
+
+  // All inversions: render a ChordGroup with root position + each inversion
+  if (parsed.allInversions) {
+    const numNotes = resolved.notes.length;
+    const INVERSION_LABELS = ["Root position", "1st inversion", "2nd inversion", "3rd inversion", "4th inversion"];
+    const chords: ProgressionChord[] = [];
+    for (let inv = 0; inv < numNotes; inv++) {
+      const invNotes = [...resolved.notes.slice(inv), ...resolved.notes.slice(0, inv)];
+      chords.push({
+        symbol: INVERSION_LABELS[inv] ?? `${inv}th inversion`,
+        root: resolved.root,
+        notes: invNotes,
+      });
+    }
+    const resolvedFormat = parsed.format ?? format;
+    return (
+      <UIThemeProvider value={uiCtx}>
+        <ChordGroup
+          chords={chords}
+          label={parsed.chordName}
+          format={resolvedFormat}
+          theme={theme}
+          highlightColor={highlightColor}
+          showPlayback
+          scale={scale}
+        />
+      </UIThemeProvider>
+    );
+  }
+
   let { notes } = resolved;
 
   // If a style hint is present, try the voicing library for richer voicings
@@ -96,10 +133,10 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     }
   }
 
-  const available = describeAvailableDegrees(resolved.root, notes);
-
-  // Reorder notes if bass note/degree is specified ("with the 5th in the bottom")
+  // Resolve bass note for "over X" / "with X in the bass" → separate LH keyboard
+  let lhBassNote: string | undefined;
   if (parsed.bassDegree != null) {
+    const available = describeAvailableDegrees(resolved.root, notes);
     const bassNote = degreeToNote(resolved.root, parsed.bassDegree, notes);
     if (!bassNote) {
       const name = DEGREE_NAMES[parsed.bassDegree] ?? `${parsed.bassDegree}th`;
@@ -107,26 +144,15 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
         `${parsed.chordName} doesn't have a ${name} — try: ${available}`
       );
     }
-    const idx = notes.indexOf(bassNote);
-    if (idx > 0) {
-      notes = [...notes.slice(idx), ...notes.slice(0, idx)];
-    }
+    lhBassNote = bassNote;
   } else if (parsed.bassNote) {
-    const bassNorm = FLAT_TO_SHARP[parsed.bassNote] ?? parsed.bassNote;
-    const idx = notes.indexOf(bassNorm);
-    if (idx < 0) {
-      throw new Error(
-        `${parsed.bassNote} isn't in ${parsed.chordName} — the notes are: ${available}`
-      );
-    }
-    if (idx > 0) {
-      notes = [...notes.slice(idx), ...notes.slice(0, idx)];
-    }
+    lhBassNote = FLAT_TO_SHARP[parsed.bassNote] ?? parsed.bassNote;
   }
 
   // Resolve startingDegree/startingNote: rotate voicing so that note is lowest
   let startingNote = parsed.startingNote;
   if (!startingNote && parsed.startingDegree != null) {
+    const available = describeAvailableDegrees(resolved.root, notes);
     startingNote = degreeToNote(resolved.root, parsed.startingDegree, notes);
     if (!startingNote) {
       const name = DEGREE_NAMES[parsed.startingDegree] ?? `${parsed.startingDegree}th`;
@@ -139,6 +165,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     const norm = FLAT_TO_SHARP[startingNote] ?? startingNote;
     const idx = notes.indexOf(norm);
     if (idx < 0) {
+      const available = describeAvailableDegrees(resolved.root, notes);
       throw new Error(
         `${startingNote} isn't in ${parsed.chordName} — the notes are: ${available}`
       );
@@ -148,24 +175,175 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     }
   }
 
+  const layoutPadding = parsed.padding ?? padding ?? 1;
+  const resolvedFormat = parsed.format ?? format;
+
+  // Resolve fingering: explicit numbers take priority, then auto if requested
+  let resolvedFingering = parsed.fingering;
+  if (!resolvedFingering && parsed.autoFingering) {
+    if (lhBassNote) {
+      // LH gets one finger, RH gets auto-fingered
+      const lhFinger = autoFingering([lhBassNote], "lh");
+      const rhFinger = autoFingering(notes, "rh");
+      resolvedFingering = [...lhFinger, ...rhFinger];
+    } else {
+      resolvedFingering = autoFingering(notes, "rh");
+    }
+  }
+
+  // Single continuous keyboard with LH + RH brackets
+  if (lhBassNote) {
+    const lhNorm = normalizeNote(lhBassNote);
+    const lhWhiteKey = lhNorm.replace("#", "") as WhiteNote;
+    const lhWhiteIdx = WHITE_NOTE_ORDER.indexOf(lhWhiteKey);
+
+    // RH note positions relative to LH
+    // Default: one full octave above LH. Shifts adjust this.
+    // "chord down" reduces gap, "bass up" also reduces gap (from the other side)
+    const octaveGap = 1 + (parsed.chordOctaveShift ?? 0) - (parsed.bassOctaveShift ?? 0);
+    const rhOctaveOffset = Math.max(octaveGap, 0) * 7; // in white keys (0 = adjacent)
+    const rhOffsets = notes.map((n) => {
+      const norm = normalizeNote(n);
+      const whiteKey = norm.replace("#", "") as WhiteNote;
+      const whiteIdx = WHITE_NOTE_ORDER.indexOf(whiteKey);
+      let offset = whiteIdx - lhWhiteIdx;
+      if (offset <= 0) offset += 7; // wrap within octave
+      return offset + rhOctaveOffset;
+    });
+    const maxRhOffset = Math.max(...rhOffsets);
+
+    // Keyboard start: one padding step below LH note
+    const startIdx = ((lhWhiteIdx - layoutPadding) % 7 + 7) % 7;
+    const startNote = WHITE_NOTE_ORDER[startIdx] as WhiteNote;
+    const lhPositionOnKb = ((lhWhiteIdx - startIdx) % 7 + 7) % 7;
+    const kbSize = Math.max(lhPositionOnKb + maxRhOffset + layoutPadding + 1, 10);
+
+    // Compute the keyboard to get octave info for each key
+    const tempKeys = computeKeyboard(startNote, kbSize, resolvedFormat);
+
+    // Find the LH key index and its relative octave
+    const lhKeyIdx = tempKeys.findIndex((k) => normalizeNote(k.note) === lhNorm);
+    const lhOctave = lhKeyIdx >= 0 ? tempKeys[lhKeyIdx].octave : 0;
+    // RH octave relative to LH, adjusted by chordOctaveShift
+    const rhBaseOctave = lhOctave + Math.max(octaveGap, 0);
+
+    const lhHighlights = [`${lhNorm}:${lhOctave}`];
+    const rhHighlights = notes.map((n) => {
+      const norm = normalizeNote(n);
+      const whiteKey = norm.replace("#", "") as WhiteNote;
+      const whiteIdx = WHITE_NOTE_ORDER.indexOf(whiteKey);
+      // Notes above LH in pitch class order (before the next C) are in rhBaseOctave;
+      // notes at or below LH (wrapped past C) are in rhBaseOctave + 1
+      const isAboveLhBeforeC = whiteIdx > lhWhiteIdx;
+      const noteOctave = isAboveLhBeforeC ? rhBaseOctave : rhBaseOctave + 1;
+      return `${norm}:${noteOctave}`;
+    });
+    const allHighlights = [...lhHighlights, ...rhHighlights];
+
+    // Find key indices for bracket annotations
+    const lhKeyIndices: number[] = [];
+    const rhKeyIndices: number[] = [];
+    const remaining = allHighlights.map((h, i) => {
+      const [note, oct] = h.split(":");
+      return { note, octave: parseInt(oct, 10), isLH: i < lhHighlights.length, matched: false };
+    });
+
+    for (let ki = 0; ki < tempKeys.length; ki++) {
+      const keyNote = normalizeNote(tempKeys[ki].note);
+      const keyOctave = tempKeys[ki].octave;
+      const matchIdx = remaining.findIndex(
+        (h) => !h.matched && h.note === keyNote && h.octave === keyOctave
+      );
+      if (matchIdx !== -1) {
+        remaining[matchIdx].matched = true;
+        (remaining[matchIdx].isLH ? lhKeyIndices : rhKeyIndices).push(ki);
+      }
+    }
+
+    const handBrackets: HandBracket[] = [
+      { label: "L.H.", keyIndices: lhKeyIndices },
+      { label: "R.H.", keyIndices: rhKeyIndices },
+    ];
+
+    // Playback octaves: LH default 3, RH default 4, adjusted by shifts
+    const lhPlaybackOctave = 3 + (parsed.bassOctaveShift ?? 0);
+    const rhPlaybackOctave = 4 + (parsed.chordOctaveShift ?? 0);
+
+    return (
+      <UIThemeProvider value={uiCtx}>
+        <PianoKeyboard
+          format={resolvedFormat}
+          size={kbSize}
+          startFrom={startNote}
+          highlightKeys={allHighlights}
+          allNotes={[lhBassNote, ...notes]}
+          lhNotes={[lhBassNote]}
+          lhOctave={lhPlaybackOctave}
+          rhOctave={rhPlaybackOctave}
+          theme={theme}
+          highlightColor={highlightColor}
+          chordLabel={parsed.chordName}
+          handBrackets={handBrackets}
+          scale={scale}
+          showNoteNames={parsed.showNoteNames}
+          noteNameSize={parsed.noteNameSize}
+          fingering={resolvedFingering}
+          fingeringSize={parsed.fingeringSize}
+          className={className}
+          style={style}
+        />
+      </UIThemeProvider>
+    );
+  }
+
   const layout = calculateLayout(notes, {
-    padding: parsed.padding ?? padding ?? 1,
+    padding: layoutPadding,
     startingNote,
     spanFrom: parsed.spanFrom,
     spanTo: parsed.spanTo,
   });
 
+  // When padding pushes notes into a higher octave region, use octave-qualified
+  // highlights to avoid greedy matching against duplicate notes in the padding zone.
+  let highlightKeys: string[] = notes;
+  if (layout.chordOctave > 0) {
+    let octave = layout.chordOctave;
+    const firstNorm = normalizeNote(notes[0]);
+    const firstWhiteIdx = WHITE_NOTE_ORDER.indexOf(
+      firstNorm.replace("#", "") as WhiteNote
+    );
+    let prevWhiteIdx = firstWhiteIdx;
+
+    highlightKeys = notes.map((n, i) => {
+      const norm = normalizeNote(n);
+      const whiteKey = norm.replace("#", "") as WhiteNote;
+      const whiteIdx = WHITE_NOTE_ORDER.indexOf(whiteKey);
+      if (i > 0 && whiteIdx <= prevWhiteIdx) {
+        octave++;
+      }
+      prevWhiteIdx = whiteIdx;
+      return `${norm}:${octave}`;
+    });
+  }
+
   return (
-    <PianoKeyboard
-      format={parsed.format ?? format}
-      size={layout.size}
-      startFrom={layout.startFrom as WhiteNote}
-      highlightKeys={notes}
-      theme={theme}
-      highlightColor={highlightColor}
-      chordLabel={parsed.chordName}
-      className={className}
-      style={style}
-    />
+    <UIThemeProvider value={uiCtx}>
+      <PianoKeyboard
+        format={resolvedFormat}
+        size={layout.size}
+        startFrom={layout.startFrom as WhiteNote}
+        highlightKeys={highlightKeys}
+        theme={theme}
+        highlightColor={highlightColor}
+        chordLabel={parsed.chordName}
+        scale={scale}
+        showNoteNames={parsed.showNoteNames}
+        noteNameSize={parsed.noteNameSize}
+        fingering={resolvedFingering}
+        fingeringSize={parsed.fingeringSize}
+        className={className}
+        style={style}
+      />
+    </UIThemeProvider>
   );
 }
