@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveChord } from "../src/resolver/chord-resolver";
+import { resolveChord } from "@better-chord/core";
 
 describe("resolveChord", () => {
   it("resolves Cmaj7 to [C, E, G, B]", () => {

@@ -1,5 +1,5 @@
 import type { WhiteNote } from "../types";
-import { WHITE_NOTE_ORDER, FLAT_TO_SHARP } from "@better-chord/core";
+import { WHITE_NOTE_ORDER, FLAT_TO_SHARP } from "../engine/svg-constants";
 
 const NOTE_TO_SEMITONE: Record<string, number> = {
   C: 0, "C#": 1,

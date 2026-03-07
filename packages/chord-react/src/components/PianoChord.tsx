@@ -1,10 +1,8 @@
 import { Note } from "tonal";
 import type { ChordProps, KeyboardProps, HandBracket, WhiteNote } from "../types";
 import { PianoKeyboard } from "./PianoKeyboard";
-import { parseChordDescription } from "../parser/natural-language";
-import { resolveChord } from "../resolver/chord-resolver";
-import { calculateLayout } from "../resolver/auto-layout";
 import {
+  parseChordDescription, resolveChord, calculateLayout,
   computeKeyboard, normalizeNote, autoFingering,
   FLAT_TO_SHARP, WHITE_NOTE_ORDER,
 } from "@better-chord/core";

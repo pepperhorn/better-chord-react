@@ -16,3 +16,12 @@ export {
   WHITE_NOTES_WITH_SHARPS, WHITE_NOTE_ORDER, FLAT_TO_SHARP,
   DEFAULT_WHITE_FILL, DEFAULT_BLACK_FILL, DEFAULT_STROKE, DEFAULT_STROKE_WIDTH,
 } from "./engine/svg-constants";
+
+export { parseChordDescription } from "./parser/natural-language";
+export { isProgressionRequest, parseProgressionRequest } from "./parser/progression-parser";
+export type { ParsedProgressionRequest } from "./parser/progression-parser";
+export { resolveChord } from "./resolver/chord-resolver";
+export type { ResolvedChord } from "./resolver/chord-resolver";
+export { calculateLayout } from "./resolver/auto-layout";
+export type { LayoutOptions, LayoutResult } from "./resolver/auto-layout";
+export { MAX_EXAMPLES, ENABLE_CHORD_LOGGING } from "./config";

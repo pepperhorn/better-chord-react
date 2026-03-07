@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateLayout } from "../src/resolver/auto-layout";
+import { calculateLayout } from "@better-chord/core";
 
 describe("calculateLayout", () => {
   it("returns default for empty notes", () => {

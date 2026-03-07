@@ -1,5 +1,3 @@
-export const MAX_EXAMPLES = 3;
-
 /** Default: show note names below highlighted keys. */
 export const SHOW_NOTE_NAMES = false;
 

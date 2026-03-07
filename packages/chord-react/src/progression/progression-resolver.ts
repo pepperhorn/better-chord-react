@@ -1,7 +1,6 @@
-import { MAX_EXAMPLES } from "../config";
+import { MAX_EXAMPLES, resolveChord } from "@better-chord/core";
 import { resolveProgression, tokenizeProgression } from "./roman-numeral";
 import { findTemplate, FORM_TEMPLATES } from "./form-templates";
-import { resolveChord } from "../resolver/chord-resolver";
 import {
   findVoicing,
   voicingPitchClasses,

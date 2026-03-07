@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseChordDescription } from "../src/parser/natural-language";
+import { parseChordDescription } from "@better-chord/core";
 
 describe("parseChordDescription", () => {
   it("parses 'Cmaj7#5 starting on G#'", () => {
