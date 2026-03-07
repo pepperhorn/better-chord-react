@@ -18,7 +18,7 @@
     "build": "tsc",
     "lint": "tsc --noEmit",
     "test": "vitest",
-    "test:run": "vitest run --passWithNoTests"
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@better-chord/voicings": "*",
