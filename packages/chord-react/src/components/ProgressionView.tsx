@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { ProgressionResult } from "../progression";
 import type { Format, ColorTheme } from "../types";
+import type { UIThemeMode } from "../config";
 import { ChordGroup } from "./ChordGroup";
+import { resolveUITheme, UIThemeProvider } from "../ui-theme";
 
 export type GroupMode = "by-progression" | "by-chord";
 
@@ -12,7 +14,18 @@ export interface ProgressionViewProps {
   highlightColor?: string;
   showPlayback?: boolean;
   defaultGroupMode?: GroupMode;
+  /** UI chrome theme: "light" (default) or "dark". */
+  uiTheme?: UIThemeMode;
 }
+
+const SCALE_OPTIONS = [
+  { label: "50%", value: 0.5 },
+  { label: "60%", value: 0.6 },
+  { label: "70%", value: 0.7 },
+  { label: "80%", value: 0.8 },
+  { label: "90%", value: 0.9 },
+  { label: "100%", value: 1.0 },
+];
 
 export function ProgressionView({
   result,
@@ -21,21 +34,27 @@ export function ProgressionView({
   highlightColor,
   showPlayback = true,
   defaultGroupMode = "by-progression",
+  uiTheme,
 }: ProgressionViewProps) {
+  const uiCtx = resolveUITheme(uiTheme);
+  const ui = uiCtx.tokens;
   const [groupMode, setGroupMode] = useState<GroupMode>(defaultGroupMode);
+  const [keyFormat, setKeyFormat] = useState<Format>("compact");
+  const [scale, setScale] = useState(0.5);
 
   const toggleStyle = (active: boolean) => ({
     padding: "4px 12px",
     fontSize: 12,
-    border: "1px solid #ccc",
+    border: `1px solid ${ui.border}`,
     borderRadius: 4,
-    background: active ? "#333" : "#fff",
-    color: active ? "#fff" : "#333",
+    background: active ? ui.btnBgActive : ui.btnBg,
+    color: active ? ui.btnTextActive : ui.btnText,
     cursor: "pointer" as const,
   });
 
   return (
-    <div>
+    <UIThemeProvider value={uiCtx}>
+    <div data-bc-theme={uiCtx.mode} style={{ width: "100%", maxWidth: "100vw", color: ui.text }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>
           {result.progressionName} in {result.key}
@@ -54,6 +73,40 @@ export function ProgressionView({
             By Chord
           </button>
         </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            style={toggleStyle(keyFormat === "compact")}
+            onClick={() => setKeyFormat("compact")}
+          >
+            Compact
+          </button>
+          <button
+            style={toggleStyle(keyFormat === "exact")}
+            onClick={() => setKeyFormat("exact")}
+          >
+            Full
+          </button>
+        </div>
+        <select
+          value={scale}
+          onChange={(e) => setScale(parseFloat(e.target.value))}
+          style={{
+            padding: "4px 8px",
+            fontSize: 12,
+            border: `1px solid ${ui.border}`,
+            borderRadius: 4,
+            background: ui.inputBg,
+            color: ui.inputText,
+            cursor: "pointer",
+          }}
+          aria-label="Chord size"
+        >
+          {SCALE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {groupMode === "by-progression" ? (
@@ -63,17 +116,19 @@ export function ProgressionView({
             key={i}
             chords={example.chords}
             label={example.label}
-            format={format}
+            format={format ?? keyFormat}
             theme={theme}
             highlightColor={highlightColor}
             showPlayback={showPlayback}
+            scale={scale}
           />
         ))
       ) : (
         // Group by chord position — all example 1 first chords, then all second chords, etc.
-        renderByChord(result, format, theme, highlightColor, showPlayback)
+        renderByChord(result, format ?? keyFormat, theme, highlightColor, showPlayback, scale)
       )}
     </div>
+    </UIThemeProvider>
   );
 }
 
@@ -83,6 +138,7 @@ function renderByChord(
   theme?: ColorTheme | string,
   highlightColor?: string,
   showPlayback?: boolean,
+  scale?: number,
 ) {
   if (result.examples.length === 0) return null;
 
@@ -107,6 +163,7 @@ function renderByChord(
       theme={theme}
       highlightColor={highlightColor}
       showPlayback={showPlayback}
+      scale={scale}
     />
   ));
 }

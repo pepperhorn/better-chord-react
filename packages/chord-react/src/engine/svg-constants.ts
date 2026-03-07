@@ -1,9 +1,11 @@
 export const WHITE_KEY_WIDTH = 23;
+export const WHITE_KEY_WIDTH_EXACT = 25.3;
 export const WHITE_KEY_HEIGHT_COMPACT = 65;
 export const WHITE_KEY_HEIGHT_EXACT = 120;
 export const WHITE_KEY_RY = 3;
 
 export const BLACK_KEY_WIDTH = 13;
+export const BLACK_KEY_WIDTH_EXACT = 14.3;
 export const BLACK_KEY_HEIGHT_COMPACT = 40;
 export const BLACK_KEY_HEIGHT_EXACT = 80;
 export const BLACK_KEY_RY = 1;
@@ -20,6 +22,14 @@ export const BLACK_KEY_OFFSETS: Record<string, number> = {
   F: 13.25,
   G: 16.25,
   A: 19.75,
+};
+
+export const BLACK_KEY_OFFSETS_EXACT: Record<string, number> = {
+  C: 15.76,
+  D: 20.54,
+  F: 14.58,
+  G: 17.88,
+  A: 21.73,
 };
 
 // Which white notes have a black key to their right
