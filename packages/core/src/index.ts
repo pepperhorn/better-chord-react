@@ -42,3 +42,7 @@ export type { ChordLogEntry, LogConfig } from "./logging";
 
 // Themes
 export { getTheme, resolveTheme } from "./themes";
+
+// Pipeline
+export { processChordRequest } from "./pipeline";
+export type { ChordRequest, ChordResult } from "./pipeline";
