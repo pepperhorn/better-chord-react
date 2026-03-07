@@ -54,33 +54,37 @@ export function ProgressionView({
 
   return (
     <UIThemeProvider value={uiCtx}>
-    <div data-bc-theme={uiCtx.mode} style={{ width: "100%", maxWidth: "100vw", color: ui.text }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>
+    <div className="bc-progression" data-bc-theme={uiCtx.mode} style={{ width: "100%", maxWidth: "100vw", color: ui.text }}>
+      <div className="bc-progression__controls" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <span className="bc-progression__title" style={{ fontWeight: 700, fontSize: 16 }}>
           {result.progressionName} in {result.key}
         </span>
-        <div style={{ display: "flex", gap: 4 }}>
+        <div className="bc-progression__group-toggle" style={{ display: "flex", gap: 4 }}>
           <button
+            className="bc-progression__btn"
             style={toggleStyle(groupMode === "by-progression")}
             onClick={() => setGroupMode("by-progression")}
           >
             By Progression
           </button>
           <button
+            className="bc-progression__btn"
             style={toggleStyle(groupMode === "by-chord")}
             onClick={() => setGroupMode("by-chord")}
           >
             By Chord
           </button>
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
+        <div className="bc-progression__format-toggle" style={{ display: "flex", gap: 4 }}>
           <button
+            className="bc-progression__btn"
             style={toggleStyle(keyFormat === "compact")}
             onClick={() => setKeyFormat("compact")}
           >
             Compact
           </button>
           <button
+            className="bc-progression__btn"
             style={toggleStyle(keyFormat === "exact")}
             onClick={() => setKeyFormat("exact")}
           >
@@ -88,6 +92,7 @@ export function ProgressionView({
           </button>
         </div>
         <select
+          className="bc-progression__scale-select"
           value={scale}
           onChange={(e) => setScale(parseFloat(e.target.value))}
           style={{

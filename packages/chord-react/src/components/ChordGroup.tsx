@@ -41,13 +41,14 @@ export function ChordGroup({
   const perRow = chordsPerRow(chords.length);
 
   return (
-    <div style={{ marginBottom: 16, width: "100%" }}>
+    <div className="bc-chord-group" style={{ marginBottom: 16, width: "100%" }}>
       {label && (
-        <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>
+        <div className="bc-chord-group__label" style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>
           {label}
         </div>
       )}
       <div
+        className="bc-chord-group__grid"
         style={{
           display: "flex",
           flexWrap: "wrap",
@@ -79,6 +80,7 @@ export function ChordGroup({
 
           return (
           <div
+            className="bc-chord-group__item"
             key={i}
             style={{
               textAlign: "center",
@@ -86,7 +88,7 @@ export function ChordGroup({
               minWidth: 0,
             }}
           >
-            <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+            <div className="bc-chord-group__symbol" style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
               {chord.symbol}
             </div>
             <PianoKeyboard
@@ -101,7 +103,7 @@ export function ChordGroup({
               scale={scale}
             />
             {chord.voicingStyle && (
-              <div style={{ fontSize: 10, color: ui.textSubtle, marginTop: 2 }}>
+              <div className="bc-chord-group__voicing-style" style={{ fontSize: 10, color: ui.textSubtle, marginTop: 2 }}>
                 {chord.voicingStyle}
               </div>
             )}

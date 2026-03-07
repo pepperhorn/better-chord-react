@@ -212,7 +212,7 @@ export function PianoKeyboard({
     <svg
       viewBox={`0 0 ${width} ${height}`}
       xmlns="http://www.w3.org/2000/svg"
-      className={className}
+      className={`bc-keyboard ${className ?? ""}`.trim()}
       style={{ width: "100%", maxWidth: width * scale * 2, ...style }}
       role="img"
       aria-label="Piano keyboard"

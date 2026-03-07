@@ -84,7 +84,7 @@ export function PlaybackControls({ notes, lhNotes, rhOctave, lhOctave, chordName
   };
 
   return (
-    <g>
+    <g className="bc-playback-controls">
       {/* Block chord button (speaker icon) */}
       <g
         transform={`translate(${x}, ${y})`}
