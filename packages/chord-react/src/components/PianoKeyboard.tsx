@@ -238,54 +238,66 @@ export function PianoKeyboard({
           />
         </g>
       )}
+      {/* Clip path for rounded edges on partial keys */}
+      {(clipLeft || clipRight) && whiteKeys.length > 0 && (
+        <defs>
+          <clipPath id={`kb-clip-${vbX}-${keysOffsetY}`}>
+            <rect
+              x={vbX}
+              y={0}
+              width={vbW}
+              height={whiteKeys[0].key.height}
+              rx={WHITE_KEY_RY}
+              ry={WHITE_KEY_RY}
+            />
+          </clipPath>
+        </defs>
+      )}
       <g transform={`translate(0, ${keysOffsetY})`}>
-        {whiteKeys.map(({ key, fill, index }) => (
+        <g clipPath={(clipLeft || clipRight) && whiteKeys.length > 0 ? `url(#kb-clip-${vbX}-${keysOffsetY})` : undefined}>
+          {whiteKeys.map(({ key, fill, index }) => (
+            <rect
+              key={`white-${index}`}
+              x={key.x}
+              y={key.y}
+              width={key.width}
+              height={key.height}
+              rx={WHITE_KEY_RY}
+              ry={WHITE_KEY_RY}
+              fill={fill}
+              stroke={DEFAULT_STROKE}
+              strokeWidth={DEFAULT_STROKE_WIDTH}
+            />
+          ))}
+          {blackKeys.map(({ key, fill, index }) => (
+            <rect
+              key={`black-${index}`}
+              x={key.x}
+              y={key.y}
+              width={key.width}
+              height={key.height}
+              rx={BLACK_KEY_RY}
+              ry={BLACK_KEY_RY}
+              fill={fill}
+              stroke={DEFAULT_STROKE}
+              strokeWidth={DEFAULT_STROKE_WIDTH}
+            />
+          ))}
+        </g>
+        {/* Border rect at clipped edges */}
+        {(clipLeft || clipRight) && whiteKeys.length > 0 && (
           <rect
-            key={`white-${index}`}
-            x={key.x}
-            y={key.y}
-            width={key.width}
-            height={key.height}
+            x={vbX}
+            y={0}
+            width={vbW}
+            height={whiteKeys[0].key.height}
             rx={WHITE_KEY_RY}
             ry={WHITE_KEY_RY}
-            fill={fill}
+            fill="none"
             stroke={DEFAULT_STROKE}
             strokeWidth={DEFAULT_STROKE_WIDTH}
           />
-        ))}
-        {/* Rounded border at clipped edges (matches white key corner radius) */}
-        {clipLeft && whiteKeys.length > 0 && (() => {
-          const kh = whiteKeys[0].key.height;
-          const r = WHITE_KEY_RY;
-          const x = vbX;
-          return <path
-            d={`M${x},${r} Q${x},0 ${x + r},0 M${x},${r} L${x},${kh - r} Q${x},${kh} ${x + r},${kh}`}
-            stroke={DEFAULT_STROKE} strokeWidth={DEFAULT_STROKE_WIDTH} fill="none"
-          />;
-        })()}
-        {clipRight && whiteKeys.length > 0 && (() => {
-          const kh = whiteKeys[0].key.height;
-          const r = WHITE_KEY_RY;
-          const x = vbX + vbW;
-          return <path
-            d={`M${x},${r} Q${x},0 ${x - r},0 M${x},${r} L${x},${kh - r} Q${x},${kh} ${x - r},${kh}`}
-            stroke={DEFAULT_STROKE} strokeWidth={DEFAULT_STROKE_WIDTH} fill="none"
-          />;
-        })()}
-        {blackKeys.map(({ key, fill, index }) => (
-          <rect
-            key={`black-${index}`}
-            x={key.x}
-            y={key.y}
-            width={key.width}
-            height={key.height}
-            rx={BLACK_KEY_RY}
-            ry={BLACK_KEY_RY}
-            fill={fill}
-            stroke={DEFAULT_STROKE}
-            strokeWidth={DEFAULT_STROKE_WIDTH}
-          />
-        ))}
+        )}
       </g>
       {hasBrackets && (
         <g transform={`translate(0, ${keysOffsetY + keyboardHeight + 6})`}>
