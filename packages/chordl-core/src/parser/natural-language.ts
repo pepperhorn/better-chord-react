@@ -275,8 +275,10 @@ const QUALITY_WORDS: Record<string, string> = {
 // Slash-bass is captured as its own group (any note letter, not just B) rather
 // than folded into the quality-suffix class — the old catch-all `[0-9#b/]+`
 // let '/' bleed into the flat-symbol 'b', so only B/Bb bass notes round-tripped.
+// `\/[0-9]+` stays in the quality group so "6/9"-style suffixes (slash
+// followed by digits, not a bass letter) aren't mistaken for a slash bass.
 const CHORD_RE =
-  /([A-Ga-g][#b]?)\s*(maj|min|m|aug|dim|sus|add|dom|M|°|ø|[0-9#b]+)*(\/[A-Ga-g][#b]?)?/i;
+  /([A-Ga-g][#b]?)\s*(maj|min|m|aug|dim|sus|add|dom|M|°|ø|\/[0-9]+|[0-9#b]+)*(\/[A-Ga-g][#b]?)?/i;
 
 function capitalizeNote(note: string): string {
   return note.charAt(0).toUpperCase() + note.slice(1);
