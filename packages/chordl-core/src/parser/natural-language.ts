@@ -1,7 +1,11 @@
 import type { Format, TextSize, ParsedChordRequest, NotesGroup } from "../types";
 
+// "a"/"an" are excluded when immediately followed by '#', '/', or end-of-string —
+// those are the only non-word-char continuations a real chord root can have
+// (e.g. bare "A", "A#dim", "A/C#"); any word-char continuation (e.g. "Adim",
+// "Am7") already fails the trailing \b below, so this doesn't affect them.
 const FILLER_WORDS =
-  /\b(show\s+me|draw|display|render|please|a|an|the|with|that|this|me|of)\b/gi;
+  /\b(show\s+me|draw|display|render|please|a(?![#/]|$)|an(?![#/]|$)|the|with|that|this|me|of)\b/gi;
 
 const FORMAT_RE = /\b(compact|exact|full)\b/i;
 const FORMAT_FULL_RE = /\bfull\s+(?:layout|height|size|keys?)\b/i;
@@ -268,8 +272,11 @@ const QUALITY_WORDS: Record<string, string> = {
   thirteenth: "13",
 };
 
+// Slash-bass is captured as its own group (any note letter, not just B) rather
+// than folded into the quality-suffix class — the old catch-all `[0-9#b/]+`
+// let '/' bleed into the flat-symbol 'b', so only B/Bb bass notes round-tripped.
 const CHORD_RE =
-  /([A-Ga-g][#b]?)\s*(maj|min|m|aug|dim|sus|add|dom|M|°|ø|[0-9#b/]+)*/i;
+  /([A-Ga-g][#b]?)\s*(maj|min|m|aug|dim|sus|add|dom|M|°|ø|[0-9#b]+)*(\/[A-Ga-g][#b]?)?/i;
 
 function capitalizeNote(note: string): string {
   return note.charAt(0).toUpperCase() + note.slice(1);
@@ -747,9 +754,11 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     const chordMatch = cleaned.match(CHORD_RE);
     if (chordMatch) {
       const root = capitalizeNote(chordMatch[1]);
-      const fullMatch = chordMatch[0];
-      const afterRoot = fullMatch.slice(chordMatch[1].length);
-      result.chordName = root + afterRoot.trim();
+      const afterRoot = chordMatch[0]
+        .slice(chordMatch[1].length)
+        .trim()
+        .replace(/\/([A-Ga-g])/, (_m, letter: string) => `/${letter.toUpperCase()}`);
+      result.chordName = root + afterRoot;
     }
   }
 
