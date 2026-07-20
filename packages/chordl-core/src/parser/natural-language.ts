@@ -87,7 +87,7 @@ const VALID_FINGERING = new Set(["0", "1", "2", "3", "4", "5", "-", "x"]);
 // "custom fingering "A0,A1,A2"" / "fingering "G3-G0-E1"" / "fingering xl "1-2-3"" / "fingering "1-2-3" 2xl"
 // Quoted strings after "fingering" or "custom fingering" are treated as free-form labels.
 const CUSTOM_FINGERING_RE =
-  /(?:with\s+)?(?:custom\s+)?finger(?:ing|s)?\s+(?:(?:in\s+)?(base|lg|xl|2xl)\s+)?[""]([^""]+)[""](?:\s+(?:in\s+)?(base|lg|xl|2xl))?/i;
+  /(?:with\s+)?(?:custom\s+)?finger(?:ing|s)?\s+(?:(?:in\s+)?(base|lg|xl|2xl)\s+)?["“”']([^"“”']+)["“”'](?:\s+(?:in\s+)?(base|lg|xl|2xl))?/i;
 
 // "with fingerings" / "show fingering" / "with fingering in xl" / "fingering 2xl" (no explicit numbers → auto)
 // Negative lookahead: don't match when followed by digits (explicit fingering like "1 2 3 5")
@@ -142,15 +142,22 @@ const HAND_CLEF_PATTERN =
 const NOTE_LIST_PATTERN =
   "[A-Ga-g][#b]?\\d?(?:[\\s,\\-]+(?:and\\s+)?[A-Ga-g][#b]?\\d?)+";
 
-// "with notes C E G" / "notes E4 G4 C5" — optional trailing "in <hand|clef>".
+// After the explicit "notes" keyword, a token may be a run-together sequence
+// of notes with no separators ("cdefgabc", "EbGbBb", "E4G4C5"). The trailing
+// lookahead stops the run at any non-note word ("and", "in", "with", ...)
+// while still allowing a run to end in an accidental ("C#").
+const NOTE_RUN_PATTERN = "(?:[A-Ga-g][#b]?\\d?)+(?![A-Za-z0-9])";
+
+// "with notes C E G" / "notes E4 G4 C5" / "notes cdefgabc" — optional
+// trailing "in <hand|clef>".
 const NOTES_GROUP_RE = new RegExp(
-  `(?:with\\s+|and\\s+)?notes\\s+([A-Ga-g][#b]?\\d?\\b(?:[\\s,\\-]+[A-Ga-g][#b]?\\d?\\b)*)(?:\\s+in\\s+(?:the\\s+)?(${HAND_CLEF_PATTERN}))?`,
+  `(?:with\\s+|and\\s+)?notes\\s+(${NOTE_RUN_PATTERN}(?:[\\s,\\-]+${NOTE_RUN_PATTERN})*)(?:\\s+in\\s+(?:the\\s+)?(${HAND_CLEF_PATTERN}))?`,
   "gi",
 );
 
 // "notes in lh Eb Gb Bb" / "notes in the right hand D F A" — prefix form.
 const NOTES_GROUP_PREFIX_RE = new RegExp(
-  `(?:with\\s+|and\\s+)?notes\\s+in\\s+(?:the\\s+)?(${HAND_CLEF_PATTERN})\\s+([A-Ga-g][#b]?\\d?\\b(?:[\\s,\\-]+[A-Ga-g][#b]?\\d?\\b)*)`,
+  `(?:with\\s+|and\\s+)?notes\\s+in\\s+(?:the\\s+)?(${HAND_CLEF_PATTERN})\\s+(${NOTE_RUN_PATTERN}(?:[\\s,\\-]+${NOTE_RUN_PATTERN})*)`,
   "gi",
 );
 
@@ -346,7 +353,14 @@ export function parseChordDescription(input: string): ParsedChordRequest {
   // Check custom fingering FIRST ("custom fingering A0,A1,A2")
   const customFingerMatch = input.match(CUSTOM_FINGERING_RE);
   if (customFingerMatch) {
-    result.customFingering = customFingerMatch[2].split(/[,\-\s]+/).filter(Boolean);
+    // Comma-separated lists split ONLY on commas/spaces so "-" placeholders
+    // survive as positional blanks ("1,-,3"); dash-separated lists keep the
+    // documented "D2-D1-D0-D1" behavior.
+    const raw = customFingerMatch[2];
+    result.customFingering = (raw.includes(",")
+      ? raw.split(/[,\s]+/)
+      : raw.split(/[\-\s]+/)
+    ).filter(Boolean);
     result.fingeringSize = toTextSize(customFingerMatch[1]) ?? toTextSize(customFingerMatch[3]);
   }
 
@@ -415,14 +429,46 @@ export function parseChordDescription(input: string): ParsedChordRequest {
   // segments separated by "and" / "with". Paired example:
   //   "notes C E G in bass clef and notes B D F in treble clef"
   const groups: NotesGroup[] = [];
+
+  // Explode a run-together token ("cdefgabc", "EbGbBb", "E4G4C5") into
+  // individual notes. In runs, a lowercase 'b' binds as a flat only after
+  // an UPPERCASE letter ("EbGbBb") — in lowercase runs like "cdefgabc"
+  // every letter is its own note, so 'b' stays the note B.
+  const explodeNoteRun = (token: string): string[] => {
+    const out: string[] = [];
+    let i = 0;
+    while (i < token.length) {
+      const letter = token[i];
+      if (!/[A-Ga-g]/.test(letter)) return [token]; // not a pure note run
+      i++;
+      let accidental = "";
+      if (token[i] === "#") {
+        accidental = "#";
+        i++;
+      } else if (token[i] === "b" && letter === letter.toUpperCase()) {
+        accidental = "b";
+        i++;
+      }
+      let octave = "";
+      if (/\d/.test(token[i] ?? "")) {
+        octave = token[i];
+        i++;
+      }
+      out.push(letter.toUpperCase() + accidental + octave);
+    }
+    return out;
+  };
+
   const normalizeTokens = (raw: string): string[] =>
     raw
       .split(/[\s,\-]+/)
       .filter(Boolean)
-      .map((t) => {
+      .flatMap((t) => {
+        // Single-note tokens keep their exact old handling ("eb5" → Eb5,
+        // "bb" → Bb) — run explosion applies only to longer sequences.
         const nm = t.match(/^([A-Ga-g])([#b])?(\d)?$/);
-        if (!nm) return t;
-        return nm[1].toUpperCase() + (nm[2] ?? "") + (nm[3] ?? "");
+        if (nm) return [nm[1].toUpperCase() + (nm[2] ?? "") + (nm[3] ?? "")];
+        return explodeNoteRun(t);
       });
 
   // Note-group extraction runs in priority order. Each pass strips its matches
