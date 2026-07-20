@@ -17,6 +17,8 @@ export { scaleAutoFingering } from "./engine/scale-fingering";
 export type { HandAssignment } from "./engine/auto-fingering";
 export { computeStaffLayout } from "./engine/staff-layout";
 export type { StaffNote, StaffLayoutResult, StaffLayoutOptions } from "./engine/staff-layout";
+export { buildMei } from "./engine/mei-builder";
+export type { MeiBuildOptions, MeiBuildResult } from "./engine/mei-builder";
 export { getDefaultGlyphs, setDefaultGlyphs, BRAVURA_GLYPHS, PETALUMA_GLYPHS } from "./engine/staff-glyphs";
 export type { StaffGlyphSet } from "./engine/staff-glyphs";
 export {

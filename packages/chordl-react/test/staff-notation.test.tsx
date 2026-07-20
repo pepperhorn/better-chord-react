@@ -1,70 +1,92 @@
-import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, waitFor } from "@testing-library/react";
 import { StaffNotation } from "../src/components/StaffNotation";
+import { buildMei } from "@pepperhorn/chordl-core";
 
-describe("StaffNotation", () => {
+// Verovio is a heavy async WASM module — mock it so tests exercise the
+// component's MEI construction + wrapper markup without loading the toolkit.
+const rendered: string[] = [];
+vi.mock("../src/verovio", () => ({
+  renderMeiToSvg: (mei: string) => {
+    rendered.push(mei);
+    return Promise.resolve(
+      `<svg width="140px" height="120px" viewBox="0 0 140 120"><g class="staff"></g></svg>`,
+    );
+  },
+}));
+
+beforeEach(() => { rendered.length = 0; });
+
+describe("StaffNotation (verovio)", () => {
   it("renders an SVG element", () => {
     const { container } = render(<StaffNotation notes={["C", "E", "G"]} />);
-    const svg = container.querySelector("svg");
-    expect(svg).toBeTruthy();
+    expect(container.querySelector("svg.bc-staff")).toBeTruthy();
   });
 
-  it("renders 5 staff lines for treble-only", () => {
-    const { container } = render(<StaffNotation notes={["E", "G", "B"]} />);
-    const lines = container.querySelectorAll(".bc-staff__line");
-    expect(lines.length).toBe(5);
-  });
-
-  it("renders 10 staff lines for grand staff", () => {
-    const { container } = render(
-      <StaffNotation notes={["C", "E", "G"]} lhNotes={["C"]} lhOctave={3} rhOctave={4} />,
-    );
-    const lines = container.querySelectorAll(".bc-staff__line");
-    expect(lines.length).toBe(10);
-  });
-
-  it("renders correct number of noteheads", () => {
-    const { container } = render(<StaffNotation notes={["C", "E", "G", "B"]} />);
-    const noteheads = container.querySelectorAll(".bc-staff__notehead");
-    expect(noteheads.length).toBe(4);
-  });
-
-  it("renders ledger line for middle C", () => {
-    const { container } = render(<StaffNotation notes={["C"]} rhOctave={4} />);
-    const ledgers = container.querySelectorAll(".bc-staff__ledger");
-    expect(ledgers.length).toBeGreaterThan(0);
+  it("builds MEI and injects the engraving", async () => {
+    const { container } = render(<StaffNotation notes={["C", "E", "G"]} />);
+    await waitFor(() => {
+      expect(container.querySelector(".bc-staff__engraving svg")).toBeTruthy();
+    });
+    expect(rendered.length).toBeGreaterThan(0);
+    expect(rendered[0]).toContain("<mei");
   });
 
   it("renders chord label", () => {
     const { container } = render(<StaffNotation notes={["C", "E", "G"]} chordLabel="Cmaj" />);
     const label = container.querySelector(".bc-staff__label");
-    expect(label).toBeTruthy();
     expect(label?.textContent).toBe("Cmaj");
   });
 
   it("has data-controls attribute for export compatibility", () => {
     const { container } = render(<StaffNotation notes={["C", "E", "G"]} showPlayback />);
-    const controls = container.querySelector("[data-controls]");
-    expect(controls).toBeTruthy();
+    expect(container.querySelector("[data-controls]")).toBeTruthy();
   });
 
-  it("renders treble-only for high notes", () => {
-    const { container } = render(<StaffNotation notes={["E", "G", "B"]} rhOctave={4} />);
-    const treble = container.querySelector(".bc-staff__treble");
-    const bass = container.querySelector(".bc-staff__bass");
-    expect(treble).toBeTruthy();
-    expect(bass).toBeFalsy();
+  it("omits controls when playback is disabled", () => {
+    const { container } = render(<StaffNotation notes={["C", "E", "G"]} showPlayback={false} />);
+    expect(container.querySelector("[data-controls]")).toBeFalsy();
   });
 
-  it("renders accidentals for sharped notes", () => {
-    const { container } = render(<StaffNotation notes={["C#", "E", "G#"]} />);
-    const accidentals = container.querySelectorAll(".bc-staff__accidental");
-    expect(accidentals.length).toBe(2);
+  it("labels the SVG with the chord name", () => {
+    const { container } = render(<StaffNotation notes={["C", "E", "G"]} chordLabel="Cmaj7" />);
+    const svg = container.querySelector("svg.bc-staff");
+    expect(svg?.getAttribute("aria-label")).toBe("Staff notation: Cmaj7");
+  });
+});
+
+describe("buildMei", () => {
+  it("puts a treble chord on a single staff", () => {
+    const { mei, staffMode } = buildMei(["C", "E", "G"], { rhOctave: 4 });
+    expect(staffMode).toBe("treble");
+    expect(mei).toContain('clef.shape="G"');
+    expect(mei).toContain("<chord");
+    expect((mei.match(/<note /g) ?? []).length).toBe(3);
   });
 
-  it("renders with bc-staff class", () => {
-    const { container } = render(<StaffNotation notes={["C"]} />);
-    const svg = container.querySelector(".bc-staff");
-    expect(svg).toBeTruthy();
+  it("uses a grand staff for explicit LH/RH split", () => {
+    const { mei, staffMode } = buildMei(["C", "E", "G"], { lhNotes: ["C"], lhOctave: 3, rhOctave: 4 });
+    expect(staffMode).toBe("grand");
+    expect(mei).toContain('symbol="brace"');
+    expect(mei).toContain('clef.shape="F"');
+    expect(mei).toContain('clef.shape="G"');
+  });
+
+  it("preserves the chord's own accidental spelling", () => {
+    const { mei } = buildMei(["C#", "Bb", "G"], { rhOctave: 4 });
+    expect(mei).toContain('pname="c" oct="4" accid="s"');
+    expect(mei).toContain('pname="b" oct="4" accid="f"');
+  });
+
+  it("honors octave-qualified notes", () => {
+    const { mei } = buildMei([], { octaveQualifiedNotes: ["C:4", "E:4", "G:4"] });
+    expect(mei).toContain('oct="4"');
+    expect((mei.match(/<note /g) ?? []).length).toBe(3);
+  });
+
+  it("chooses bass clef when notes sit low", () => {
+    const { mei, staffMode } = buildMei(["C", "E", "G"], { rhOctave: 2 });
+    expect(staffMode).toBe("bass");
+    expect(mei).toContain('clef.shape="F"');
   });
 });

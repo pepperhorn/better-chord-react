@@ -121,7 +121,15 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
   if (parsed.isScale && parsed.scaleName) {
     const [scaleRoot, ...scaleTypeParts] = parsed.scaleName.split(" ");
     const scaleType = scaleTypeParts.join(" ");
-    const scaleResolved = resolveScale(scaleRoot, scaleType, parsed.scaleDirection, parsed.scaleOctaves);
+    // One octave from the root by default; "N octaves" extends the run and
+    // "starting on X" rotates the scale to begin on that note.
+    const scaleResolved = resolveScale(
+      scaleRoot,
+      scaleType,
+      parsed.scaleDirection,
+      parsed.scaleOctaves,
+      parsed.startingNote,
+    );
     const scaleKeyboardNotes = scaleResolved.notes.map(normalizeNote);
     const layoutPadding = parsed.padding ?? padding ?? 1;
     const resolvedFormat = parsed.format ?? format;
@@ -184,8 +192,9 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
       return singleOctaveDegrees[i % singleOctaveDegrees.length];
     });
 
-    // Scale fingering: auto-compute if "with fingering" is in the prompt
-    const scaleFingering = parsed.autoFingering
+    // Scale fingering: auto-compute if "with fingering" is in the prompt.
+    // Standard fingerings are tonic-based, so skip them for rotated starts.
+    const scaleFingering = parsed.autoFingering && scaleResolved.startIndex === 0
       ? scaleAutoFingering(scaleRoot, scaleType, "rh", parsed.scaleOctaves ?? 1)
       : undefined;
 

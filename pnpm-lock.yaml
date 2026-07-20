@@ -56,11 +56,23 @@ importers:
         specifier: ^4.1.1
         version: 4.1.1(@types/node@22.19.17)(jsdom@25.0.1)(vite@6.4.1(@types/node@22.19.17)(tsx@4.21.0))
 
+  packages/chordl-listen:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.1
+        version: 4.1.1(@types/node@22.19.17)(jsdom@25.0.1)(vite@6.4.1(@types/node@22.19.17)(tsx@4.21.0))
+
   packages/chordl-react:
     dependencies:
       '@pepperhorn/chordl-core':
         specifier: workspace:*
         version: link:../chordl-core
+      '@pepperhorn/chordl-listen':
+        specifier: workspace:*
+        version: link:../chordl-listen
       '@pepperhorn/chordl-voicings':
         specifier: workspace:*
         version: link:../chordl-voicings
@@ -73,6 +85,9 @@ importers:
       tonal:
         specifier: ^6.3.0
         version: 6.4.3
+      verovio:
+        specifier: ^6.2.0
+        version: 6.2.0
     devDependencies:
       '@pepperhorn/chordl-board':
         specifier: workspace:*
@@ -1728,6 +1743,10 @@ packages:
 
   utrie@1.0.2:
     resolution: {integrity: sha512-1MLa5ouZiOmQzUbjbu9VmjLzn1QLXBhwpUa7kdLUQK+KQ5KA9I1vk5U4YHe/X2Ch7PYnJfWuWT+VbuxbGwljhw==}
+
+  verovio@6.2.0:
+    resolution: {integrity: sha512-yYU4CAik+ln4tdDOSLJPypQ24fiRsJtNgmgobsPnrSQYxesjwLrrPvth4mumeBRh3S20VERw9+GPXpRyhT1R4A==}
+    engines: {node: '>= 14.18.0'}
 
   vite-plugin-dts@4.5.4:
     resolution: {integrity: sha512-d4sOM8M/8z7vRXHHq/ebbblfaxENjogAAekcfcDCCwAyvGqnPrc7f4NZbvItS+g4WTgerW0xDwSz5qz11JT3vg==}
@@ -3422,6 +3441,8 @@ snapshots:
   utrie@1.0.2:
     dependencies:
       base64-arraybuffer: 1.0.2
+
+  verovio@6.2.0: {}
 
   vite-plugin-dts@4.5.4(@types/node@22.19.17)(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.17)(tsx@4.21.0)):
     dependencies:

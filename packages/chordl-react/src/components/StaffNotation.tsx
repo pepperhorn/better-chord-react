@@ -1,24 +1,12 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import {
-  computeStaffLayout,
-  getDefaultGlyphs,
-  STAFF_LINE_SPACING,
-  STAFF_WIDTH,
-  NOTE_COLUMN_X,
-  NOTE_HEAD_RX,
-  LEDGER_LINE_EXTEND,
-  LEDGER_LINE_STROKE,
-  STAFF_LINE_STROKE,
-  BRACE_WIDTH,
-  STAFF_TOP_MARGIN,
-} from "@pepperhorn/chordl-core";
-import type { StaffGlyphSet, StaffLayoutOptions } from "@pepperhorn/chordl-core";
+import { buildMei } from "@pepperhorn/chordl-core";
+import type { StaffGlyphSet } from "@pepperhorn/chordl-core";
 import { PlaybackControls } from "./PlaybackControls";
 import { useUITheme } from "../ui-theme";
-import { ensureStaffFontsInjected } from "../staff-fonts";
-
-// Inject embedded SMuFL fonts at module load time. No-op during SSR.
-ensureStaffFontsInjected();
+import { renderMeiToSvg } from "../verovio";
+import type { VerovioFont } from "../verovio";
+import { getDefaultGlyphs } from "@pepperhorn/chordl-core";
 
 export interface StaffNotationProps {
   notes: string[];
@@ -31,9 +19,31 @@ export interface StaffNotationProps {
   chordLabel?: string;
   scale?: number;
   showPlayback?: boolean;
+  /** Which SMuFL font to engrave with. `name` selects the Verovio font
+   *  (Bravura / Petaluma); defaults to the app-wide glyph selection. */
   glyphs?: StaffGlyphSet;
   className?: string;
   style?: CSSProperties;
+}
+
+const CONTROLS_HEIGHT = 30;
+const CONTROLS_WIDTH = 170;
+const LABEL_HEIGHT = 18;
+
+/** Map the app's SMuFL glyph set to a Verovio font name. */
+function fontFor(glyphs: StaffGlyphSet | undefined): VerovioFont {
+  const name = (glyphs ?? getDefaultGlyphs()).name;
+  return name === "Petaluma" ? "Petaluma" : "Bravura";
+}
+
+/** Pull intrinsic pixel dimensions out of a Verovio SVG string. */
+function parseSvgSize(svg: string): { width: number; height: number } {
+  const w = svg.match(/\bwidth="([\d.]+)px"/);
+  const h = svg.match(/\bheight="([\d.]+)px"/);
+  if (w && h) return { width: parseFloat(w[1]), height: parseFloat(h[1]) };
+  const vb = svg.match(/viewBox="[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/);
+  if (vb) return { width: parseFloat(vb[1]), height: parseFloat(vb[2]) };
+  return { width: 160, height: 120 };
 }
 
 export function StaffNotation({
@@ -50,101 +60,59 @@ export function StaffNotation({
   style,
 }: StaffNotationProps) {
   const { tokens: ui } = useUITheme();
-  const g = glyphs ?? getDefaultGlyphs();
-  const layoutOpts: StaffLayoutOptions = { lhNotes, rhOctave, lhOctave, octaveQualifiedNotes };
-  const layout = computeStaffLayout(notes, layoutOpts);
+  const font = fontFor(glyphs);
 
-  const hasPlayback = showPlayback && notes.length > 0;
-  const controlsHeight = hasPlayback ? 30 : 0;
-  const totalHeight = layout.totalHeight + controlsHeight;
-  const totalWidth = layout.totalWidth;
+  const mei = useMemo(
+    () => buildMei(notes, { lhNotes, rhOctave, lhOctave, octaveQualifiedNotes }).mei,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [notes.join(","), lhNotes?.join(","), rhOctave, lhOctave, octaveQualifiedNotes?.join(",")],
+  );
+
+  const [staffSvg, setStaffSvg] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const nestRef = useRef<SVGGElement | null>(null);
+
+  // Verovio scale is a percent; map the component's ~0.5 scale into its range.
+  const verovioScale = Math.max(24, Math.round(scale * 80));
+
+  useEffect(() => {
+    let cancelled = false;
+    setFailed(false);
+    renderMeiToSvg(mei, { font, scale: verovioScale })
+      .then((svg) => { if (!cancelled) setStaffSvg(svg); })
+      // Clear the SVG on failure so a later retry of identical MEI still
+      // changes state and re-fires the injection effect below.
+      .catch(() => { if (!cancelled) { setStaffSvg(null); setFailed(true); } });
+    return () => { cancelled = true; };
+  }, [mei, font, verovioScale]);
+
+  // Inject the raw Verovio SVG into the nested <g> (imperatively, so React
+  // doesn't try to reconcile Verovio's markup).
+  useEffect(() => {
+    if (nestRef.current) nestRef.current.innerHTML = staffSvg ?? "";
+  }, [staffSvg]);
+
+  const size = staffSvg ? parseSvgSize(staffSvg) : { width: 160, height: 120 };
+  const labelH = chordLabel ? LABEL_HEIGHT : 0;
+  const controlsH = showPlayback && notes.length > 0 ? CONTROLS_HEIGHT : 0;
+  const totalWidth = Math.max(size.width, controlsH ? CONTROLS_WIDTH : 0, 120);
+  const totalHeight = size.height + labelH + controlsH;
 
   const staffColor = ui.text ?? "#333";
-  const noteColor = ui.text ?? "#333";
-
-  // Render 5 staff lines starting at topY
-  function renderStaffLines(topY: number) {
-    const lines = [];
-    for (let i = 0; i < 5; i++) {
-      const y = topY + i * STAFF_LINE_SPACING;
-      lines.push(
-        <line
-          key={`line-${topY}-${i}`}
-          className="bc-staff__line"
-          x1={BRACE_WIDTH + 2}
-          y1={y}
-          x2={STAFF_WIDTH - 4}
-          y2={y}
-          stroke={staffColor}
-          strokeWidth={STAFF_LINE_STROKE}
-        />,
-      );
-    }
-    return lines;
-  }
-
-  // SMuFL fonts are designed so that 1 em = 4 staff spaces.
-  // Setting font-size = 4 * STAFF_LINE_SPACING renders glyphs at correct staff size.
-  const glyphFontSize = STAFF_LINE_SPACING * 4;
-
-  function renderClef(type: "treble" | "bass", staffTopY: number) {
-    const clefX = BRACE_WIDTH + 4;
-    // SMuFL glyph y-origin sits on the clef's reference line:
-    //   gClef on G4 (2nd line from bottom), fClef on F3 (2nd line from top).
-    const refLineY = type === "treble"
-      ? staffTopY + STAFF_LINE_SPACING * 3
-      : staffTopY + STAFF_LINE_SPACING;
-    const codepoint = type === "treble" ? g.glyphs.trebleClef : g.glyphs.bassClef;
-
-    return (
-      <text
-        className={`bc-staff__clef--${type}`}
-        x={clefX}
-        y={refLineY}
-        fontFamily={g.fontFamily}
-        fontSize={glyphFontSize}
-        fill={staffColor}
-      >
-        {codepoint}
-      </text>
-    );
-  }
-
-  function renderAccidental(
-    type: "sharp" | "flat",
-    x: number,
-    y: number,
-  ) {
-    const codepoint = type === "sharp" ? g.glyphs.sharp : g.glyphs.flat;
-    return (
-      <text
-        className="bc-staff__accidental"
-        x={x}
-        y={y}
-        fontFamily={g.fontFamily}
-        fontSize={glyphFontSize}
-        fill={noteColor}
-        textAnchor="middle"
-      >
-        {codepoint}
-      </text>
-    );
-  }
-
-  const controlsX = totalWidth - 170;
-  const controlsY = 4;
-  const staffOffsetY = controlsHeight;
+  const controlsX = totalWidth - CONTROLS_WIDTH + 4;
 
   return (
     <svg
       viewBox={`0 0 ${totalWidth} ${totalHeight}`}
       xmlns="http://www.w3.org/2000/svg"
       className={`bc-staff ${className ?? ""}`.trim()}
-      style={{ width: "100%", maxWidth: totalWidth * scale * 2, ...style }}
+      // Verovio glyphs use `currentColor`; set it to the theme text color so
+      // the engraving stays visible in dark mode (not left to CSS inheritance).
+      style={{ width: "100%", maxWidth: totalWidth * 1.6, color: staffColor, ...style }}
       role="img"
       aria-label={chordLabel ? `Staff notation: ${chordLabel}` : "Staff notation"}
     >
-      {hasPlayback && (
+      {controlsH > 0 && (
         <g data-controls="">
           <PlaybackControls
             notes={notes}
@@ -153,120 +121,41 @@ export function StaffNotation({
             lhOctave={lhOctave}
             chordName={chordLabel ?? notes.join("-")}
             x={controlsX}
-            y={controlsY}
+            y={4}
           />
         </g>
       )}
 
-      <g transform={`translate(0, ${staffOffsetY})`}>
-        {/* Chord label */}
-        {chordLabel && (
-          <text
-            className="bc-staff__label"
-            x={NOTE_COLUMN_X}
-            y={STAFF_TOP_MARGIN - 13}
-            textAnchor="middle"
-            fontSize={13}
-            fontWeight={600}
-            fill={noteColor}
-            fontFamily="system-ui, sans-serif"
-          >
-            {chordLabel}
-          </text>
-        )}
+      {chordLabel && (
+        <text
+          className="bc-staff__label"
+          x={size.width / 2}
+          y={controlsH + LABEL_HEIGHT - 5}
+          textAnchor="middle"
+          fontSize={13}
+          fontWeight={600}
+          fill={staffColor}
+          fontFamily="system-ui, sans-serif"
+        >
+          {chordLabel}
+        </text>
+      )}
 
-        <g className="bc-staff__system">
-          {/* Brace (grand staff only) */}
-          {layout.staffMode === "grand" && layout.trebleTopY >= 0 && (
-            <path
-              className="bc-staff__brace"
-              d={g.brace(
-                layout.bassTopY + STAFF_LINE_SPACING * 4 - layout.trebleTopY,
-              )}
-              transform={`translate(0, ${layout.trebleTopY})`}
-              fill="none"
-              stroke={staffColor}
-              strokeWidth={2}
-            />
-          )}
-
-          {/* Barline */}
-          {layout.staffMode === "grand" && (
-            <line
-              className="bc-staff__barline"
-              x1={BRACE_WIDTH + 2}
-              y1={layout.trebleTopY}
-              x2={BRACE_WIDTH + 2}
-              y2={layout.bassTopY + STAFF_LINE_SPACING * 4}
-              stroke={staffColor}
-              strokeWidth={STAFF_LINE_STROKE}
-            />
-          )}
-
-          {/* Treble staff */}
-          {layout.trebleTopY >= 0 && (
-            <g className="bc-staff__treble">
-              {renderStaffLines(layout.trebleTopY)}
-              {renderClef("treble", layout.trebleTopY)}
-            </g>
-          )}
-
-          {/* Bass staff */}
-          {layout.bassTopY >= 0 && (
-            <g className="bc-staff__bass">
-              {renderStaffLines(layout.bassTopY)}
-              {renderClef("bass", layout.bassTopY)}
-            </g>
-          )}
-
-          {/* Notes */}
-          <g className="bc-staff__notes">
-            {layout.notes.map((note, i) => {
-              // Ledger lines extend to cover offset noteheads
-              const ledgerLeft = Math.min(note.noteX, NOTE_COLUMN_X) - NOTE_HEAD_RX - LEDGER_LINE_EXTEND;
-              const ledgerRight = Math.max(note.noteX, NOTE_COLUMN_X) + NOTE_HEAD_RX + LEDGER_LINE_EXTEND;
-
-              return (
-              <g key={i} className="bc-staff__note">
-                {/* Ledger lines */}
-                {note.ledgerLines.map((ly, j) => (
-                  <line
-                    key={`ledger-${j}`}
-                    className="bc-staff__ledger"
-                    x1={ledgerLeft}
-                    y1={ly}
-                    x2={ledgerRight}
-                    y2={ly}
-                    stroke={staffColor}
-                    strokeWidth={LEDGER_LINE_STROKE}
-                  />
-                ))}
-
-                {/* Accidental */}
-                {note.accidental && renderAccidental(
-                  note.accidental,
-                  note.accidentalX,
-                  note.y,
-                )}
-
-                {/* Notehead (whole note glyph) */}
-                <text
-                  className="bc-staff__notehead"
-                  x={note.noteX}
-                  y={note.y}
-                  fontFamily={g.fontFamily}
-                  fontSize={glyphFontSize}
-                  fill={noteColor}
-                  textAnchor="middle"
-                >
-                  {g.glyphs.wholeNote}
-                </text>
-              </g>
-              );
-            })}
-          </g>
-        </g>
-      </g>
+      {failed ? (
+        <text
+          x={totalWidth / 2}
+          y={controlsH + labelH + 20}
+          textAnchor="middle"
+          fontSize={11}
+          fill={ui.textMuted ?? "#888"}
+          fontFamily="system-ui, sans-serif"
+        >
+          notation unavailable
+        </text>
+      ) : (
+        // Verovio's SVG is injected here imperatively (see effect above).
+        <g ref={nestRef} className="bc-staff__engraving" transform={`translate(0, ${controlsH + labelH})`} />
+      )}
     </svg>
   );
 }

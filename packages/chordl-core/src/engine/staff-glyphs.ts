@@ -1,15 +1,10 @@
 // SMuFL (Standard Music Font Layout) glyph sets.
 //
-// Glyphs are addressed by Unicode codepoint and rendered as <text> with the
-// matching font-family. SMuFL fonts are designed so that 1 em = 4 staff
-// spaces, which means setting font-size = 4 * staffLineSpacing makes glyphs
-// render at the correct staff size with no per-glyph scaling.
-//
-// Font loading: @pepperhorn/chordl-react auto-injects subsetted versions
-// (PHBravura, PHPetaluma — see chordl-react/src/staff-fonts.ts) so consumers
-// don't need to host woff2 files. The fontFamily stack falls back to the
-// unsubsetted Bravura/Petaluma names so consumers who provide the full fonts
-// (e.g. for extended glyphs beyond the 6 subset codepoints) still work.
+// Notation is now engraved by Verovio (see chordl-react/src/verovio.ts), which
+// resolves glyphs itself from the bundled Bravura/Petaluma font zips. These
+// descriptors are retained as the public identity of each font — the `name`
+// selects the Verovio font — and the codepoint/brace fields remain for any
+// consumer still doing its own SMuFL text rendering.
 
 export interface StaffGlyphSet {
   name: string;

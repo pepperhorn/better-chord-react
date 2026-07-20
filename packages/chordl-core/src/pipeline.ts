@@ -1,5 +1,6 @@
 import { parseChordDescription } from "./parser/natural-language";
 import { resolveChord } from "./resolver/chord-resolver";
+import { resolveScale } from "./resolver/scale-resolver";
 import { calculateLayout } from "./resolver/auto-layout";
 import { computeKeyboard, computeSvgDimensions } from "./engine/keyboard-layout";
 import { mapHighlights, normalizeNote } from "./engine/highlight-mapper";
@@ -114,20 +115,45 @@ export function processChordRequest(request: ChordRequest): ChordResult {
 
     // 1. Parse
     const parsed = parseChordDescription(input);
-    if (!parsed.chordName) {
-      return errorResult("Could not extract a chord name from the input");
-    }
+    const isScale = Boolean(parsed.isScale && parsed.scaleName);
 
-    // 2. Resolve
-    const resolved = resolveChord(parsed.chordName, parsed.inversion);
-    const pitchClasses = resolved.notes;                    // display names (Bb, Eb, etc.)
+    // 2. Resolve — scales resolve one octave from the root by default
+    // ("N octaves" extends, "starting on X" rotates); chords via Tonal.
+    let displayName: string;
+    let resolvedRoot: string;
+    let resolvedType: string;
+    let pitchClasses: string[];
+
+    if (isScale) {
+      const [scaleRoot, ...scaleTypeParts] = parsed.scaleName!.split(" ");
+      const scaleResolved = resolveScale(
+        scaleRoot,
+        scaleTypeParts.join(" "),
+        parsed.scaleDirection,
+        parsed.scaleOctaves ?? 1,
+        parsed.startingNote,
+      );
+      displayName = `${parsed.scaleName} scale`;
+      resolvedRoot = scaleResolved.root;
+      resolvedType = scaleResolved.type;
+      pitchClasses = scaleResolved.notes;
+    } else {
+      if (!parsed.chordName) {
+        return errorResult("Could not extract a chord name from the input");
+      }
+      const resolved = resolveChord(parsed.chordName, parsed.inversion);
+      displayName = parsed.chordName;
+      resolvedRoot = resolved.root;
+      resolvedType = resolved.type;
+      pitchClasses = resolved.notes;                        // display names (Bb, Eb, etc.)
+    }
     const keyboardPitchClasses = pitchClasses.map(normalizeNote); // sharps for keyboard internals
 
-    // 3. Layout
+    // 3. Layout — a scale's starting note is already applied via rotation
     const layoutFormat: Format = parsed.format ?? "compact";
     const layout = calculateLayout(keyboardPitchClasses, {
       padding: parsed.padding,
-      startingNote: parsed.startingNote,
+      startingNote: isScale ? undefined : parsed.startingNote,
       spanFrom: parsed.spanFrom,
       spanTo: parsed.spanTo,
     });
@@ -162,8 +188,9 @@ export function processChordRequest(request: ChordRequest): ChordResult {
       assigned.push({ pc, kpc, semitone, octave: currentOctave });
     }
 
-    // Step 2: compact — fold notes down if span exceeds playable range
-    if (assigned.length > 1) {
+    // Step 2: compact — fold notes down if span exceeds playable range.
+    // Scales are sequential runs, not stacked voicings — never fold them.
+    if (!isScale && assigned.length > 1) {
       const baseSemi = assigned[0].semitone + assigned[0].octave * 12;
       for (let i = 1; i < assigned.length; i++) {
         const noteSemi = assigned[i].semitone + assigned[i].octave * 12;
@@ -185,8 +212,8 @@ export function processChordRequest(request: ChordRequest): ChordResult {
     // 7. Build result
     const result: ChordResult = {
       success: true,
-      chordName: parsed.chordName,
-      root: resolved.root,
+      chordName: displayName,
+      root: resolvedRoot,
       notes: midiNoteNames,
       inversion: parsed.inversion,
       keyboard: {
@@ -197,8 +224,8 @@ export function processChordRequest(request: ChordRequest): ChordResult {
       telemetry: {
         parser: "chord",
         resolver: {
-          root: resolved.root,
-          type: resolved.type,
+          root: resolvedRoot,
+          type: resolvedType,
           pitchClasses,
         },
         durationMs: performance.now() - start,
@@ -223,7 +250,7 @@ export function processChordRequest(request: ChordRequest): ChordResult {
         pipeline: {
           parser: "chord",
           parsed: {
-            chordName: parsed.chordName,
+            chordName: displayName,
             inversion: parsed.inversion,
             allInversions: parsed.allInversions,
             startingNote: parsed.startingNote,
@@ -243,8 +270,8 @@ export function processChordRequest(request: ChordRequest): ChordResult {
           },
           resolver: {
             method: "tonal",
-            type: resolved.type,
-            root: resolved.root,
+            type: resolvedType,
+            root: resolvedRoot,
             pitchClasses,
           },
           voicing: {
