@@ -7,6 +7,8 @@ export { ProgressionView } from "./components/ProgressionView";
 export { StaffNotation } from "./components/StaffNotation";
 export { ChordSheet } from "./components/ChordSheet";
 export type { StaffNotationProps } from "./components/StaffNotation";
+export { ListenOverlay } from "./components/ListenOverlay";
+export type { ListenOverlayProps } from "./components/ListenOverlay";
 export type { ChordGroupProps } from "./components/ChordGroup";
 export type { ProgressionViewProps, GroupMode } from "./components/ProgressionView";
 

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { createRoot } from "react-dom/client";
-import { PianoKeyboard, PianoChord, VoicingVariantToggle, StaffNotation, ChordSheet, ProgressionView, isProgressionRequest, parseProgressionRequest, resolveProgressionRequest, BRAVURA_GLYPHS, PETALUMA_GLYPHS, setDefaultGlyphs, encodeChordSheet, decodeChordSheet } from "../src";
+import { PianoKeyboard, PianoChord, VoicingVariantToggle, StaffNotation, ChordSheet, ProgressionView, ListenOverlay, isProgressionRequest, parseProgressionRequest, resolveProgressionRequest, BRAVURA_GLYPHS, PETALUMA_GLYPHS, setDefaultGlyphs, encodeChordSheet, decodeChordSheet } from "../src";
 import { parseChordDescription, resolveChord } from "@pepperhorn/chordl-core";
 import type { TextSize, NoteNameMode } from "@pepperhorn/chordl-core";
 import { ChordBoard, useChordBoard } from "@pepperhorn/chordl-board";
@@ -394,6 +394,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editPulseKey, setEditPulseKey] = useState(0);
   const [inputPulsing, setInputPulsing] = useState(false);
+  const [listenOpen, setListenOpen] = useState(false);
 
   // Serialize form annotation state to NL modifiers appended to the chord string.
   const detailsModifiers = useMemo(() => {
@@ -500,7 +501,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
           className={inputPulsing ? "chordl-input--edit-pulse" : undefined}
           style={{
             width: "100%",
-            padding: "1rem 1.25rem",
+            padding: "1rem 3.5rem 1rem 1.25rem",
             fontSize: "1.05rem",
             fontFamily: "'DM Sans', system-ui, sans-serif",
             fontWeight: 400,
@@ -525,7 +526,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
         {isProg && (
           <span className="progression-indicator-tag" style={{
             position: "absolute",
-            right: 14,
+            right: 58,
             top: "50%",
             transform: "translateY(-50%)",
             fontSize: "0.7rem",
@@ -540,7 +541,45 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             Progression
           </span>
         )}
+        {/* Mic — open the listen overlay to identify chords from audio */}
+        <button
+          className="listen-mic-btn"
+          onClick={() => setListenOpen(true)}
+          aria-label="Listen for chords with your microphone"
+          title="Listen for chords"
+          style={{
+            position: "absolute",
+            right: 12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: 34,
+            height: 34,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid var(--input-floating-border)",
+            borderRadius: "50%",
+            background: "var(--pill-bg)",
+            color: "var(--pill-active-text)",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="9" y="2" width="6" height="12" rx="3" />
+            <path d="M5 10a7 7 0 0 0 14 0" />
+            <line x1="12" y1="19" x2="12" y2="22" />
+          </svg>
+        </button>
       </div>
+
+      <ListenOverlay
+        open={listenOpen}
+        onClose={() => setListenOpen(false)}
+        uiTheme={uiTheme}
+        onSaveChord={(nl) => board.addItem({ nl })}
+        onAddChords={(nls) => nls.forEach((nl) => board.addItem({ nl }))}
+      />
 
       {/* Chord Details — collapsible form for title/sub/footer + annotations */}
       {!isProg && (

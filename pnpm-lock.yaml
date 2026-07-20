@@ -56,11 +56,23 @@ importers:
         specifier: ^4.1.1
         version: 4.1.1(@types/node@22.19.17)(jsdom@25.0.1)(vite@6.4.1(@types/node@22.19.17)(tsx@4.21.0))
 
+  packages/chordl-listen:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.1
+        version: 4.1.1(@types/node@22.19.17)(jsdom@25.0.1)(vite@6.4.1(@types/node@22.19.17)(tsx@4.21.0))
+
   packages/chordl-react:
     dependencies:
       '@pepperhorn/chordl-core':
         specifier: workspace:*
         version: link:../chordl-core
+      '@pepperhorn/chordl-listen':
+        specifier: workspace:*
+        version: link:../chordl-listen
       '@pepperhorn/chordl-voicings':
         specifier: workspace:*
         version: link:../chordl-voicings

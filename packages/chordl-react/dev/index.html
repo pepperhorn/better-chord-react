@@ -366,6 +366,17 @@
         50% { opacity: 0.3; }
       }
 
+      @keyframes bc-listen-pulse {
+        0%   { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+        70%  { box-shadow: 0 0 0 5px transparent; opacity: 0.7; }
+        100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+      }
+
+      .listen-mic-btn:hover {
+        border-color: var(--input-focus, #38bdf8) !important;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+      }
+
       .fade-in {
         animation: fadeUp 0.5s ease both;
       }

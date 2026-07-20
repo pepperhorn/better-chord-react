@@ -4,6 +4,7 @@
 
 ### Added
 
+- **Live chord listener (`@pepperhorn/chordl-listen`).** A new package identifies chords from microphone input — mic → FFT chroma → template matching → stabilizer → chord symbol handed to chordl's resolver. A mic button in the input box opens a listen overlay that names the chord you're playing (with a keyboard preview) and keeps it on screen until a new chord is heard. **Save to board** captures the current chord; **Record** captures up to 60s and drops one board card per unique chord heard — a chord board for reference/teaching. Also includes a scaffolded (not-yet-wired) `SequenceFollower` for forward-only score page-turning.
 - **Scales: "starting on" and multi-octave rotation.** `c major scale starting on G` now runs one octave from G (rotating the scale, enharmonic-aware), and `c major scale 2 octaves` extends it. Scales default to one octave from the root.
 - **Notes: run-together sequences.** After the `notes` keyword you can write letters with no separators — `notes cdefgabc` → C D E F G A B C, `notes EbGbBb` → Eb Gb Bb (flats bind after uppercase letters), `notes E4G4C5` with octaves.
 - **Verovio font zips.** Bravura and Petaluma are bundled in the repo as Verovio custom-font zips (`packages/chordl-react/fonts/verovio`) and registered via `fontAddCustom`.
