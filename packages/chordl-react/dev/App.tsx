@@ -1,6 +1,12 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { PianoKeyboard, PianoChord, VoicingVariantToggle, StaffNotation, ChordSheet, ProgressionView, ListenOverlay, isProgressionRequest, parseProgressionRequest, resolveProgressionRequest, BRAVURA_GLYPHS, PETALUMA_GLYPHS, setDefaultGlyphs, encodeChordSheet, decodeChordSheet } from "../src";
+
+// Guitar view pulls in svguitar + the chords-db shape library (~200KB); load it
+// lazily so it only ships when the user actually switches to the Guitar display.
+const GuitarChordPanel = lazy(() =>
+  import("../src/components/GuitarChordPanel").then((m) => ({ default: m.GuitarChordPanel })),
+);
 import { parseChordDescription, resolveChord } from "@pepperhorn/chordl-core";
 import type { TextSize, NoteNameMode } from "@pepperhorn/chordl-core";
 import { ChordBoard, useChordBoard } from "@pepperhorn/chordl-board";
@@ -57,11 +63,12 @@ function PillGroup<T extends string | number>({
   );
 }
 
-type DisplayMode = "keyboard" | "both" | "staff";
+type DisplayMode = "keyboard" | "both" | "staff" | "guitar";
 const DISPLAY_MODES: { value: DisplayMode; label: string }[] = [
   { value: "keyboard", label: "Diagram" },
   { value: "both", label: "Both" },
   { value: "staff", label: "Notation" },
+  { value: "guitar", label: "Guitar" },
 ];
 
 function DisplayToggle({ value, onChange }: { value: DisplayMode; onChange: (v: DisplayMode) => void }) {
@@ -108,6 +115,17 @@ function DisplayToggle({ value, onChange }: { value: DisplayMode; onChange: (v: 
               <path d="M9 18V5l12-2v13" />
               <circle cx="6" cy="18" r="3" fill="currentColor" stroke="none" />
               <circle cx="18" cy="16" r="3" fill="currentColor" stroke="none" />
+            </svg>
+          )}
+          {value === "guitar" && (
+            <svg width="13" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+              {/* Fretboard icon (nut + strings + a fret) */}
+              <rect x="6" y="1" width="8" height="18" rx="1" />
+              <line x1="8" y1="1" x2="8" y2="19" />
+              <line x1="10" y1="1" x2="10" y2="19" />
+              <line x1="12" y1="1" x2="12" y2="19" />
+              <line x1="6" y1="7" x2="14" y2="7" />
+              <line x1="6" y1="13" x2="14" y2="13" />
             </svg>
           )}
           {current.label}
@@ -763,6 +781,17 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
         <ErrorBoundary key={input + theme + keyFormat + scale + highlightColor + displayMode + octaveShift + notationFont + detailsModifiers} onError={setError}>
           {isProg && progressionResult ? (
             <ProgressionView result={progressionResult} theme={theme} uiTheme={uiTheme} />
+          ) : displayMode === "guitar" ? (
+            <Suspense fallback={<div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "0.85rem", padding: "24px 0" }}>Loading guitar shapes…</div>}>
+              <GuitarChordPanel
+                chord={input}
+                scale={scale}
+                uiTheme={uiTheme}
+                title={title || undefined}
+                subheading={subheading || undefined}
+                footerText={footerText || undefined}
+              />
+            </Suspense>
           ) : (
             <VoicingVariantToggle
               chord={(octaveShift === 0 ? input : `${input} chord ${octaveShift > 0 ? "up" : "down"} ${Math.abs(octaveShift)} octave${Math.abs(octaveShift) > 1 ? "s" : ""}`) + detailsModifiers}
