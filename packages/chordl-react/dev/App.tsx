@@ -216,9 +216,9 @@ function ChordDetailsPanel(p: ChordDetailsPanelProps) {
     <details className="chord-details-panel" style={{
       width: "100%", maxWidth: 640,
       border: "1px solid var(--btn-border)", borderRadius: 12,
-      // Theme-aware surface so the panel is a dark box with light text in dark
-      // mode (was a hardcoded translucent white that read as washed-out).
-      background: "var(--input-floating-bg)",
+      // Theme-aware surface: light grey in light mode, dark box in dark mode
+      // (was a hardcoded translucent white that read as washed-out).
+      background: "var(--panel-bg)",
       color: "var(--text)",
       boxShadow: "0 0 0 1px rgba(125, 211, 252, 0.35), 0 0 18px 2px rgba(125, 211, 252, 0.45)",
     }}>
