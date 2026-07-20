@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Scales: "starting on" and multi-octave rotation.** `c major scale starting on G` now runs one octave from G (rotating the scale, enharmonic-aware), and `c major scale 2 octaves` extends it. Scales default to one octave from the root.
+- **Notes: run-together sequences.** After the `notes` keyword you can write letters with no separators — `notes cdefgabc` → C D E F G A B C, `notes EbGbBb` → Eb Gb Bb (flats bind after uppercase letters), `notes E4G4C5` with octaves.
+- **Verovio font zips.** Bravura and Petaluma are bundled in the repo as Verovio custom-font zips (`packages/chordl-react/fonts/verovio`) and registered via `fontAddCustom`.
+
+### Changed
+
+- **Notation now engraved by Verovio.** The staff view renders through Verovio (MEI → SVG) instead of the hand-rolled SVG engraver, matching the notation stack used by the other apps. Chords keep their own spelling on the staff (a `Bb` chord shows flats, not sharps). Standard/Hand-drawn maps to Bravura/Petaluma.
+
+### Fixed
+
+- **`c major scale` (and other scale requests) render through the batch pipeline** instead of failing with "Could not extract a chord name".
+- **Fingering boxes accept arbitrary strings** (e.g. violin `D1`, `A1`) instead of a single character, and a non-numeral no longer throws an unrecoverable render error — each board card is isolated by its own error boundary.
+
 ## 0.3.5 — 2026-05-26
 
 ### Fixed
