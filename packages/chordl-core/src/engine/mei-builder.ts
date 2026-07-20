@@ -136,12 +136,11 @@ export function buildMei(notes: string[], options: MeiBuildOptions = {}): MeiBui
       `<staffDef n="1" lines="5" clef.shape="G" clef.line="2"/>` +
       `<staffDef n="2" lines="5" clef.shape="F" clef.line="4"/>` +
       `</staffGrp></scoreDef>`;
-    // When notes aren't explicitly split, place by pitch: >= C4 treble, else bass.
-    const treble = hasExplicitSplit ? rhResolved : all.filter((n) => noteToMidi(n) >= 60);
-    const bass = hasExplicitSplit ? lhResolved : all.filter((n) => noteToMidi(n) < 60);
+    // Grand staff is only chosen for an explicit LH/RH split, so RH → treble,
+    // LH → bass.
     staves =
-      `<staff n="1">${layerXml(treble)}</staff>` +
-      `<staff n="2">${layerXml(bass)}</staff>`;
+      `<staff n="1">${layerXml(rhResolved)}</staff>` +
+      `<staff n="2">${layerXml(lhResolved)}</staff>`;
   } else {
     const clef = staffMode === "treble"
       ? `clef.shape="G" clef.line="2"`

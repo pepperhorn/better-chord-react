@@ -80,7 +80,9 @@ export function StaffNotation({
     setFailed(false);
     renderMeiToSvg(mei, { font, scale: verovioScale })
       .then((svg) => { if (!cancelled) setStaffSvg(svg); })
-      .catch(() => { if (!cancelled) setFailed(true); });
+      // Clear the SVG on failure so a later retry of identical MEI still
+      // changes state and re-fires the injection effect below.
+      .catch(() => { if (!cancelled) { setStaffSvg(null); setFailed(true); } });
     return () => { cancelled = true; };
   }, [mei, font, verovioScale]);
 
@@ -104,7 +106,9 @@ export function StaffNotation({
       viewBox={`0 0 ${totalWidth} ${totalHeight}`}
       xmlns="http://www.w3.org/2000/svg"
       className={`bc-staff ${className ?? ""}`.trim()}
-      style={{ width: "100%", maxWidth: totalWidth * 1.6, ...style }}
+      // Verovio glyphs use `currentColor`; set it to the theme text color so
+      // the engraving stays visible in dark mode (not left to CSS inheritance).
+      style={{ width: "100%", maxWidth: totalWidth * 1.6, color: staffColor, ...style }}
       role="img"
       aria-label={chordLabel ? `Staff notation: ${chordLabel}` : "Staff notation"}
     >

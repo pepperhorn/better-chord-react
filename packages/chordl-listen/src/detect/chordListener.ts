@@ -42,6 +42,10 @@ export class ChordListener {
   private timerId: ReturnType<typeof setInterval> | null = null;
   private lastFrame = 0;
   private running = false;
+  // Bumped by stop(); start() re-reads it after each await so a stop() that
+  // lands mid-startup (e.g. overlay closed during the mic-permission prompt)
+  // doesn't leave an orphaned stream/context/loop running.
+  private startToken = 0;
   private readonly now: TimeProvider;
 
   constructor(options: ChordListenerOptions = {}) {
@@ -68,19 +72,26 @@ export class ChordListener {
   /** Request the mic and begin analysis. Resolves once running (or rejects). */
   async start(): Promise<void> {
     if (this.running) return;
+    const token = ++this.startToken;
+    // If stop() ran while we were awaiting, bail and release anything acquired.
+    const abandoned = () => this.startToken !== token;
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
         },
       });
+      if (abandoned()) { stream.getTracks().forEach((t) => t.stop()); return; }
+      this.stream = stream;
+
       const Ctx =
         window.AudioContext ??
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new Ctx();
       if (this.ctx.state === "suspended") await this.ctx.resume();
+      if (abandoned()) { this.stop(); return; }
 
       const source = this.ctx.createMediaStreamSource(this.stream);
       this.analyser = this.ctx.createAnalyser();
@@ -103,6 +114,7 @@ export class ChordListener {
   /** Stop analysis and release the microphone. */
   stop(): void {
     this.running = false;
+    this.startToken++; // abandon any start() awaiting mid-flight
     if (this.rafId != null && typeof cancelAnimationFrame !== "undefined") {
       cancelAnimationFrame(this.rafId);
     }
