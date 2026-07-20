@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import type { CSSProperties, SVGProps } from "react";
+import { Component, useState, useEffect, useRef, useCallback } from "react";
+import type { CSSProperties, ReactNode, SVGProps } from "react";
 import { PianoChord } from "@pepperhorn/chordl-react";
 import type { UIThemeMode } from "@pepperhorn/chordl-react";
 import type { BoardItem, BoardMeta, BoardState, StorageAdapter } from "./types";
@@ -33,6 +33,41 @@ const BOARD_STYLES = `
 .chordl-board-title { margin: 0; font-size: 1.75rem; font-weight: 600; color: #111; font-family: Poppins, system-ui, sans-serif; line-height: 1.2; }
 .chordl-board-subtitle { margin: 4px 0 0 0; font-size: 1.05rem; font-weight: 400; color: #555; font-family: Poppins, system-ui, sans-serif; }
 `;
+
+/**
+ * Per-card error boundary — a card whose chord string fails to render shows
+ * an inline message instead of unmounting the whole board (and app).
+ * Keyed by the card's nl string upstream so edits re-attempt the render.
+ */
+class CardErrorBoundary extends Component<
+  { children: ReactNode; label: string },
+  { error: string | null }
+> {
+  state = { error: null as string | null };
+  static getDerivedStateFromError(err: Error) {
+    return { error: err.message };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div
+          style={{
+            padding: "16px 10px",
+            fontSize: "0.75rem",
+            color: "#b91c1c",
+            fontFamily: "system-ui, sans-serif",
+            textAlign: "center",
+            wordBreak: "break-word",
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>{this.props.label}</div>
+          {this.state.error}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function DragHandleIcon(props: SVGProps<SVGSVGElement>) {
   // 3-row x 2-col dot grid — the universal drag-to-reorder affordance.
@@ -575,15 +610,17 @@ export function ChordBoard({
                   <DragHandleIcon />
                 </div>
               )}
-              <PianoChord
-                chord={item.nl}
-                title={item.title}
-                subheading={item.subheading}
-                footerText={item.footerText}
-                scale={scale}
-                uiTheme={uiTheme}
-                showPlayback={false}
-              />
+              <CardErrorBoundary key={item.nl} label={item.nl}>
+                <PianoChord
+                  chord={item.nl}
+                  title={item.title}
+                  subheading={item.subheading}
+                  footerText={item.footerText}
+                  scale={scale}
+                  uiTheme={uiTheme}
+                  showPlayback={false}
+                />
+              </CardErrorBoundary>
               {!isExporting && (
                 <div
                   className="chordl-board-actions"

@@ -312,13 +312,17 @@ function ChordDetailsPanel(p: ChordDetailsPanelProps) {
                       onChange={(e) => {
                         const next = [...p.fingeringValues];
                         while (next.length < p.noteCount) next.push("");
-                        next[i] = e.target.value.slice(-1).toLowerCase();
+                        // Free-form labels (violin fingerings like "D1") —
+                        // strip only the characters that would break the
+                        // quoted serialization (quotes, commas).
+                        next[i] = e.target.value.replace(/["“”',]/g, "").slice(0, 3);
                         p.onFingeringValuesChange(next);
                       }}
-                      maxLength={1}
+                      maxLength={3}
+                      placeholder="·"
                       style={{
-                        width: 28, height: 28, textAlign: "center",
-                        padding: 0, fontSize: "0.9rem", fontFamily: "inherit",
+                        width: 34, height: 28, textAlign: "center",
+                        padding: 0, fontSize: "0.85rem", fontFamily: "inherit",
                         border: "1px solid var(--btn-border)", borderRadius: 6,
                         background: "var(--input-floating-bg)", color: "var(--text)", outline: "none",
                       }}
@@ -404,9 +408,12 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     if (fingeringMode === "auto") {
       parts.push(`with fingering in ${fingeringSize}`);
     } else if (fingeringMode === "custom") {
+      // Quoted custom-fingering syntax treats every value as a free string
+      // ("D1" for violin, "x" for skip). Comma separators preserve "-"
+      // placeholders positionally.
       const cleaned = fingeringValues.map((v) => v.trim() || "-");
       if (cleaned.some((v) => v !== "-")) {
-        parts.push(`fingering ${cleaned.join("-")} in ${fingeringSize}`);
+        parts.push(`custom fingering "${cleaned.join(",")}" in ${fingeringSize}`);
       }
     }
     return parts.length ? " " + parts.join(" ") : "";
@@ -711,7 +718,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
 
       {/* Chord output */}
       <div className="chord-output" style={{ width: "100%" }}>
-        <ErrorBoundary key={input + theme + keyFormat + scale + highlightColor + displayMode + octaveShift + notationFont} onError={setError}>
+        <ErrorBoundary key={input + theme + keyFormat + scale + highlightColor + displayMode + octaveShift + notationFont + detailsModifiers} onError={setError}>
           {isProg && progressionResult ? (
             <ProgressionView result={progressionResult} theme={theme} uiTheme={uiTheme} />
           ) : (
