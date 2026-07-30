@@ -6,3 +6,6 @@ site-dist
 .env
 .env.local
 .env.*.local
+
+# generated from chords-db by packages/chordl-guitar/scripts/build-data.mjs
+packages/chordl-guitar/src/generated/
