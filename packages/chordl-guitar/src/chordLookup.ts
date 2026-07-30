@@ -45,8 +45,16 @@ function toDbSuffix(suffix: string): string {
   if (s === "" || s === "maj" || s === "M") return "major";
   if (s === "m" || s === "min" || s === "-") return "minor";
   if (s === "min7") return "m7";
+  if (s === "M7") return "maj7";
   if (s === "°") return "dim";
+  if (s === "°7") return "dim7";
   if (s === "ø" || s === "ø7") return "m7b5";
+  // chords-db spells the 6/9 voicings without the slash.
+  if (s === "6/9") return "69";
+  if (s === "m6/9") return "m69";
+  // Bare "sus" (and "7sus") carry no extension number; sus4 is the convention.
+  if (s === "sus") return "sus4";
+  if (s === "7sus") return "7sus4";
   return s; // m7, maj7, 7, dim7, sus4, 6, 9, 11, 13, m7b5, ... match verbatim
 }
 

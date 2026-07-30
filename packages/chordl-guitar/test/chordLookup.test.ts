@@ -32,6 +32,16 @@ describe("lookupGuitarChord", () => {
     expect(hasGuitarChord("Db")).toBe(true); // → Csharp in chords-db
   });
 
+  it("maps chordl suffixes that chords-db spells differently", () => {
+    // chords-db has no bare "sus"/"7sus", no "°7", no "M7", and spells 6/9 as "69".
+    expect(hasGuitarChord("Csus")).toBe(true);   // → sus4
+    expect(hasGuitarChord("C7sus")).toBe(true);  // → 7sus4
+    expect(hasGuitarChord("C°7")).toBe(true);    // → dim7
+    expect(hasGuitarChord("CM7")).toBe(true);    // → maj7
+    expect(hasGuitarChord("C6/9")).toBe(true);   // → 69
+    expect(hasGuitarChord("Am6/9")).toBe(true);  // → m69
+  });
+
   it("returns null for unknown chords", () => {
     expect(lookupGuitarChord("H7")).toBeNull();
     expect(lookupGuitarChord("")).toBeNull();
