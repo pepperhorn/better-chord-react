@@ -421,3 +421,61 @@ describe("parseChordDescription", () => {
     expect(r.noteNameMode).toBe("degree");
   });
 });
+
+describe("scale shorthand", () => {
+  const scaleOf = (input: string) => {
+    const r = parseChordDescription(input);
+    return r.isScale ? r.scaleName : null;
+  };
+
+  it("reads a minor scale from chord shorthand", () => {
+    expect(scaleOf("dm scale")).toBe("D minor");
+    expect(scaleOf("dmin scale")).toBe("D minor");
+    expect(scaleOf("d min scale")).toBe("D minor");
+  });
+
+  it("reads a major scale from chord shorthand", () => {
+    expect(scaleOf("d maj scale")).toBe("D major");
+    expect(scaleOf("dmaj scale")).toBe("D major");
+  });
+
+  it("treats a bare root as major", () => {
+    expect(scaleOf("d scale")).toBe("D major");
+    expect(scaleOf("D SCALE")).toBe("D major");
+  });
+
+  it("tells the case-sensitive M and m markers apart", () => {
+    expect(scaleOf("dM scale")).toBe("D major");
+    expect(scaleOf("dm scale")).toBe("D minor");
+  });
+
+  it("handles accidental roots", () => {
+    expect(scaleOf("f#m scale")).toBe("F# minor");
+    expect(scaleOf("bb scale")).toBe("Bb major");
+    expect(scaleOf("c# maj scale")).toBe("C# major");
+  });
+
+  it("still honours the spelled-out forms", () => {
+    expect(scaleOf("d minor scale")).toBe("D minor");
+    expect(scaleOf("d major scale")).toBe("D major");
+    expect(scaleOf("d dorian")).toBe("D dorian");
+  });
+
+  it("keeps the octave count", () => {
+    const r = parseChordDescription("dm scale 2 octaves");
+    expect(r.scaleName).toBe("D minor");
+    expect(r.scaleOctaves).toBe(2);
+  });
+
+  it("defaults to one octave", () => {
+    expect(parseChordDescription("dm scale").scaleOctaves).toBe(1);
+  });
+
+  it("leaves chords alone without the word 'scale'", () => {
+    for (const chord of ["Dm", "D", "Cmaj7", "dm7", "F#m"]) {
+      const r = parseChordDescription(chord);
+      expect(r.isScale).toBeFalsy();
+      expect(r.chordName).toBe(chord === "dm7" ? "Dm7" : chord);
+    }
+  });
+});
