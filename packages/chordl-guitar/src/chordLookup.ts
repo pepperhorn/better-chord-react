@@ -7,6 +7,7 @@
  * return null.
  */
 import guitarDb from "@tombatossals/chords-db/lib/guitar.json";
+import ukuleleDb from "@tombatossals/chords-db/lib/ukulele.json";
 import type { Chord } from "svguitar";
 import {
   INSTRUMENTS,
@@ -20,22 +21,32 @@ import type {
 } from "./instruments";
 
 const GUITAR_DB = guitarDb as unknown as ChordsDb;
+const UKULELE_DB = ukuleleDb as unknown as ChordsDb;
 
+// chords-db ships guitar and ukulele voicing libraries.
 function dbFor(instrument: InstrumentId): ChordsDb | null {
   if (instrument === "guitar") return GUITAR_DB;
-  // Ukulele wiring is a follow-up (chords-db also ships ukulele.json).
+  if (instrument === "ukulele") return UKULELE_DB;
   return null;
 }
 
-// chordl roots (sharp/flat spellings) → chords-db root keys.
-const ROOT_TO_DB_KEY: Record<string, string> = {
-  C: "C", "C#": "Csharp", Db: "Csharp",
-  D: "D", "D#": "Eb", Eb: "Eb",
-  E: "E", Fb: "E", "E#": "F",
-  F: "F", "F#": "Fsharp", Gb: "Fsharp",
-  G: "G", "G#": "Ab", Ab: "Ab",
-  A: "A", "A#": "Bb", Bb: "Bb",
-  B: "B", Cb: "B", "B#": "C",
+// chordl roots → candidate chords-db root keys, most-likely first. chords-db
+// spells accidentals inconsistently across instruments (guitar uses "Csharp"/
+// "Fsharp"; ukulele uses "Db"/"Gb"), so each accidental lists both spellings
+// and findEntry picks whichever the active library actually has.
+const ROOT_TO_DB_KEYS: Record<string, string[]> = {
+  C: ["C"], "B#": ["C"],
+  "C#": ["Csharp", "Db"], Db: ["Db", "Csharp"],
+  D: ["D"],
+  "D#": ["Eb", "Dsharp"], Eb: ["Eb", "Dsharp"],
+  E: ["E"], Fb: ["E"],
+  F: ["F"], "E#": ["F"],
+  "F#": ["Fsharp", "Gb"], Gb: ["Gb", "Fsharp"],
+  G: ["G"],
+  "G#": ["Ab", "Gsharp"], Ab: ["Ab", "Gsharp"],
+  A: ["A"],
+  "A#": ["Bb", "Asharp"], Bb: ["Bb", "Asharp"],
+  B: ["B"], Cb: ["B"],
 };
 
 // chordl suffix → chords-db suffix. Most match verbatim; only the triads and a
@@ -68,9 +79,10 @@ function splitLabel(label: string): { root: string; suffix: string } | null {
 function findEntry(db: ChordsDb, label: string): ChordsDbEntry | null {
   const parsed = splitLabel(label);
   if (!parsed) return null;
-  const dbKey = ROOT_TO_DB_KEY[parsed.root];
-  if (!dbKey) return null;
-  const entries = db.chords[dbKey];
+  const candidates = ROOT_TO_DB_KEYS[parsed.root];
+  if (!candidates) return null;
+  // Pick the root spelling this library actually uses (guitar vs ukulele differ).
+  const entries = candidates.map((k) => db.chords[k]).find(Boolean);
   if (!entries) return null;
   const dbSuffix = toDbSuffix(parsed.suffix);
   return entries.find((e) => e.suffix === dbSuffix) ?? null;
