@@ -30,11 +30,14 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # Build first: packages resolve each other's types from dist (chordl-core
+      # imports @pepperhorn/chordl-voicings), so lint and test both fail on a
+      # clean checkout until the workspace has been built once.
+      - name: Build
+        run: pnpm build
+
       - name: Lint
         run: pnpm lint
 
       - name: Test
         run: pnpm test:run
-
-      - name: Build
-        run: pnpm build
