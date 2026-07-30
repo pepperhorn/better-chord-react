@@ -471,6 +471,32 @@ describe("scale shorthand", () => {
     expect(parseChordDescription("dm scale").scaleOctaves).toBe(1);
   });
 
+  it("does not read a root out of the middle of a scale-type word", () => {
+    // The trailing "c" of "harmonic"/"melodic" used to be taken as the root,
+    // so "dm harmonic minor" resolved to C minor.
+    expect(scaleOf("dm harmonic minor")).toBe("D harmonic minor");
+    expect(scaleOf("dm harmonic minor scale")).toBe("D harmonic minor");
+    expect(scaleOf("dm melodic minor")).toBe("D melodic minor");
+    expect(scaleOf("d harmonic minor")).toBe("D harmonic minor");
+  });
+
+  it("accepts a chord-shorthand root in front of a named scale type", () => {
+    expect(scaleOf("f#m harmonic minor")).toBe("F# harmonic minor");
+    expect(scaleOf("bbm melodic minor")).toBe("Bb melodic minor");
+    expect(scaleOf("dm natural minor")).toBe("D natural minor");
+    expect(scaleOf("dm dorian")).toBe("D dorian");
+    expect(scaleOf("dmaj lydian")).toBe("D lydian");
+  });
+
+  it("leaves the existing named scales untouched", () => {
+    expect(scaleOf("c blues")).toBe("C blues");
+    expect(scaleOf("g mixolydian")).toBe("G mixolydian");
+    expect(scaleOf("a minor pentatonic")).toBe("A minor pentatonic");
+    expect(scaleOf("c major pentatonic")).toBe("C major pentatonic");
+    expect(scaleOf("eb whole tone")).toBe("Eb whole tone");
+    expect(scaleOf("c diminished")).toBe("C diminished");
+  });
+
   it("leaves chords alone without the word 'scale'", () => {
     for (const chord of ["Dm", "D", "Cmaj7", "dm7", "F#m"]) {
       const r = parseChordDescription(chord);

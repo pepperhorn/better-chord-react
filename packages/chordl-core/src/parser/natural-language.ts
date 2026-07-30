@@ -109,14 +109,24 @@ const UNAMBIGUOUS_SCALE_TYPES = [
   "blues", "whole\\s+tone", "bebop", "diminished",
 ];
 
-// Scale patterns: "D major scale", "C blues", "A dorian", etc.
+// Scale patterns: "D major scale", "C blues", "A dorian", "Dm harmonic minor".
 // For "major"/"minor" alone, require the trailing word "scale" to avoid chord collision.
+//
+// The root must not be preceded by a letter, or the trailing "c" of
+// "harmonic"/"melodic" is read as a root note and "dm harmonic minor" resolves
+// to C minor. An optional chord-quality marker may sit between the root and the
+// scale type, so shorthand roots ("dm", "f#m", "dmaj") work the same as bare
+// ones — the named scale type wins, the marker is only there to be absorbed.
+const ROOT = "(?<![A-Za-z#b])([A-Ga-g][#b]?)";
+const QUALITY_MARKER = "(?:\\s*(?:maj|min|m|M)\\b)?";
 const SCALE_UNAMBIGUOUS_RE = new RegExp(
-  `([A-Ga-g][#b]?)\\s+(${UNAMBIGUOUS_SCALE_TYPES.join("|")})(?:\\s+scale)?`,
+  `${ROOT}${QUALITY_MARKER}\\s+(${UNAMBIGUOUS_SCALE_TYPES.join("|")})(?:\\s+scale)?`,
   "i",
 );
-const SCALE_EXPLICIT_RE =
-  /([A-Ga-g][#b]?)\s+(major|minor)\s+scale/i;
+const SCALE_EXPLICIT_RE = new RegExp(
+  `${ROOT}${QUALITY_MARKER}\\s+(major|minor)\\s+scale`,
+  "i",
+);
 
 // Chord-shorthand scales: "dm scale", "d maj scale", "dmaj scale", "d scale".
 // Only the major/minor markers — anything richer stays a chord. The word
