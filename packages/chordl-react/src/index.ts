@@ -9,6 +9,10 @@ export { ChordSheet } from "./components/ChordSheet";
 export type { StaffNotationProps } from "./components/StaffNotation";
 export { ListenOverlay } from "./components/ListenOverlay";
 export type { ListenOverlayProps } from "./components/ListenOverlay";
+export { GuitarChord } from "./components/GuitarChord";
+export type { GuitarChordProps } from "./components/GuitarChord";
+export { GuitarChordPanel } from "./components/GuitarChordPanel";
+export type { GuitarChordPanelProps } from "./components/GuitarChordPanel";
 export type { ChordGroupProps } from "./components/ChordGroup";
 export type { ProgressionViewProps, GroupMode } from "./components/ProgressionView";
 

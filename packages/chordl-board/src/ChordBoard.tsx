@@ -599,15 +599,16 @@ export function ChordBoard({
                     if (dragId === null) setArmedDragId(null);
                   }}
                   style={{
-                    position: "absolute",
-                    top: 8,
-                    left: 8,
+                    // A dedicated strip above the chord (flex row, not absolute)
+                    // so the handle never overlaps the diagram or its label.
                     display: "flex",
                     alignItems: "center",
-                    zIndex: 1,
+                    justifyContent: "center",
+                    height: 14,
+                    marginBottom: 2,
                   }}
                 >
-                  <DragHandleIcon />
+                  <DragHandleIcon style={{ transform: "rotate(90deg)" }} />
                 </div>
               )}
               <CardErrorBoundary key={item.nl} label={item.nl}>

@@ -13,6 +13,7 @@
       "require": "./dist/chordl.cjs"
     }
   },
+  "sideEffects": false,
   "files": [
     "dist",
     "fonts/OFL.txt",
@@ -33,10 +34,12 @@
   },
   "dependencies": {
     "@pepperhorn/chordl-core": "workspace:*",
+    "@pepperhorn/chordl-guitar": "workspace:*",
     "@pepperhorn/chordl-listen": "workspace:*",
     "@pepperhorn/chordl-voicings": "workspace:*",
     "jszip": "^3.10.1",
     "smplr": "^0.18.1",
+    "svguitar": "^2.5.1",
     "tonal": "^6.3.0",
     "verovio": "^6.2.0"
   },

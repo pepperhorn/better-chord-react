@@ -1,0 +1,37 @@
+{
+  "name": "@pepperhorn/chordl-guitar",
+  "version": "0.1.0",
+  "description": "Guitar/ukulele chord-shape lookup and svguitar diagram data — chords-db backed, with alternate fret positions",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "dependencies": {
+    "@tombatossals/chords-db": "^0.5.1",
+    "svguitar": "^2.5.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT"
+}
