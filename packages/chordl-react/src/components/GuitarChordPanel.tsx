@@ -57,6 +57,12 @@ export function GuitarChordPanel({
     () => (label ? lookupGuitarChord(label, instrument) : null),
     [label, instrument],
   );
+  // Stable settings object so GuitarChord (which re-draws when `settings`
+  // changes identity) only redraws when the instrument actually changes.
+  const guitarSettings = useMemo(
+    () => ({ strings: INSTRUMENTS[instrument].strings, tuning: INSTRUMENTS[instrument].tuning }),
+    [instrument],
+  );
 
   const [active, setActive] = useState(0);
   // Reset the selected position when the chord identity or instrument changes.
@@ -135,7 +141,7 @@ export function GuitarChordPanel({
           chord={result.shapes[idx]}
           scale={scale}
           frets={cfg.frets}
-          settings={{ strings: cfg.strings, tuning: cfg.tuning }}
+          settings={guitarSettings}
         />
 
         {/* Alternate placements */}
