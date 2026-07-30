@@ -2,7 +2,8 @@
 //
 // Pipeline: mic -> chroma (FFT template) -> template match -> stabilizer ->
 // chord symbol handed to chordl's resolver. See README for the design and the
-// (not-yet-wired) forward-only score follower for page turning.
+// forward-only score follower for page turning (wired via chordl-react's
+// FollowAlongOverlay).
 
 // Detection
 export { CHORD_TEMPLATES, PITCH_CLASSES, templateVector } from "./detect/templates";
@@ -19,6 +20,6 @@ export type { ChordListenerOptions } from "./detect/chordListener";
 // Resolve
 export { toChordSymbol } from "./resolve/toChordSymbol";
 
-// Follow (page turning — scaffolded, not yet wired to the UI)
+// Follow (page turning — driven by FollowAlongOverlay in chordl-react)
 export { SequenceFollower } from "./follow/sequenceFollower";
 export type { ExpectedChord, FollowerConfig, FollowResult } from "./follow/types";

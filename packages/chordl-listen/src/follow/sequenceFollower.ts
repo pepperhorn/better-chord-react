@@ -12,8 +12,8 @@ import type { ExpectedChord, FollowerConfig, FollowResult } from "./types";
  * - **A page is emitted only when the cursor crosses a page boundary**, since the
  *   viewer only cares about page changes, not every chord match.
  *
- * This is deliberately not wired into the live UI yet; it exists so the
- * page-turning consumer has a tested core to build on.
+ * The page-turning consumer is `FollowAlongOverlay` in `@pepperhorn/chordl-react`,
+ * which drives this core from the live mic stream.
  */
 export class SequenceFollower {
   private cursor = 0;
