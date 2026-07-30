@@ -47,8 +47,26 @@ describe("lookupGuitarChord", () => {
     expect(lookupGuitarChord("")).toBeNull();
   });
 
-  it("returns null for unsupported instruments (ukulele not wired yet)", () => {
-    expect(lookupGuitarChord("Am", "ukulele")).toBeNull();
+  it("resolves ukulele shapes (4 strings)", () => {
+    const res = lookupGuitarChord("Am", "ukulele");
+    expect(res).not.toBeNull();
+    expect(res!.instrument).toBe("ukulele");
+    // Open Am on ukulele: A=2, C/E/A open → [2,0,0,0]
+    expect(res!.positions[0].frets).toEqual([2, 0, 0, 0]);
+    // 4-string shape: strings numbered 1..4, none is string 5/6
+    expect(res!.shapes[0].fingers.every((f) => f[0] <= 4)).toBe(true);
+  });
+
+  it("resolves ukulele accidental roots despite flat spelling in that library", () => {
+    // ukulele.json spells these Db/Gb (not Csharp/Fsharp like guitar).
+    expect(hasGuitarChord("C#m", "ukulele")).toBe(true);
+    expect(hasGuitarChord("F#", "ukulele")).toBe(true);
+    expect(hasGuitarChord("Bb7", "ukulele")).toBe(true);
+  });
+
+  it("returns null for an unmodeled instrument", () => {
+    // @ts-expect-error — not a valid InstrumentId
+    expect(lookupGuitarChord("Am", "bass")).toBeNull();
   });
 
   it("produces one svguitar shape per position", () => {
