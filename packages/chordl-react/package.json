@@ -13,6 +13,7 @@
       "require": "./dist/chordl.cjs"
     }
   },
+  "sideEffects": false,
   "files": [
     "dist",
     "fonts/OFL.txt",
