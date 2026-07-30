@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { PianoKeyboard, PianoChord, VoicingVariantToggle, StaffNotation, ChordSheet, ProgressionView, ListenOverlay, isProgressionRequest, parseProgressionRequest, resolveProgressionRequest, BRAVURA_GLYPHS, PETALUMA_GLYPHS, setDefaultGlyphs, encodeChordSheet, decodeChordSheet } from "../src";
+import { PianoKeyboard, PianoChord, VoicingVariantToggle, StaffNotation, ChordSheet, ProgressionView, ListenOverlay, FollowAlongOverlay, isProgressionRequest, parseProgressionRequest, resolveProgressionRequest, BRAVURA_GLYPHS, PETALUMA_GLYPHS, setDefaultGlyphs, encodeChordSheet, decodeChordSheet } from "../src";
 
 // Guitar view pulls in svguitar + the chords-db shape library (~200KB); load it
 // lazily so it only ships when the user actually switches to the Guitar display.
@@ -416,6 +416,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
   const [editPulseKey, setEditPulseKey] = useState(0);
   const [inputPulsing, setInputPulsing] = useState(false);
   const [listenOpen, setListenOpen] = useState(false);
+  const [followOpen, setFollowOpen] = useState(false);
 
   // Serialize form annotation state to NL modifiers appended to the chord string.
   const detailsModifiers = useMemo(() => {
@@ -600,6 +601,14 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
         uiTheme={uiTheme}
         onSaveChord={(nl) => board.addItem({ nl })}
         onAddChords={(nls) => nls.forEach((nl) => board.addItem({ nl }))}
+      />
+
+      <FollowAlongOverlay
+        open={followOpen}
+        onClose={() => setFollowOpen(false)}
+        uiTheme={uiTheme}
+        chords={board.items.map((it) => it.nl)}
+        onActiveChange={(i) => { const it = board.items[i]; if (it) board.selectItem(it.id); }}
       />
 
       {/* Chord Details — collapsible form for title/sub/footer + annotations */}
@@ -809,23 +818,44 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
       {/* Add to board + board itself */}
       {!isProg && (
         <div style={{ width: "100%", maxWidth: 1100, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-          <button
-            onClick={handleAddToBoard}
-            style={{
-              padding: "8px 18px",
-              fontSize: "0.85rem",
-              fontWeight: 500,
-              fontFamily: "inherit",
-              border: "1px solid var(--btn-border)",
-              borderRadius: 20,
-              background: "var(--pill-active-bg)",
-              color: "var(--pill-active-text)",
-              cursor: "pointer",
-            }}
-            title="Add the current chord to the board"
-          >
-            + Add to board
-          </button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+            <button
+              onClick={handleAddToBoard}
+              style={{
+                padding: "8px 18px",
+                fontSize: "0.85rem",
+                fontWeight: 500,
+                fontFamily: "inherit",
+                border: "1px solid var(--btn-border)",
+                borderRadius: 20,
+                background: "var(--pill-active-bg)",
+                color: "var(--pill-active-text)",
+                cursor: "pointer",
+              }}
+              title="Add the current chord to the board"
+            >
+              + Add to board
+            </button>
+            {board.items.length >= 2 && (
+              <button
+                onClick={() => setFollowOpen(true)}
+                style={{
+                  padding: "8px 18px",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  fontFamily: "inherit",
+                  border: "1px solid var(--btn-border)",
+                  borderRadius: 20,
+                  background: "var(--pill-bg)",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                }}
+                title="Play along — turn the board's chords into pages that follow what you play"
+              >
+                ▶ Follow along
+              </button>
+            )}
+          </div>
           <ChordBoard
             items={board.items}
             meta={board.meta}
