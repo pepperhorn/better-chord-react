@@ -104,15 +104,17 @@ export function GuitarChordPanel({
   if (!label) return notice("Enter a chord to see its guitar shapes.");
   if (!result) {
     return (
-      <div
-        className={`bc-guitar-panel ${className ?? ""}`.trim()}
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, ...style }}
-      >
-        {instrumentToggle}
-        <div style={{ textAlign: "center", color: muted, fontSize: "0.85rem", padding: "12px 0" }}>
-          No {INSTRUMENTS[instrument].label.toLowerCase()} shape found for “{label}”.
+      <UIThemeProvider value={uiCtx}>
+        <div
+          className={`bc-guitar-panel ${className ?? ""}`.trim()}
+          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, ...style }}
+        >
+          {instrumentToggle}
+          <div style={{ textAlign: "center", color: muted, fontSize: "0.85rem", padding: "12px 0" }}>
+            No {INSTRUMENTS[instrument].label.toLowerCase()} shape found for “{label}”.
+          </div>
         </div>
-      </div>
+      </UIThemeProvider>
     );
   }
 
