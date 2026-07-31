@@ -17,10 +17,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
-    "lint": "tsc --noEmit",
-    "test": "vitest",
-    "test:run": "vitest run"
+    "build:data": "node scripts/build-data.mjs",
+    "build": "pnpm run build:data && tsc",
+    "lint": "pnpm run build:data && tsc --noEmit",
+    "test": "pnpm run build:data && vitest",
+    "test:run": "pnpm run build:data && vitest run"
   },
   "dependencies": {
     "@tombatossals/chords-db": "^0.5.1",
