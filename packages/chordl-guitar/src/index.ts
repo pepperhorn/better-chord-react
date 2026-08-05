@@ -15,3 +15,6 @@ export type {
 
 export { lookupGuitarChord, hasGuitarChord } from "./chordLookup";
 export type { GuitarChordResult } from "./chordLookup";
+
+export { GUITAR_TOP3_PRESETS, lookupTop3Chord } from "./staticPresets";
+export type { StaticPreset } from "./staticPresets";
