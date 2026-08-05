@@ -4,7 +4,7 @@
 // chord (alternate placements). Shapes convert to svguitar `Chord` objects for
 // rendering. Based on pepperhorn/frames.
 
-export { INSTRUMENTS, dbPositionToChord } from "./instruments";
+export { INSTRUMENTS, OPEN_STRING_MIDI, dbPositionToChord } from "./instruments";
 export type {
   InstrumentId,
   InstrumentConfig,
