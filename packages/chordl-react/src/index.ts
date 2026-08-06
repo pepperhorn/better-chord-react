@@ -23,7 +23,7 @@ export type { ProgressionViewProps, GroupMode } from "./components/ProgressionVi
 
 // ─── Browser-only modules (local) ──────────────────────────────────────────
 export { playBlock, playArpeggiated } from "./audio/playback";
-export { downloadSvg, downloadPng } from "./audio/svg-export";
+export { downloadSvg, downloadPng, prepareExportClone } from "./audio/svg-export";
 
 // ─── UI theme (local — React context) ──────────────────────────────────────
 export { UIThemeProvider, useUITheme, resolveUITheme } from "./ui-theme";
