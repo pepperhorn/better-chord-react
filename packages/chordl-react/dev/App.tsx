@@ -787,6 +787,18 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
 
       {/* Chord output */}
       <div className="chord-output" style={{ width: "100%" }}>
+        {!input.trim() ? (
+          /* Nothing typed yet — a prompt, not an "Unknown chord" error. */
+          <p className="chord-output-placeholder" style={{
+            textAlign: "center",
+            color: "var(--text-muted)",
+            fontSize: "0.9rem",
+            padding: "32px 0",
+            margin: 0,
+          }}>
+            Type something ...
+          </p>
+        ) : (
         <ErrorBoundary key={input + theme + keyFormat + scale + highlightColor + displayMode + octaveShift + notationFont + detailsModifiers} onError={setError}>
           {isProg && progressionResult ? (
             <ProgressionView result={progressionResult} theme={theme} uiTheme={uiTheme} />
@@ -813,6 +825,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             />
           )}
         </ErrorBoundary>
+        )}
       </div>
 
       {/* Add to board + board itself */}

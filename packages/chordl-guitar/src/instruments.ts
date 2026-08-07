@@ -7,7 +7,7 @@
  */
 import type { Chord } from "svguitar";
 
-export type InstrumentId = "guitar" | "ukulele";
+export type InstrumentId = "guitar" | "ukulele" | "guitar-top3";
 
 export interface InstrumentConfig {
   id: InstrumentId;
@@ -36,6 +36,16 @@ export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
     strings: 4,
     frets: 5,
     tuning: ["G", "C", "E", "A"],
+  },
+  "guitar-top3": {
+    id: "guitar-top3",
+    label: "Guitar (top 3)",
+    description:
+      "Six-string guitar, beginner voicings on the top three strings only (G B E). " +
+      "Strings 4-6 are muted at render time.",
+    strings: 6,
+    frets: 4,
+    tuning: ["E", "A", "D", "G", "B", "E"],
   },
 };
 
@@ -123,3 +133,14 @@ export function dbPositionToChord(
     ...(title ? { title } : {}),
   };
 }
+
+/**
+ * Open-string MIDI numbers, ordered string 1 first (highest pitch), matching
+ * svguitar's string numbering. Used to verify that a hand-authored shape
+ * actually spells the chord it claims to.
+ */
+export const OPEN_STRING_MIDI: Record<InstrumentId, number[]> = {
+  guitar: [64, 59, 55, 50, 45, 40],
+  "guitar-top3": [64, 59, 55, 50, 45, 40],
+  ukulele: [69, 64, 60, 67],
+};

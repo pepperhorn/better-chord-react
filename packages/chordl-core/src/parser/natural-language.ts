@@ -109,14 +109,40 @@ const UNAMBIGUOUS_SCALE_TYPES = [
   "blues", "whole\\s+tone", "bebop", "diminished",
 ];
 
-// Scale patterns: "D major scale", "C blues", "A dorian", etc.
+// Scale patterns: "D major scale", "C blues", "A dorian", "Dm harmonic minor".
 // For "major"/"minor" alone, require the trailing word "scale" to avoid chord collision.
+//
+// The root must not be preceded by a letter, or the trailing "c" of
+// "harmonic"/"melodic" is read as a root note and "dm harmonic minor" resolves
+// to C minor. An optional chord-quality marker may sit between the root and the
+// scale type, so shorthand roots ("dm", "f#m", "dmaj") work the same as bare
+// ones — the named scale type wins, the marker is only there to be absorbed.
+const ROOT = "(?<![A-Za-z#b])([A-Ga-g][#b]?)";
+const QUALITY_MARKER = "(?:\\s*(?:maj|min|m|M)\\b)?";
 const SCALE_UNAMBIGUOUS_RE = new RegExp(
-  `([A-Ga-g][#b]?)\\s+(${UNAMBIGUOUS_SCALE_TYPES.join("|")})(?:\\s+scale)?`,
+  `${ROOT}${QUALITY_MARKER}\\s+(${UNAMBIGUOUS_SCALE_TYPES.join("|")})(?:\\s+scale)?`,
   "i",
 );
-const SCALE_EXPLICIT_RE =
-  /([A-Ga-g][#b]?)\s+(major|minor)\s+scale/i;
+const SCALE_EXPLICIT_RE = new RegExp(
+  `${ROOT}${QUALITY_MARKER}\\s+(major|minor)\\s+scale`,
+  "i",
+);
+
+// Chord-shorthand scales: "dm scale", "d maj scale", "dmaj scale", "d scale".
+// Only the major/minor markers — anything richer stays a chord. The word
+// "scale" is required, so a bare "Dm" is still a chord.
+// The quality marker is matched case-insensitively but read case-sensitively,
+// since "M" means major and "m" means minor.
+const SCALE_SHORTHAND_RE =
+  /(?<![A-Za-z#b])([A-Ga-g][#b]?)\s*(major|maj|minor|min|M|m)?\s+scale\b/i;
+
+/** Resolve a shorthand quality marker to a scale type. Absent marker = major. */
+function shorthandScaleType(marker: string | undefined): "major" | "minor" {
+  if (!marker) return "major";
+  if (marker === "M") return "major";
+  if (marker === "m") return "minor";
+  return marker.toLowerCase().startsWith("min") ? "minor" : "major";
+}
 
 // "ascending" / "descending" for melodic minor
 const DIRECTION_RE = /\b(ascending|descending)\b/i;
@@ -607,16 +633,23 @@ export function parseChordDescription(input: string): ParsedChordRequest {
   const octavesMatch = input.match(OCTAVES_RE);
   const octaveCount = octavesMatch ? parseInt(octavesMatch[1], 10) : undefined;
 
-  // Detect scales — check BEFORE chord extraction
+  // Detect scales — check BEFORE chord extraction. Spelled-out forms first,
+  // then chord shorthand ("dm scale"), so "d minor scale" keeps its own path.
   const scaleUnambig = input.match(SCALE_UNAMBIGUOUS_RE);
   const scaleExplicit = input.match(SCALE_EXPLICIT_RE);
   const scaleMatch = scaleUnambig || scaleExplicit;
+  const scaleShorthand = scaleMatch ? null : input.match(SCALE_SHORTHAND_RE);
 
   if (scaleMatch) {
     const scaleRoot = capitalizeNote(scaleMatch[1]);
     const scaleType = scaleMatch[2].toLowerCase().replace(/\s+/g, " ").trim();
     result.isScale = true;
     result.scaleName = `${scaleRoot} ${scaleType}`;
+    result.scaleOctaves = octaveCount ?? 1;
+  } else if (scaleShorthand) {
+    const scaleRoot = capitalizeNote(scaleShorthand[1]);
+    result.isScale = true;
+    result.scaleName = `${scaleRoot} ${shorthandScaleType(scaleShorthand[2])}`;
     result.scaleOctaves = octaveCount ?? 1;
   } else if (octaveCount) {
     // Not a scale but has "N octaves" → arpeggio mode for chord
@@ -662,6 +695,7 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     .replace(OCTAVES_RE, "")
     .replace(SCALE_UNAMBIGUOUS_RE, "")
     .replace(SCALE_EXPLICIT_RE, "")
+    .replace(SCALE_SHORTHAND_RE, "")
     .replace(/\bscale\b/gi, "")
     .replace(HEADING_RE, "")
     .replace(NOTES_GROUP_PREFIX_RE, "")
