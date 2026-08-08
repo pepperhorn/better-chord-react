@@ -144,6 +144,67 @@ describe("generateConstrainedVariants", () => {
     expect(rootless!.voicing.notes.map((n) => n.note)).toEqual(["D#", "G", "A#"]);
   });
 
+  it("holds every library variant to both caps or marks it unsatisfied", () => {
+    const quality = mapToVoicingQuality("7");
+    const out = generateConstrainedVariants("C", quality, ["C", "E", "G", "Bb"], 12, JUNIOR, {
+      intervals: ["1P", "3M", "5P", "7m"],
+      chordType: "dominant seventh",
+    });
+    expect(out.length).toBeGreaterThan(6);
+
+    for (const v of out) {
+      // The floor applies whether or not the caps were met.
+      expect(v.voicing.notes.length, `${v.id} fell below a dyad`).toBeGreaterThanOrEqual(2);
+      if (!v.voicing.satisfied) continue;
+      const perHand = new Map<string, number>();
+      for (const n of v.voicing.notes) perHand.set(n.hand, (perHand.get(n.hand) ?? 0) + 1);
+      for (const count of perHand.values()) {
+        expect(count, `${v.id} exceeded the note cap`).toBeLessThanOrEqual(JUNIOR.maxNotesPerHand);
+      }
+      expect(v.voicing.span, `${v.id} exceeded the reach`).toBeLessThanOrEqual(
+        JUNIOR.maxSpanPerHand,
+      );
+    }
+  });
+
+  it("never calls a one-note shell a satisfied chord", () => {
+    // shell-dom7-r7 is C + Bb, span 10, over the 9 cap. The root is
+    // droppable, but dropping it leaves a lone Bb — which used to be returned
+    // as a satisfied C7, sorted ahead of genuine three-note options.
+    const quality = mapToVoicingQuality("7");
+    const out = generateConstrainedVariants("C", quality, ["C", "E", "G", "Bb"], 12, JUNIOR, {
+      intervals: ["1P", "3M", "5P", "7m"],
+      chordType: "dominant seventh",
+    });
+
+    const shell = out.find((v) => v.id === "shell-dom7-r7");
+    expect(shell, "the library shell voicing should be generated").toBeDefined();
+    expect(shell!.voicing.notes).toHaveLength(2);
+    expect(shell!.voicing.dropped).toEqual([]);
+    expect(shell!.voicing.satisfied).toBe(false);
+    // Unsatisfied, so it sorts behind the variants that genuinely fit.
+    expect(out.indexOf(shell!)).toBeGreaterThan(0);
+  });
+
+  it("does not spend note budget on a doubled key", () => {
+    // drop24-dom7's pitch classes are E A# E G. Re-stacked and folded, both
+    // Es land on the same key, so the voicing is really three notes and fits
+    // the 3-note cap without dropping anything.
+    const quality = mapToVoicingQuality("7");
+    const out = generateConstrainedVariants("C", quality, ["C", "E", "G", "Bb"], 12, JUNIOR, {
+      intervals: ["1P", "3M", "5P", "7m"],
+      chordType: "dominant seventh",
+    });
+
+    const drop24 = out.find((v) => v.id === "drop24-dom7");
+    expect(drop24, "the library drop 2+4 voicing should be generated").toBeDefined();
+    expect(drop24!.voicing.dropped).toEqual([]);
+    expect(drop24!.voicing.satisfied).toBe(true);
+    const midis = drop24!.voicing.notes.map((n) => n.midi);
+    expect(midis).toHaveLength(3);
+    expect(new Set(midis).size).toBe(3);
+  });
+
   it("tightens the result as the reach shrinks", () => {
     const roomy = generateConstrainedVariants("C", undefined, ["C", "E", "G", "B"], 6, {
       maxSpanPerHand: 24,

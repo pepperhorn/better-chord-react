@@ -195,6 +195,68 @@ describe("constrainVoicing", () => {
     expect(r.notes.map((n) => n.note)).toEqual(["C", "A#"]);
   });
 
+  it("stops at two notes rather than returning a lone pitch", () => {
+    // Shell C7: root + 7th, C3=48 to A#3=58, span 10 — over the 9 cap, and
+    // folding cannot help because A# is already in the base octave. The root
+    // is droppable, but dropping it would leave a single note claiming to be
+    // a C7. A dyad is the floor: report failure instead.
+    const r = constrainVoicing({
+      notes: ["C", "A#"],
+      dropOrder: ["G", "C"],
+      keepAtLeast: ["E", "Bb"],
+      constraints: JUNIOR,
+    });
+    expect(r.satisfied).toBe(false);
+    expect(r.dropped).toEqual([]);
+    expect(r.notes.map((n) => n.note)).toEqual(["C", "A#"]);
+    expect(r.span).toBe(10);
+  });
+
+  it("reduces down to the floor but no further", () => {
+    // Everything is droppable here, so only the two-note floor stops it.
+    const r = constrainVoicing({
+      notes: ["C", "E", "G"],
+      dropOrder: ["G", "E", "C"],
+      keepAtLeast: [],
+      constraints: { maxSpanPerHand: 1, maxNotesPerHand: 1 },
+    });
+    expect(r.notes).toHaveLength(2);
+    expect(r.dropped).toEqual(["G"]);
+    expect(r.satisfied).toBe(false);
+  });
+
+  it("counts two notes on the same key once", () => {
+    // drop24-maj7's pitch classes are E B E G. Re-stacked and folded to the
+    // hand, both Es land on MIDI 52 — one key, one finger. Counting them
+    // separately would make a 3-note voicing look like 4 and force a needless
+    // drop.
+    const r = constrainVoicing({
+      notes: ["E", "B", "E", "G"],
+      dropOrder: ["G", "C"],
+      keepAtLeast: ["E", "B"],
+      constraints: JUNIOR,
+    });
+    expect(r.dropped).toEqual([]);
+    expect(r.satisfied).toBe(true);
+    expect(r.notes.map((n) => n.midi)).toEqual([52, 59, 55]);
+    expect(new Set(r.notes.map((n) => n.midi)).size).toBe(3);
+  });
+
+  it("falls back to the default hand when handHints is short", () => {
+    // constrainVoicing is a public export, so a caller can pass a hint array
+    // shorter than notes. Every ConstrainedNote must still carry a real Hand.
+    const r = constrainVoicing({
+      notes: ["C", "E", "G"],
+      handHints: ["RH"],
+      dropOrder: ["G", "C"],
+      keepAtLeast: ["E"],
+      constraints: { maxSpanPerHand: 24, maxNotesPerHand: 4 },
+    });
+    expect(r.notes).toHaveLength(3);
+    expect(r.notes.map((n) => n.hand)).toEqual(["RH", "LH", "LH"]);
+    for (const n of r.notes) expect(n.hand).toBeDefined();
+  });
+
   it("asserts per-hand octaves in hand-split voicing", () => {
     // Test that octaves remain hand-local and unfolded when each hand fits independently.
     const r = constrainVoicing({

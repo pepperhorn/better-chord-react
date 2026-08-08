@@ -96,6 +96,11 @@ export interface ConstrainVoicingInput {
 }
 
 export interface ConstrainedVoicing {
+  /**
+   * Surviving notes in voicing order, each keeping its input spelling. Never
+   * two notes on the same MIDI number, and never fewer than two notes in a
+   * hand unless the input itself had fewer.
+   */
   notes: ConstrainedNote[];
   /**
    * Pitch classes removed, in the order they were dropped, spelled as the
@@ -109,6 +114,13 @@ export interface ConstrainedVoicing {
 }
 
 const DEFAULT_HAND: Hand = "LH";
+
+/**
+ * Fewest notes a hand may be reduced to. A dyad is already a shell voicing —
+ * below that there is no chord left to name, so reduction stops and reports
+ * failure rather than returning a single note as a satisfied chord.
+ */
+const MIN_NOTES_PER_HAND = 2;
 
 /**
  * Semitone value for matching pitch classes across spellings.
@@ -138,149 +150,146 @@ function withinCaps(groups: ConstrainedNote[][], c: HandConstraints, maxNotes: n
   );
 }
 
+/** A placed note that still remembers where it sat in the input voicing. */
+interface IndexedConstrainedNote extends ConstrainedNote {
+  originalIndex: number;
+}
+
 /**
  * Fit a voicing inside a hand's reach and note count.
  *
  * Strategy, in order:
  *   1. Fold octaves — keeps every chord tone, so it is always preferred.
- *   2. Drop notes in `dropOrder`, never below `keepAtLeast`.
+ *   2. Drop notes in `dropOrder`, never below `keepAtLeast`, and never below
+ *      two notes in any one hand.
  *
  * `dropOrder` and `keepAtLeast` are matched by semitone rather than by
  * spelling, so a drop order written in flats still recognises a voicing
  * spelled in sharps. Each returned note keeps its own original spelling —
  * only the matching normalizes.
  *
- * When the constraints still cannot be met without dropping an identity tone,
- * returns the closest legal voicing with `satisfied: false` rather than
- * returning nothing or a chord that is no longer the chord asked for.
- * Callers wanting a voicing that genuinely fits should try other variants —
- * an inversion often fits where root position cannot.
+ * When the constraints still cannot be met without dropping an identity tone
+ * or taking a hand below a dyad, returns the closest legal voicing with
+ * `satisfied: false` rather than returning nothing or a chord that is no
+ * longer the chord asked for. Callers wanting a voicing that genuinely fits
+ * should try other variants — an inversion often fits where root position
+ * cannot.
  */
 export function constrainVoicing(input: ConstrainVoicingInput): ConstrainedVoicing {
   const baseOctave = input.baseOctave ?? 3;
-  const maxNotes = Math.max(2, input.constraints.maxNotesPerHand);
+  const maxNotes = Math.max(MIN_NOTES_PER_HAND, input.constraints.maxNotesPerHand);
   const keepSemitones = new Set(input.keepAtLeast.map(pcSemitone));
+
+  const handOf = (originalIndex: number): Hand =>
+    input.handHints?.[originalIndex] ?? DEFAULT_HAND;
 
   // Track note indices instead of strings to handle duplicates correctly.
   // Each entry is an index into input.notes.
   let working = input.notes.map((_, i) => i);
   const dropped: string[] = [];
 
-  const place = (indices: number[]): ConstrainedNote[] => {
+  const place = (indices: number[]): IndexedConstrainedNote[] => {
     const notesForThisCall = indices.map((i) => input.notes[i]);
 
     // Step 1: Place ascending with NO folding to preserve the voicing's true shape.
-    const unfolded = placeAscending(notesForThisCall, baseOctave, 0);
+    const unfolded: IndexedConstrainedNote[] = placeAscending(
+      notesForThisCall,
+      baseOctave,
+      0,
+    ).map((p, i) => ({ ...p, originalIndex: indices[i], hand: handOf(indices[i]) }));
 
     // Step 2: Group by hand and re-fold each hand independently if needed.
-    interface IndexedPlacedNote extends PlacedNote {
-      originalIndex: number;
-    }
-
-    let placed: IndexedPlacedNote[] = unfolded.map((p, i) => ({
-      ...p,
-      originalIndex: indices[i],
-    }));
-
-    // Group by hand
-    const handToNotes = new Map<Hand, IndexedPlacedNote[]>();
-    for (const p of placed) {
-      const hand = input.handHints ? input.handHints[p.originalIndex] : DEFAULT_HAND;
-      const list = handToNotes.get(hand);
+    const handToNotes = new Map<Hand, IndexedConstrainedNote[]>();
+    for (const p of unfolded) {
+      const list = handToNotes.get(p.hand);
       if (list) list.push(p);
-      else handToNotes.set(hand, [p]);
+      else handToNotes.set(p.hand, [p]);
     }
 
-    // Recompute placed by re-folding each hand that exceeds maxSpan.
-    const refolded: IndexedPlacedNote[] = [];
+    const refolded: IndexedConstrainedNote[] = [];
     for (const [hand, notesInHand] of handToNotes) {
-      const notesForFold = notesInHand.map((n) => n.note);
-      const handBaseOctave = notesInHand[0].octave;
-
       const span = spanOf(notesInHand.map((n) => n.midi));
       if (span <= input.constraints.maxSpanPerHand) {
         // Already fits, use as-is
         refolded.push(...notesInHand);
-      } else {
-        // Exceeds span, re-fold this hand's notes
-        const refolded_hand = placeAscending(
-          notesForFold,
-          handBaseOctave,
-          input.constraints.maxSpanPerHand,
-        );
-        for (let i = 0; i < refolded_hand.length; i++) {
-          refolded.push({
-            ...refolded_hand[i],
-            originalIndex: notesInHand[i].originalIndex,
-          });
-        }
+        continue;
+      }
+      // Exceeds span, re-fold this hand's notes
+      const refoldedHand = placeAscending(
+        notesInHand.map((n) => n.note),
+        notesInHand[0].octave,
+        input.constraints.maxSpanPerHand,
+      );
+      for (let i = 0; i < refoldedHand.length; i++) {
+        refolded.push({
+          ...refoldedHand[i],
+          originalIndex: notesInHand[i].originalIndex,
+          hand,
+        });
       }
     }
 
     // Restore original voicing order by sorting by originalIndex.
     refolded.sort((a, b) => a.originalIndex - b.originalIndex);
 
-    return refolded.map((p) => ({
-      note: p.note,
-      octave: p.octave,
-      midi: p.midi,
-      hand: input.handHints ? input.handHints[p.originalIndex] : DEFAULT_HAND,
-    }));
+    // Step 3: Two notes on the same MIDI number are one key under one finger.
+    // Collapse them so they cost one slot of the note-count budget, not two.
+    // The first in voicing order wins, so the surviving spelling and hand are
+    // the ones the voicing led with.
+    const seenMidi = new Set<number>();
+    return refolded.filter((p) => {
+      if (seenMidi.has(p.midi)) return false;
+      seenMidi.add(p.midi);
+      return true;
+    });
   };
 
   for (;;) {
     const placed = place(working);
-    const groups = groupsOf(placed);
-    if (withinCaps(groups, input.constraints, maxNotes)) {
-      return {
-        notes: placed,
-        dropped,
-        span: Math.max(0, ...groups.map((g) => spanOf(g.map((n) => n.midi)))),
-        satisfied: true,
-      };
+
+    // A collapsed duplicate is gone from the result, so drop it from `working`
+    // too — otherwise the drop loop would keep offering a note the caller can
+    // no longer see. `working` only ever shrinks, so this terminates.
+    if (placed.length < working.length) {
+      working = placed.map((p) => p.originalIndex);
+      continue;
     }
 
-    // Find the next note to drop. Candidates are matched by semitone rather
-    // than by spelling, so a drop order written in flats still recognises a
-    // voicing written in sharps.
-    const nextPC = input.dropOrder.find((pc) => {
-      const semitone = pcSemitone(pc);
-      const hasPC = working.some((idx) => pcSemitone(input.notes[idx]) === semitone);
-      const isKept = keepSemitones.has(semitone);
-      return hasPC && !isKept;
+    const groups = groupsOf(placed);
+    const result = (satisfied: boolean): ConstrainedVoicing => ({
+      notes: placed.map((p) => ({ note: p.note, octave: p.octave, midi: p.midi, hand: p.hand })),
+      dropped,
+      span: Math.max(0, ...groups.map((g) => spanOf(g.map((n) => n.midi)))),
+      satisfied,
     });
 
-    if (nextPC === undefined) {
-      return {
-        notes: placed,
-        dropped,
-        span: Math.max(0, ...groups.map((g) => spanOf(g.map((n) => n.midi)))),
-        satisfied: false,
-      };
-    }
+    if (withinCaps(groups, input.constraints, maxNotes)) return result(true);
 
-    // Remove the LAST occurrence of this pitch class (conventional choice).
-    // The removed note is reported with its own spelling, not the drop
-    // order's, so the caller sees the note it actually passed in.
-    const nextSemitone = pcSemitone(nextPC);
-    let removed = false;
-    for (let i = working.length - 1; i >= 0; i--) {
-      if (pcSemitone(input.notes[working[i]]) === nextSemitone) {
-        dropped.push(input.notes[working[i]]);
-        working.splice(i, 1);
-        removed = true;
+    const notesPerHand = new Map<Hand, number>();
+    for (const n of placed) notesPerHand.set(n.hand, (notesPerHand.get(n.hand) ?? 0) + 1);
+
+    // Find the next note to drop: earliest in dropOrder, not an identity tone,
+    // and not the note that would take its hand below a dyad. Candidates are
+    // matched by semitone so spelling differences do not hide them.
+    let target = -1;
+    for (const pc of input.dropOrder) {
+      const semitone = pcSemitone(pc);
+      if (keepSemitones.has(semitone)) continue;
+      // Remove the LAST occurrence of this pitch class (conventional choice).
+      for (let i = working.length - 1; i >= 0; i--) {
+        if (pcSemitone(input.notes[working[i]]) !== semitone) continue;
+        if ((notesPerHand.get(handOf(working[i])) ?? 0) <= MIN_NOTES_PER_HAND) continue;
+        target = i;
         break;
       }
+      if (target >= 0) break;
     }
 
-    // Safety check (should never happen, but satisfy TypeScript).
-    if (!removed) {
-      return {
-        notes: place(working),
-        dropped,
-        span: 0,
-        satisfied: false,
-      };
-    }
+    // Nothing left that may be dropped: every remaining note is an identity
+    // tone, or dropping it would leave a hand with fewer than two notes.
+    if (target < 0) return result(false);
+
+    dropped.push(input.notes[working[target]]);
+    working.splice(target, 1);
   }
 }

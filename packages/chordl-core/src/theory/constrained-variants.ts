@@ -11,6 +11,20 @@ import { classifyTones, dropOrder } from "./chord-tones";
 import { constrainVoicing, pcSemitone } from "./hand-constraints";
 import type { ConstrainedVoicing, HandConstraints } from "./hand-constraints";
 
+/**
+ * A source voicing refitted to a hand.
+ *
+ * `id` and `label` name the character of the *source* voicing — "Drop 2+4",
+ * "Rootless A" — not the shape of `voicing.notes`. `VoicingVariant.notes` is
+ * pitch classes only, with no octave information, so those pitch classes are
+ * re-stacked close-position from `baseOctave` and then folded and reduced to
+ * fit the hand. A voicing whose real intervals span fifteen semitones comes
+ * back inside the hand's reach, and the label still says "Drop 2+4".
+ *
+ * So: read the label as provenance, not as geometry. A consumer that needs the
+ * true open-position shape should realize the voicing through chordl-voicings
+ * directly rather than infer it from this label.
+ */
 export interface ConstrainedVariant {
   id: string;
   label: string;
