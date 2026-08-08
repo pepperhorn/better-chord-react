@@ -14,6 +14,7 @@
  * semitones and an octave 12, so maxSpanPerHand 9 (a major 6th) is binding.
  */
 import { PC_SEMITONES, assignAscendingOctaves } from "../engine/note-spelling";
+import type { Hand } from "@pepperhorn/chordl-voicings";
 
 export interface HandConstraints {
   /** Maximum semitones between lowest and highest note in one hand. */
@@ -64,4 +65,113 @@ export function placeAscending(
 export function spanOf(pitches: number[]): number {
   if (pitches.length < 2) return 0;
   return Math.max(...pitches) - Math.min(...pitches);
+}
+
+export interface ConstrainedNote extends PlacedNote {
+  hand: Hand;
+}
+
+export interface ConstrainVoicingInput {
+  /** Pitch classes in voicing order. */
+  notes: string[];
+  /**
+   * Per-note hand assignment. When absent the whole voicing counts as one
+   * hand — variants from the `inversion` and `algorithmic` sources carry no
+   * hand hints, so both caps apply to the voicing as a whole.
+   */
+  handHints?: Hand[];
+  /** Safest-to-drop first, from core's `dropOrder(analysis)`. */
+  dropOrder: string[];
+  /** Notes that must survive — the chord's identity tones. */
+  keepAtLeast: string[];
+  constraints: HandConstraints;
+  /** Octave of the lowest note. Default 3. */
+  baseOctave?: number;
+}
+
+export interface ConstrainedVoicing {
+  notes: ConstrainedNote[];
+  /** Pitch classes removed, in the order they were dropped. */
+  dropped: string[];
+  /** Largest per-hand span in the result, semitones. */
+  span: number;
+  /** True when every hand is within both caps. */
+  satisfied: boolean;
+}
+
+const DEFAULT_HAND: Hand = "LH";
+
+function groupsOf(notes: ConstrainedNote[]): ConstrainedNote[][] {
+  const byHand = new Map<Hand, ConstrainedNote[]>();
+  for (const n of notes) {
+    const list = byHand.get(n.hand);
+    if (list) list.push(n);
+    else byHand.set(n.hand, [n]);
+  }
+  return [...byHand.values()];
+}
+
+function withinCaps(groups: ConstrainedNote[][], c: HandConstraints, maxNotes: number): boolean {
+  return groups.every(
+    (g) => g.length <= maxNotes && spanOf(g.map((n) => n.midi)) <= c.maxSpanPerHand,
+  );
+}
+
+/**
+ * Fit a voicing inside a hand's reach and note count.
+ *
+ * Strategy, in order:
+ *   1. Fold octaves — keeps every chord tone, so it is always preferred.
+ *   2. Drop notes in `dropOrder`, never below `keepAtLeast`.
+ *
+ * When the constraints still cannot be met without dropping an identity tone,
+ * returns the closest legal voicing with `satisfied: false` rather than
+ * returning nothing or a chord that is no longer the chord asked for.
+ * Callers wanting a voicing that genuinely fits should try other variants —
+ * an inversion often fits where root position cannot.
+ */
+export function constrainVoicing(input: ConstrainVoicingInput): ConstrainedVoicing {
+  const baseOctave = input.baseOctave ?? 3;
+  const maxNotes = Math.max(2, input.constraints.maxNotesPerHand);
+  const keep = new Set(input.keepAtLeast);
+
+  let working = [...input.notes];
+  const dropped: string[] = [];
+
+  const place = (notes: string[]): ConstrainedNote[] => {
+    const placed = placeAscending(notes, baseOctave, input.constraints.maxSpanPerHand);
+    return placed.map((p, i) => {
+      // Hand hints index the ORIGINAL note order, so look the hand up by
+      // pitch class rather than by position in the reduced array.
+      const original = input.handHints
+        ? input.handHints[input.notes.indexOf(notes[i])]
+        : undefined;
+      return { ...p, hand: original ?? DEFAULT_HAND };
+    });
+  };
+
+  for (;;) {
+    const placed = place(working);
+    const groups = groupsOf(placed);
+    if (withinCaps(groups, input.constraints, maxNotes)) {
+      return {
+        notes: placed,
+        dropped,
+        span: Math.max(0, ...groups.map((g) => spanOf(g.map((n) => n.midi)))),
+        satisfied: true,
+      };
+    }
+
+    const next = input.dropOrder.find((n) => working.includes(n) && !keep.has(n));
+    if (next === undefined) {
+      return {
+        notes: placed,
+        dropped,
+        span: Math.max(0, ...groups.map((g) => spanOf(g.map((n) => n.midi)))),
+        satisfied: false,
+      };
+    }
+    working = working.filter((n) => n !== next);
+    dropped.push(next);
+  }
 }
