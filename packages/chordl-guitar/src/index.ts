@@ -18,3 +18,25 @@ export type { GuitarChordResult } from "./chordLookup";
 
 export { GUITAR_TOP3_PRESETS, lookupTop3Chord } from "./staticPresets";
 export type { StaticPreset } from "./staticPresets";
+
+export { positionToMidi, rootPitchClass } from "./pitch";
+
+export { positionFacts, duplicateVoicingMap } from "./voicingFacts";
+export type { Inversion, PositionFacts } from "./voicingFacts";
+
+export {
+  matchesShapeClass,
+  canonicalPositionIndex,
+  selectVoicings,
+  SHAPE_CLASS_LADDER,
+} from "./voicingSelect";
+export type {
+  ShapeClass,
+  CanonicalOptions,
+  VoicingChoice,
+  SelectVoicingsOptions,
+  SelectVoicingsResult,
+} from "./voicingSelect";
+
+export { powerChordPosition, powerChordShape } from "./powerChords";
+export type { PowerChordStringSet, PowerChordOptions } from "./powerChords";
