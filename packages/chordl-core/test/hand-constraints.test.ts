@@ -182,3 +182,19 @@ describe("constrainVoicing", () => {
     expect(r.notes.map((n) => n.midi)).toEqual([48, 55, 64, 71]);
   });
 });
+
+import * as core from "../src/index";
+
+describe("public API", () => {
+  it("exports the hand-constraint surface", () => {
+    for (const name of [
+      "midiOf",
+      "placeAscending",
+      "spanOf",
+      "constrainVoicing",
+      "generateConstrainedVariants",
+    ]) {
+      expect(core, `missing export ${name}`).toHaveProperty(name);
+    }
+  });
+});

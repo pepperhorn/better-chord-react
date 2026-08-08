@@ -58,6 +58,24 @@ to) rather than svguitar's highest-pitch-first numbering.
 - **A guitar card's chord name is no longer drawn twice** — once by the panel and once by svguitar's built-in diagram title, in a font it sized independently of the page.
 - **Board PNG/PDF exports can't capture a loading placeholder.** `ChordBoard` imported the guitar panel lazily for a saving it never made (chordl-react ships as one bundle, so `PianoChord` already pulls in svguitar and chords-db), while its Suspense fallback was a live race with `html2canvas`. The import is now static.
 
+### chordl-core 0.4.0
+
+- `constrainVoicing` fits a voicing to a hand, bounded by `maxSpanPerHand`
+  (semitones) and `maxNotesPerHand` (count, minimum 2). Both are required:
+  a 3-note cap alone still admits C-E-C' across a full octave.
+- `generateConstrainedVariants` generates variants and fits each, returning
+  those that satisfy the constraints first. An inversion often fits a reach
+  root position cannot — Cmaj7 spans 11 semitones in root position, 8 in
+  first inversion.
+- Reduction folds octaves before dropping notes, and never drops an identity
+  tone. The root is droppable as a last resort, which is how shell voicings
+  are formed.
+- `midiOf`, `placeAscending` and `spanOf` are exported for callers doing their
+  own keyboard layout.
+
+This lives in core rather than chordl-voicings because it needs
+`classifyTones`/`dropOrder`; voicings is a leaf package that core depends on.
+
 ## 0.3.5 — 2026-05-26
 
 ### Fixed

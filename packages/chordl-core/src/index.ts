@@ -82,3 +82,19 @@ export type { ChordRequest, ChordResult } from "./pipeline";
 export { resolveDefaults, chordRef, SYSTEM_DEFAULTS } from "./chord-sheet/defaults";
 export { CHORD_SHEET_SCHEMA_VERSION, validateVersion } from "./chord-sheet/schema";
 export { encodeChordSheet, decodeChordSheet } from "./chord-sheet/codec";
+
+// Hand Constraints
+export { midiOf, placeAscending, spanOf, constrainVoicing } from "./theory/hand-constraints";
+export type {
+  HandConstraints,
+  PlacedNote,
+  ConstrainedNote,
+  ConstrainVoicingInput,
+  ConstrainedVoicing,
+} from "./theory/hand-constraints";
+
+export { generateConstrainedVariants } from "./theory/constrained-variants";
+export type {
+  ConstrainedVariant,
+  GenerateConstrainedOptions,
+} from "./theory/constrained-variants";
