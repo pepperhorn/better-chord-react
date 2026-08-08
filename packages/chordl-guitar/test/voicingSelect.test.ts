@@ -31,13 +31,13 @@ describe("matchesShapeClass", () => {
 
 describe("canonicalPositionIndex", () => {
   it("prefers the first root-position shape on guitar", () => {
-    const i = canonicalPositionIndex(C_POSITIONS, guitar, { instrument: "guitar", rootPc: 0 });
+    const i = canonicalPositionIndex(C_POSITIONS, { instrument: "guitar", rootPc: 0 });
     expect(i).toBe(0); // open C, root position
   });
 
   it("falls back to the first position when no shape is root position", () => {
     // Both are 2nd inversion for C.
-    const i = canonicalPositionIndex([BARRE_C3, BARRE_C5], guitar, { instrument: "guitar", rootPc: 0 });
+    const i = canonicalPositionIndex([BARRE_C3, BARRE_C5], { instrument: "guitar", rootPc: 0 });
     expect(i).toBe(0);
   });
 
@@ -45,7 +45,7 @@ describe("canonicalPositionIndex", () => {
     // BARRE_C3 is 2nd inversion at baseFret 3; BARRE_C8 is root position at
     // baseFret 8. A compactness rule would pick index 0 — on guitar the
     // inversion must win, which is what separates it from the ukulele rule.
-    const i = canonicalPositionIndex([BARRE_C3, BARRE_C8], guitar, {
+    const i = canonicalPositionIndex([BARRE_C3, BARRE_C8], {
       instrument: "guitar",
       rootPc: 0,
     });
@@ -53,14 +53,13 @@ describe("canonicalPositionIndex", () => {
   });
 
   it("ranks ukulele on compactness, not inversion", () => {
-    const uke = INSTRUMENTS.ukulele.openMidi;
     // Root position (bass C at MIDI 60) with higher baseFret; ukulele should reject it
     // in favor of lower baseFret even though it's non-root (1st inversion, bass E at MIDI 64).
     const rootHighFret = { frets: [-1, 0, -1, -1], fingers: [0, 0, 0, 0], baseFret: 5, barres: [] };
     // Bass MIDI: 60 (C, root position for C chord)
     const nonRootLowFret = { frets: [-1, -1, 0, -1], fingers: [0, 0, 0, 0], baseFret: 1, barres: [] };
     // Bass MIDI: 64 (E, 1st inversion for C chord)
-    const i = canonicalPositionIndex([rootHighFret, nonRootLowFret], uke, {
+    const i = canonicalPositionIndex([rootHighFret, nonRootLowFret], {
       instrument: "ukulele",
       rootPc: 0,
     });
@@ -68,7 +67,7 @@ describe("canonicalPositionIndex", () => {
   });
 
   it("never picks a duplicate voicing", () => {
-    const i = canonicalPositionIndex([{ ...OPEN_C }, OPEN_C, BARRE_C8], guitar, {
+    const i = canonicalPositionIndex([{ ...OPEN_C }, OPEN_C, BARRE_C8], {
       instrument: "guitar",
       rootPc: 0,
     });
@@ -78,7 +77,7 @@ describe("canonicalPositionIndex", () => {
 
 describe("selectVoicings", () => {
   it("picks the canonical shape as primary", () => {
-    const r = selectVoicings(C_POSITIONS, guitar, {
+    const r = selectVoicings(C_POSITIONS, {
       instrument: "guitar",
       rootPc: 0,
       alternates: 2,
@@ -90,7 +89,7 @@ describe("selectVoicings", () => {
   it("avoids two same-profile alternates and surfaces the contrasting one", () => {
     // positions 1 and 2 are both 2nd-inversion barres; position 3 is a
     // root-position barre. Naive first-n takes 1 and 2 and never reaches 3.
-    const r = selectVoicings(C_POSITIONS, guitar, {
+    const r = selectVoicings(C_POSITIONS, {
       instrument: "guitar",
       rootPc: 0,
       alternates: 2,
@@ -102,7 +101,7 @@ describe("selectVoicings", () => {
   });
 
   it("never returns the same voicing twice", () => {
-    const r = selectVoicings([OPEN_C, { ...OPEN_C }, BARRE_C8], guitar, {
+    const r = selectVoicings([OPEN_C, { ...OPEN_C }, BARRE_C8], {
       instrument: "guitar",
       rootPc: 0,
       alternates: 2,
@@ -114,7 +113,7 @@ describe("selectVoicings", () => {
   });
 
   it("restricts candidates to the requested shape class", () => {
-    const r = selectVoicings(C_POSITIONS, guitar, {
+    const r = selectVoicings(C_POSITIONS, {
       instrument: "guitar",
       rootPc: 0,
       alternates: 2,
@@ -128,7 +127,7 @@ describe("selectVoicings", () => {
   it("widens by one rung when allowNextRung is set", () => {
     // Only the open C is barre-free, so "no-barre" alone yields no alternates;
     // widening to "any" brings the barre shapes into the pool.
-    const narrow = selectVoicings(C_POSITIONS, guitar, {
+    const narrow = selectVoicings(C_POSITIONS, {
       instrument: "guitar",
       rootPc: 0,
       alternates: 2,
@@ -136,7 +135,7 @@ describe("selectVoicings", () => {
     })!;
     expect(narrow.alternates).toHaveLength(0);
 
-    const widened = selectVoicings(C_POSITIONS, guitar, {
+    const widened = selectVoicings(C_POSITIONS, {
       instrument: "guitar",
       rootPc: 0,
       alternates: 2,
@@ -147,7 +146,7 @@ describe("selectVoicings", () => {
   });
 
   it("labels each choice from its facts", () => {
-    const r = selectVoicings(C_POSITIONS, guitar, {
+    const r = selectVoicings(C_POSITIONS, {
       instrument: "guitar",
       rootPc: 0,
       alternates: 2,
@@ -157,6 +156,6 @@ describe("selectVoicings", () => {
   });
 
   it("returns null for an empty position list", () => {
-    expect(selectVoicings([], guitar, { instrument: "guitar", rootPc: 0, alternates: 2 })).toBeNull();
+    expect(selectVoicings([], { instrument: "guitar", rootPc: 0, alternates: 2 })).toBeNull();
   });
 });

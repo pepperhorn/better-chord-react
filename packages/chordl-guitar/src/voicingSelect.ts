@@ -48,10 +48,10 @@ export interface CanonicalOptions {
  */
 export function canonicalPositionIndex(
   positions: ChordsDbPosition[],
-  openMidi: number[],
   opts: CanonicalOptions,
 ): number {
   if (positions.length === 0) return -1;
+  const openMidi = INSTRUMENTS[opts.instrument].openMidi;
   const dupes = duplicateVoicingMap(positions, openMidi);
   const candidates = positions
     .map((pos, index) => ({ index, facts: positionFacts(pos, openMidi, opts.rootPc) }))
@@ -136,11 +136,11 @@ function widen(cls: ShapeClass): ShapeClass {
  */
 export function selectVoicings(
   positions: ChordsDbPosition[],
-  openMidi: number[],
   opts: SelectVoicingsOptions,
 ): SelectVoicingsResult | null {
   if (positions.length === 0) return null;
 
+  const openMidi = INSTRUMENTS[opts.instrument].openMidi;
   const dupes = duplicateVoicingMap(positions, openMidi);
   const stringCount = INSTRUMENTS[opts.instrument].strings;
 
@@ -168,7 +168,7 @@ export function selectVoicings(
   }
   if (pool.length === 0) return null;
 
-  const canonical = canonicalPositionIndex(positions, openMidi, opts);
+  const canonical = canonicalPositionIndex(positions, opts);
   const primary = pool.find((c) => c.index === canonical) ?? pool[0];
 
   const chosen: VoicingChoice[] = [primary];
