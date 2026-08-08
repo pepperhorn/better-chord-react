@@ -10,9 +10,18 @@ describe("generateConstrainedVariants", () => {
       chordType: "major seventh",
     });
     expect(out.length).toBeGreaterThan(0);
-    const firstUnsatisfied = out.findIndex((v) => !v.voicing.satisfied);
-    if (firstUnsatisfied >= 0) {
-      expect(out.slice(firstUnsatisfied).every((v) => !v.voicing.satisfied)).toBe(true);
+    // Once an unsatisfied variant appears, every variant after it must also
+    // be unsatisfied — satisfied variants never trail behind unsatisfied
+    // ones. Assert the partition property directly: no `false` (unsatisfied)
+    // can be followed later in the array by a `true` (satisfied). Guarding
+    // this behind `if (firstUnsatisfied >= 0)` asserts nothing when every
+    // variant happens to be satisfied, which is exactly what this fixture
+    // produces.
+    const flags = out.map((v) => v.voicing.satisfied);
+    let sawUnsatisfied = false;
+    for (const satisfied of flags) {
+      if (!satisfied) sawUnsatisfied = true;
+      else expect(sawUnsatisfied).toBe(false);
     }
   });
 
@@ -56,6 +65,38 @@ describe("generateConstrainedVariants", () => {
     const out = generateConstrainedVariants("C", undefined, ["C", "E", "G"], 3, JUNIOR);
     expect(out.length).toBeGreaterThan(0);
     expect(out[0].voicing.notes.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("fallback: keeps the 5th and only the root droppable for a triad", () => {
+    // No intervals passed, so this exercises fallbackDropOrder. For a triad
+    // (notes.length <= 3), position stands in for role: C=root, E=3rd,
+    // G=5th. A triad needs its 5th to still read as a triad, so only the
+    // root should ever be dropped. Constraints tight enough (2 notes/hand)
+    // to force exactly one drop from the 3-note chord.
+    const TRIAD_TIGHT = { maxSpanPerHand: 9, maxNotesPerHand: 2 };
+    const out = generateConstrainedVariants("C", undefined, ["C", "E", "G"], 3, TRIAD_TIGHT);
+    expect(out.length).toBeGreaterThan(0);
+    for (const v of out) {
+      expect(v.voicing.dropped).toEqual(["C"]);
+      expect(v.voicing.notes.map((n) => n.note).sort()).toEqual(["E", "G"]);
+    }
+  });
+
+  it("fallback: drops the 5th before the root for a 4-note chord, forming a shell", () => {
+    // No intervals passed. For a 4-note chord, position stands in for role:
+    // C=root, E=3rd, G=5th, B=7th. The 5th is conventionally omittable and
+    // should go before the root; the root should be droppable last so a
+    // shell (3rd + 7th) can form. Constraints tight enough (2 notes/hand) to
+    // force both drops from the 4-note chord.
+    const SHELL_TIGHT = { maxSpanPerHand: 9, maxNotesPerHand: 2 };
+    const out = generateConstrainedVariants("C", undefined, ["C", "E", "G", "B"], 6, SHELL_TIGHT);
+    expect(out.length).toBeGreaterThan(0);
+    for (const v of out) {
+      // 5th dropped before root — order matters, not just membership.
+      expect(v.voicing.dropped).toEqual(["G", "C"]);
+      // What survives is the shell: 3rd + 7th, root dropped last.
+      expect(v.voicing.notes.map((n) => n.note).sort()).toEqual(["B", "E"]);
+    }
   });
 
   it("tightens the result as the reach shrinks", () => {

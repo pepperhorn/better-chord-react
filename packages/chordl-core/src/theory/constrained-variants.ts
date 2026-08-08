@@ -32,13 +32,28 @@ export interface GenerateConstrainedOptions {
  * Drop order when the chord's intervals are unknown.
  *
  * resolveChord returns undefined intervals for special-builder chords, so
- * guessing roles is not possible. Dropping from the top of the stack downward
- * is the conservative choice: it removes extensions before the root and third,
- * which sit lowest in a root-position voicing.
+ * roles cannot be classified. But it returns notes in root-position order, so
+ * position stands in for role: 0 = root, 1 = 3rd, 2 = 5th, 3 = 7th, 4+ =
+ * extensions. That is enough to mirror what classifyTones would conclude on
+ * the primary path, rather than diverging from it.
+ *
+ * Triads keep the 5th — on piano a triad needs it to still be a triad, which
+ * is exactly what assignRole concludes for degree 5 in the "triad" family.
+ * Larger chords treat the 5th as omittable and protect the 3rd and 7th, so
+ * the root stays droppable and a shell voicing can form.
  */
 function fallbackDropOrder(notes: string[]): { order: string[]; keep: string[] } {
-  const order = [...notes].reverse();
-  return { order, keep: notes.slice(0, 2) };
+  if (notes.length <= 3) {
+    const keep = notes.slice(1, 3);
+    return { order: notes[0] === undefined ? [] : [notes[0]], keep };
+  }
+
+  const order: string[] = [];
+  for (let i = notes.length - 1; i >= 4; i--) order.push(notes[i]); // extensions, top down
+  if (notes[2] !== undefined) order.push(notes[2]); // 5th — conventionally omittable
+  if (notes[0] !== undefined) order.push(notes[0]); // root — last, forming a shell
+  const keep = [notes[1], notes[3]].filter((n): n is string => n !== undefined);
+  return { order, keep };
 }
 
 /**
