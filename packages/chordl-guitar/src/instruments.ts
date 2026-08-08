@@ -18,6 +18,14 @@ export interface InstrumentConfig {
   frets: number;
   /** Open-string tuning, low → high. */
   tuning: string[];
+  /**
+   * Open-string MIDI numbers in **chords-db index order** — `openMidi[i]` is
+   * the string that `frets[i]` refers to. This is NOT svguitar's string
+   * numbering, which runs highest-pitch-first; `dbPositionToChord` is the one
+   * place that inverts. Ukulele's reentrant high-G means the array is not
+   * ascending, so the order cannot be recovered by sorting.
+   */
+  openMidi: number[];
 }
 
 export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
@@ -28,6 +36,7 @@ export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
     strings: 6,
     frets: 5,
     tuning: ["E", "A", "D", "G", "B", "E"],
+    openMidi: [40, 45, 50, 55, 59, 64],
   },
   ukulele: {
     id: "ukulele",
@@ -36,6 +45,7 @@ export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
     strings: 4,
     frets: 5,
     tuning: ["G", "C", "E", "A"],
+    openMidi: [67, 60, 64, 69],
   },
   "guitar-top3": {
     id: "guitar-top3",
@@ -46,6 +56,7 @@ export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
     strings: 6,
     frets: 4,
     tuning: ["E", "A", "D", "G", "B", "E"],
+    openMidi: [40, 45, 50, 55, 59, 64],
   },
 };
 
