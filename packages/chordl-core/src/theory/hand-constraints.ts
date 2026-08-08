@@ -80,9 +80,15 @@ export interface ConstrainVoicingInput {
    * hand hints, so both caps apply to the voicing as a whole.
    */
   handHints?: Hand[];
-  /** Safest-to-drop first, from core's `dropOrder(analysis)`. */
+  /**
+   * Safest-to-drop first, from core's `dropOrder(analysis)`. Matched against
+   * `notes` by semitone, so either list may be spelled with sharps or flats.
+   */
   dropOrder: string[];
-  /** Notes that must survive — the chord's identity tones. */
+  /**
+   * Notes that must survive — the chord's identity tones. Matched by semitone,
+   * like `dropOrder`.
+   */
   keepAtLeast: string[];
   constraints: HandConstraints;
   /** Octave of the lowest note. Default 3. */
@@ -91,7 +97,10 @@ export interface ConstrainVoicingInput {
 
 export interface ConstrainedVoicing {
   notes: ConstrainedNote[];
-  /** Pitch classes removed, in the order they were dropped. */
+  /**
+   * Pitch classes removed, in the order they were dropped, spelled as the
+   * input spelled them rather than as `dropOrder` did.
+   */
   dropped: string[];
   /** Largest per-hand span in the result, semitones. */
   span: number;
@@ -100,6 +109,18 @@ export interface ConstrainedVoicing {
 }
 
 const DEFAULT_HAND: Hand = "LH";
+
+/**
+ * Semitone value for matching pitch classes across spellings.
+ *
+ * `PC_SEMITONES` maps sharps and flats onto the same number, so "Bb" and "A#"
+ * compare equal — necessary because chordl-voicings spells library variants
+ * with sharps while core's resolver yields flats. Unknown spellings map to -1
+ * rather than 0 so they never collide with C.
+ */
+export function pcSemitone(note: string): number {
+  return PC_SEMITONES[note] ?? -1;
+}
 
 function groupsOf(notes: ConstrainedNote[]): ConstrainedNote[][] {
   const byHand = new Map<Hand, ConstrainedNote[]>();
@@ -124,6 +145,11 @@ function withinCaps(groups: ConstrainedNote[][], c: HandConstraints, maxNotes: n
  *   1. Fold octaves — keeps every chord tone, so it is always preferred.
  *   2. Drop notes in `dropOrder`, never below `keepAtLeast`.
  *
+ * `dropOrder` and `keepAtLeast` are matched by semitone rather than by
+ * spelling, so a drop order written in flats still recognises a voicing
+ * spelled in sharps. Each returned note keeps its own original spelling —
+ * only the matching normalizes.
+ *
  * When the constraints still cannot be met without dropping an identity tone,
  * returns the closest legal voicing with `satisfied: false` rather than
  * returning nothing or a chord that is no longer the chord asked for.
@@ -133,7 +159,7 @@ function withinCaps(groups: ConstrainedNote[][], c: HandConstraints, maxNotes: n
 export function constrainVoicing(input: ConstrainVoicingInput): ConstrainedVoicing {
   const baseOctave = input.baseOctave ?? 3;
   const maxNotes = Math.max(2, input.constraints.maxNotesPerHand);
-  const keep = new Set(input.keepAtLeast);
+  const keepSemitones = new Set(input.keepAtLeast.map(pcSemitone));
 
   // Track note indices instead of strings to handle duplicates correctly.
   // Each entry is an index into input.notes.
@@ -214,10 +240,13 @@ export function constrainVoicing(input: ConstrainVoicingInput): ConstrainedVoici
       };
     }
 
-    // Find the next note to drop, by original pitch class in working indices.
+    // Find the next note to drop. Candidates are matched by semitone rather
+    // than by spelling, so a drop order written in flats still recognises a
+    // voicing written in sharps.
     const nextPC = input.dropOrder.find((pc) => {
-      const hasPC = working.some((idx) => input.notes[idx] === pc);
-      const isKept = keep.has(pc);
+      const semitone = pcSemitone(pc);
+      const hasPC = working.some((idx) => pcSemitone(input.notes[idx]) === semitone);
+      const isKept = keepSemitones.has(semitone);
       return hasPC && !isKept;
     });
 
@@ -231,11 +260,14 @@ export function constrainVoicing(input: ConstrainVoicingInput): ConstrainedVoici
     }
 
     // Remove the LAST occurrence of this pitch class (conventional choice).
+    // The removed note is reported with its own spelling, not the drop
+    // order's, so the caller sees the note it actually passed in.
+    const nextSemitone = pcSemitone(nextPC);
     let removed = false;
     for (let i = working.length - 1; i >= 0; i--) {
-      if (input.notes[working[i]] === nextPC) {
+      if (pcSemitone(input.notes[working[i]]) === nextSemitone) {
+        dropped.push(input.notes[working[i]]);
         working.splice(i, 1);
-        dropped.push(nextPC);
         removed = true;
         break;
       }

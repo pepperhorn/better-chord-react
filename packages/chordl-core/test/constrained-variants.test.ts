@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { mapToVoicingQuality } from "@pepperhorn/chordl-voicings";
 import { generateConstrainedVariants } from "../src/theory/constrained-variants";
 
 const JUNIOR = { maxSpanPerHand: 9, maxNotesPerHand: 3 };
@@ -97,6 +98,50 @@ describe("generateConstrainedVariants", () => {
       // What survives is the shell: 3rd + 7th, root dropped last.
       expect(v.voicing.notes.map((n) => n.note).sort()).toEqual(["B", "E"]);
     }
+  });
+
+  it("reduces a sharp-spelled library voicing that carries extensions", () => {
+    // The primary intended input: a real quality, which is the only way
+    // library voicings get selected at all. rootless-dom7-a is E A A# D — its
+    // 13th (A) and 9th (D) are in neither the drop order nor the identity
+    // tones, and its 7th is spelled A# where core spells Bb. Before this was
+    // fixed, all four notes came back untouched under a 3-note cap.
+    const quality = mapToVoicingQuality("7");
+    expect(quality).toBe("dom7");
+
+    const out = generateConstrainedVariants("C", quality, ["C", "E", "G", "Bb"], 12, JUNIOR, {
+      intervals: ["1P", "3M", "5P", "7m"],
+      chordType: "dominant seventh",
+    });
+
+    const rootless = out.find((v) => v.id === "rootless-dom7-a");
+    expect(rootless, "the library rootless voicing should be generated").toBeDefined();
+    expect(rootless!.voicing.satisfied).toBe(true);
+    expect(rootless!.voicing.notes).toHaveLength(3);
+    // The 13th goes first — extensions are the safest thing to lose.
+    expect(rootless!.voicing.dropped).toEqual(["A"]);
+    // A# is Bb: recognised as an identity tone despite the spelling gap.
+    expect(rootless!.voicing.notes.map((n) => n.note)).toEqual(["E", "A#", "D"]);
+  });
+
+  it("reduces a library voicing under a flat-spelled root", () => {
+    // Cm7's 3rd is Eb to core and D# to chordl-voicings. Matching by string
+    // made it neither keepable nor droppable; matching by semitone protects it.
+    const quality = mapToVoicingQuality("minor seventh");
+    expect(quality).toBe("min7");
+
+    const out = generateConstrainedVariants("C", quality, ["C", "Eb", "G", "Bb"], 12, JUNIOR, {
+      intervals: ["1P", "3m", "5P", "7m"],
+      chordType: "minor seventh",
+    });
+
+    const rootless = out.find((v) => v.id === "rootless-min7-a");
+    expect(rootless, "the library rootless voicing should be generated").toBeDefined();
+    expect(rootless!.voicing.satisfied).toBe(true);
+    expect(rootless!.voicing.notes).toHaveLength(3);
+    expect(rootless!.voicing.dropped).toEqual(["D"]);
+    // D# is Eb — the identity 3rd — and survives the reduction.
+    expect(rootless!.voicing.notes.map((n) => n.note)).toEqual(["D#", "G", "A#"]);
   });
 
   it("tightens the result as the reach shrinks", () => {

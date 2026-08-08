@@ -166,6 +166,35 @@ describe("constrainVoicing", () => {
     expect(r.notes.map((n) => n.midi)).toEqual([48, 52, 55]);
   });
 
+  it("matches dropOrder and keepAtLeast by semitone, not by spelling", () => {
+    // chordl-voicings spells library variants with sharps; core's resolver
+    // yields flats. "A#" and "Bb" are one key, so a drop order and identity
+    // list written in flats must still recognise a voicing written in sharps.
+    // Without semitone matching, A# is invisible: neither kept nor droppable.
+    const r = constrainVoicing({
+      notes: ["C", "E", "G", "A#"],
+      dropOrder: ["G", "C", "E", "Bb"],
+      keepAtLeast: ["E", "Bb"],
+      constraints: JUNIOR,
+    });
+    expect(r.satisfied).toBe(true);
+    expect(r.dropped).toEqual(["G", "C"]);
+    // A# was recognised as the kept 7th and survived — and kept its own
+    // spelling rather than being rewritten as the "Bb" that matched it.
+    expect(r.notes.map((n) => n.note)).toEqual(["E", "A#"]);
+  });
+
+  it("reports the dropped note with its own spelling", () => {
+    const r = constrainVoicing({
+      notes: ["C", "D#", "A#"],
+      dropOrder: ["Eb", "C"],
+      keepAtLeast: ["Bb"],
+      constraints: { maxSpanPerHand: 24, maxNotesPerHand: 2 },
+    });
+    expect(r.dropped).toEqual(["D#"]);
+    expect(r.notes.map((n) => n.note)).toEqual(["C", "A#"]);
+  });
+
   it("asserts per-hand octaves in hand-split voicing", () => {
     // Test that octaves remain hand-local and unfolded when each hand fits independently.
     const r = constrainVoicing({

@@ -8,7 +8,7 @@
 import { generateVariants } from "@pepperhorn/chordl-voicings";
 import type { VoicingQuality, VoicingVariant } from "@pepperhorn/chordl-voicings";
 import { classifyTones, dropOrder } from "./chord-tones";
-import { constrainVoicing } from "./hand-constraints";
+import { constrainVoicing, pcSemitone } from "./hand-constraints";
 import type { ConstrainedVoicing, HandConstraints } from "./hand-constraints";
 
 export interface ConstrainedVariant {
@@ -54,6 +54,31 @@ function fallbackDropOrder(notes: string[]): { order: string[]; keep: string[] }
   if (notes[0] !== undefined) order.push(notes[0]); // root — last, forming a shell
   const keep = [notes[1], notes[3]].filter((n): n is string => n !== undefined);
   return { order, keep };
+}
+
+/**
+ * Put a variant's unclassified notes at the head of the drop order.
+ *
+ * `order` and `keep` come from the resolved chord tones, so a library
+ * voicing's added 9th or 13th — the whole point of a rootless voicing — is in
+ * neither list. `constrainVoicing` only ever drops what `dropOrder` names, so
+ * without this the reduction stalls with the voicing still over the cap.
+ * Extensions are colour tones and the safest thing to lose, so they go first,
+ * in the order the voicing lists them.
+ *
+ * Membership is tested by semitone because chordl-voicings spells library
+ * variants with sharps where core's resolver yields flats.
+ */
+function withUnclassifiedFirst(notes: string[], order: string[], keep: string[]): string[] {
+  const classified = new Set([...order, ...keep].map(pcSemitone));
+  const extras: string[] = [];
+  for (const note of notes) {
+    const semitone = pcSemitone(note);
+    if (classified.has(semitone)) continue;
+    classified.add(semitone);
+    extras.push(note);
+  }
+  return extras.length === 0 ? order : [...extras, ...order];
 }
 
 /**
@@ -109,7 +134,7 @@ export function generateConstrainedVariants(
     voicing: constrainVoicing({
       notes: v.notes,
       handHints: v.handHints,
-      dropOrder: order,
+      dropOrder: withUnclassifiedFirst(v.notes, order, keep),
       keepAtLeast: keep,
       constraints,
       baseOctave: options.baseOctave,
