@@ -51,7 +51,7 @@ export function powerChordPosition(
   const fingers = new Array<number>(6).fill(0);
 
   frets[rootIdx] = rootFret;
-  fingers[rootIdx] = 1;
+  fingers[rootIdx] = rootFret === 0 ? 0 : 1;
   frets[rootIdx + 1] = upperFret;
   fingers[rootIdx + 1] = fret === 0 ? 2 : 3;
   if (includeOctave) {

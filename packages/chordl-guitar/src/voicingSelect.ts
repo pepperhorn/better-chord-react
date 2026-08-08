@@ -57,8 +57,6 @@ export function canonicalPositionIndex(
     .map((pos, index) => ({ index, facts: positionFacts(pos, openMidi, opts.rootPc) }))
     .filter((c) => dupes[c.index] === null);
 
-  if (candidates.length === 0) return 0;
-
   if (opts.instrument === "ukulele") {
     let best = candidates[0];
     for (const c of candidates) {
@@ -76,7 +74,12 @@ export interface VoicingChoice {
   index: number;
   facts: PositionFacts;
   shape: Chord;
-  /** Human label derived from facts, e.g. "Open", "Barre, fret 8". */
+  /**
+   * Human label derived from facts, e.g. "Open", "Barre, fret 8". English
+   * display text only — consumers who need their own wording or i18n should
+   * derive it from `facts` instead, which carries every fact this label is
+   * built from.
+   */
   label: string;
 }
 
@@ -133,6 +136,13 @@ function widen(cls: ShapeClass): ShapeClass {
  * Duplicate voicings are excluded, so a card can never print visual twins.
  * Returns fewer alternates than asked for rather than padding, with `short`
  * set — 5 guitar entries have fewer than 3 unique voicings.
+ *
+ * Returns `null` in two distinct cases: an empty `positions` array, or a
+ * `positions` array whose entries all fail the requested `shapeClass` (after
+ * `allowNextRung` widening, if set). The second case is common, not
+ * exceptional — `shapeClass: "open"` alone returns `null` for roughly 40% of
+ * entries (220/529 guitar, 211/552 ukulele), so callers must handle `null`
+ * as a normal outcome rather than an error.
  */
 export function selectVoicings(
   positions: ChordsDbPosition[],
@@ -157,19 +167,26 @@ export function selectVoicings(
   const requested: ShapeClass = opts.shapeClass ?? "any";
   const classes = opts.allowNextRung ? [requested, widen(requested)] : [requested];
 
+  // narrowPool is the pool for the originally requested rung; pool may widen
+  // beyond it when allowNextRung kicks in. The primary must come from
+  // narrowPool whenever it has candidates — widening exists to backfill
+  // alternates, not to bump the primary to a harder rung. See Fix 4.
   let pool: VoicingChoice[] = [];
+  let narrowPool: VoicingChoice[] = [];
   for (const cls of classes) {
     pool = positions
       .map((_, index) => index)
       .filter((index) => dupes[index] === null)
       .map(build)
       .filter((c) => matchesShapeClass(c.facts, cls));
+    if (cls === requested) narrowPool = pool;
     if (pool.length > opts.alternates) break;
   }
   if (pool.length === 0) return null;
 
   const canonical = canonicalPositionIndex(positions, opts);
-  const primary = pool.find((c) => c.index === canonical) ?? pool[0];
+  const primaryPool = narrowPool.length > 0 ? narrowPool : pool;
+  const primary = primaryPool.find((c) => c.index === canonical) ?? primaryPool[0];
 
   const chosen: VoicingChoice[] = [primary];
   const remaining = pool.filter((c) => c.index !== primary.index);

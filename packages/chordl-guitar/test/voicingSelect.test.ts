@@ -158,4 +158,62 @@ describe("selectVoicings", () => {
   it("returns null for an empty position list", () => {
     expect(selectVoicings([], { instrument: "guitar", rootPc: 0, alternates: 2 })).toBeNull();
   });
+
+  it("returns null when the requested shape class matches nothing", () => {
+    // None of C_POSITIONS is barre-free at a fret other than the nut, and
+    // "no-barre" excludes the barre shapes, but the open shape still
+    // qualifies as no-barre — so use a pool with no no-barre shape at all.
+    const allBarred = [BARRE_C3, BARRE_C5, BARRE_C8];
+    const r = selectVoicings(allBarred, {
+      instrument: "guitar",
+      rootPc: 0,
+      alternates: 2,
+      shapeClass: "no-barre",
+    });
+    expect(r).toBeNull();
+  });
+
+  it("keeps the primary within the requested rung when widening occurs", () => {
+    // OPEN_INV is an open (barre-free, baseFret 1) shape but a 1st-inversion
+    // one (bass note E, not the root C). NO_BARRE_ROOT is barre-free but not
+    // open (baseFret 10) and IS root position. canonicalPositionIndex, run
+    // over the whole positions array, therefore picks NO_BARRE_ROOT as the
+    // globally canonical shape. Widening "open" -> "no-barre" pulls
+    // NO_BARRE_ROOT into the pool alongside OPEN_INV: naively picking
+    // whichever pool member matches the canonical index would surface
+    // NO_BARRE_ROOT (not open) as primary. It must not — OPEN_INV, the only
+    // shape in the originally-requested "open" rung, must stay primary.
+    const OPEN_INV = {
+      frets: [-1, -1, 2, 0, 1, 0],
+      fingers: [0, 0, 2, 0, 1, 0],
+      baseFret: 1,
+      barres: [],
+    };
+    const NO_BARRE_ROOT = {
+      frets: [-1, -1, 1, 2, 3, -1],
+      fingers: [0, 0, 1, 2, 3, 0],
+      baseFret: 10,
+      barres: [],
+    };
+    const positions = [OPEN_INV, NO_BARRE_ROOT];
+
+    // Sanity-check the fixture's facts before trusting the selectVoicings result.
+    expect(positionFacts(OPEN_INV, guitar, 0).isOpenShape).toBe(true);
+    expect(positionFacts(OPEN_INV, guitar, 0).inversion).toBe("1st");
+    expect(positionFacts(NO_BARRE_ROOT, guitar, 0).isOpenShape).toBe(false);
+    expect(positionFacts(NO_BARRE_ROOT, guitar, 0).inversion).toBe("root");
+    expect(canonicalPositionIndex(positions, { instrument: "guitar", rootPc: 0 })).toBe(1);
+
+    const r = selectVoicings(positions, {
+      instrument: "guitar",
+      rootPc: 0,
+      alternates: 2,
+      shapeClass: "open",
+      allowNextRung: true,
+    })!;
+    expect(r.primary.index).toBe(0);
+    expect(r.primary.facts.isOpenShape).toBe(true);
+    // Alternates are still free to be drawn from the widened pool.
+    expect(r.alternates.map((a) => a.index)).toEqual([1]);
+  });
 });

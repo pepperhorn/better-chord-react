@@ -44,6 +44,25 @@ describe("positionFacts", () => {
   it("reports 'other' when the root pitch class is unknown", () => {
     expect(positionFacts(OPEN_C, guitar, null).inversion).toBe("other");
   });
+
+  it("handles an all-muted position without throwing", () => {
+    // positionToMidi returns [] here; the `midi.length ?` guard on bassMidi
+    // is load-bearing — without it Math.min(...[]) is Infinity.
+    const allMuted = {
+      frets: [-1, -1, -1, -1, -1, -1],
+      fingers: [0, 0, 0, 0, 0, 0],
+      baseFret: 1,
+      barres: [],
+    };
+    const f = positionFacts(allMuted, guitar, 0);
+    expect(f.midi).toEqual([]);
+    expect(f.bassMidi).toBe(-1);
+    expect(f.bassPitchClass).toBe(-1);
+    expect(f.inversion).toBe("other");
+    expect(f.noteCount).toBe(0);
+    expect(f.pitchClasses).toEqual([]);
+    expect(f.doubledCount).toBe(0);
+  });
 });
 
 describe("duplicateVoicingMap", () => {

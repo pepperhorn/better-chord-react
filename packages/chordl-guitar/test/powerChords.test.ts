@@ -19,6 +19,16 @@ describe("powerChordPosition", () => {
     expect(pos.baseFret).toBe(1);
     expect(pos.frets).toEqual([0, 2, 2, -1, -1, -1]);
     expect(positionToMidi(pos, guitar)).toEqual([40, 47, 52]);
+    // chords-db convention: 0 = no finger, so an open string must not carry
+    // a finger number even though it's the root.
+    expect(pos.fingers).toEqual([0, 2, 3, 0, 0, 0]);
+  });
+
+  it("returns null for an out-of-range or non-integer rootPc", () => {
+    expect(powerChordPosition(-1, { stringSet: "E" })).toBeNull();
+    expect(powerChordPosition(12, { stringSet: "E" })).toBeNull();
+    expect(powerChordPosition(1.5, { stringSet: "E" })).toBeNull();
+    expect(powerChordPosition(NaN, { stringSet: "E" })).toBeNull();
   });
 
   it("puts C5 at the 3rd fret of the A string", () => {
