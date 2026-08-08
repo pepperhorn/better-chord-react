@@ -53,15 +53,24 @@ describe("canonicalPositionIndex", () => {
   });
 
   it("ranks ukulele on compactness, not inversion", () => {
-    // Root position (bass C at MIDI 60) with higher baseFret; ukulele should reject it
-    // in favor of lower baseFret even though it's non-root (1st inversion, bass E at MIDI 64).
-    const rootHighFret = { frets: [-1, 0, -1, -1], fingers: [0, 0, 0, 0], baseFret: 5, barres: [] };
-    // Bass MIDI: 60 (C, root position for C chord)
-    const nonRootLowFret = { frets: [-1, -1, 0, -1], fingers: [0, 0, 0, 0], baseFret: 1, barres: [] };
-    // Bass MIDI: 64 (E, 1st inversion for C chord)
+    // Real chords-db ukulele positions for F major (@tombatossals/chords-db/lib/ukulele.json,
+    // chords.F[suffix="major"], positions[0] and positions[2]) — not invented fixtures.
+    // openMidi (chords-db order) = [67, 60, 64, 69]; rootPc for F = 5.
+    //
+    // rootHighFret = positions[2]: baseFret 5, barre. midi = [72, 65, 69, 77] (matches
+    // chords-db's own shipped `midi` array). bassMidi 65 % 12 = 5 = F → root position.
+    // nonRootLowFret = positions[0]: baseFret 1, the open-shape F. midi = [69, 60, 65, 69]
+    // (also matches chords-db's shipped `midi`). bassMidi 60 % 12 = 0 = C;
+    // (0 - 5 + 12) % 12 = 7 → 2nd inversion, not root.
+    //
+    // This pair discriminates the two rules: a guitar-style "prefer root position" rule
+    // would pick rootHighFret (index 0); the ukulele "lowest baseFret" rule must instead
+    // pick nonRootLowFret (index 1) despite it being a 2nd inversion.
+    const rootHighFret = { frets: [1, 1, 1, 4], fingers: [1, 1, 1, 4], baseFret: 5, barres: [1] };
+    const nonRootLowFret = { frets: [2, 0, 1, 0], fingers: [2, 0, 1, 0], baseFret: 1, barres: [] };
     const i = canonicalPositionIndex([rootHighFret, nonRootLowFret], {
       instrument: "ukulele",
-      rootPc: 0,
+      rootPc: 5,
     });
     expect(i).toBe(1); // lowest baseFret wins despite non-root inversion
   });

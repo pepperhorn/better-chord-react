@@ -143,6 +143,12 @@ function widen(cls: ShapeClass): ShapeClass {
  * exceptional — `shapeClass: "open"` alone returns `null` for roughly 40% of
  * entries (220/529 guitar, 211/552 ukulele), so callers must handle `null`
  * as a normal outcome rather than an error.
+ *
+ * When the requested `shapeClass` filters out the corpus-wide canonical
+ * position entirely, the primary falls back to `primaryPool[0]` (array
+ * order) rather than re-running root-position preference within the
+ * filtered pool. Measured at ~0.9% of entries — accepted as a known
+ * shortcut, not an oversight.
  */
 export function selectVoicings(
   positions: ChordsDbPosition[],
@@ -186,6 +192,7 @@ export function selectVoicings(
 
   const canonical = canonicalPositionIndex(positions, opts);
   const primaryPool = narrowPool.length > 0 ? narrowPool : pool;
+  // Fallback to primaryPool[0] documented on the function's JSDoc above.
   const primary = primaryPool.find((c) => c.index === canonical) ?? primaryPool[0];
 
   const chosen: VoicingChoice[] = [primary];

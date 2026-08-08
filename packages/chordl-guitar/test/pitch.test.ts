@@ -66,4 +66,11 @@ describe("rootPitchClass", () => {
     expect(rootPitchClass("H7")).toBeNull();
     expect(rootPitchClass("")).toBeNull();
   });
+
+  it("parses the rare enharmonics that cross an octave or name a natural", () => {
+    expect(rootPitchClass("B#")).toBe(0); // B# = C
+    expect(rootPitchClass("Cb")).toBe(11); // Cb = B
+    expect(rootPitchClass("E#")).toBe(5); // E# = F
+    expect(rootPitchClass("Fb")).toBe(4); // Fb = E
+  });
 });
