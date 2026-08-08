@@ -51,6 +51,33 @@ const ARTIST_STYLE_MAP: Record<string, { style?: VoicingStyle; era?: string }> =
  * dominant chord type would be misclassified as minor.
  */
 export function mapToVoicingQuality(chordType: string, notes?: string[]): VoicingQuality | undefined {
+  // Trap #3: lowercasing chordType below (for every other check in this
+  // function) destroys the one signal that distinguishes uppercase-M
+  // shorthand ("M", "M7", "M9", "M11", "M13", "M6" — major) from
+  // lowercase-m shorthand ("m", "m7", "m9", ... — minor). This casing
+  // convention is real and used elsewhere in the monorepo (chordl-guitar's
+  // toDbSuffix maps "M7" -> "maj7" and "m"/"min" -> "minor"), so it must be
+  // tested case-sensitively, on the original string, before lowercasing.
+  // Only these bare numeral shorthand forms are ambiguous by case; "maj"-
+  // prefixed forms ("maj7") and spelled-out names ("major seventh") already
+  // contain enough letters to survive lowercasing unambiguously, so they
+  // are deliberately left out of this table and handled by the general
+  // logic below, same as before.
+  //
+  // "M7b5" is also deliberately left out: m7b5 is the standard, universally
+  // lowercase notation for a half-diminished chord — there is no
+  // established "major seventh flat five" symbol (and VoicingQuality has no
+  // such quality to return). So "M7b5" falls through to the general
+  // lowercase logic below, where lowercasing it produces the same string as
+  // "m7b5" and it resolves to "m7b5" (half-diminished), identically to its
+  // lowercase form. Bare "M" (major triad shorthand) is likewise left out
+  // of this table: it isn't ambiguous by case either way, since lowercasing
+  // it to "m" already falls through every branch below to `undefined`, the
+  // same as "major"/"major triad" do for plain triads.
+  if (/^M(6|7|9|11|13)$/.test(chordType)) {
+    return chordType === "M6" ? "maj6" : "maj7";
+  }
+
   const t = chordType.toLowerCase();
 
   if (t.includes("alt")) return "alt";

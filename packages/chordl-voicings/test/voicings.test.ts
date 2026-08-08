@@ -274,14 +274,48 @@ describe("mapToVoicingQuality", () => {
       expect(mapToVoicingQuality("maj7")).toBe("maj7");
     });
 
-    // "M7" is Tonal's alias for major seventh, but mapToVoicingQuality
-    // lowercases its input before any branch logic runs, so "M7" and "m7"
-    // are indistinguishable by the time they reach this function. This is a
-    // pre-existing case-folding limitation, not one of the two bugs fixed
-    // here — we document and pin the current (minor-shorthand) behavior
-    // rather than silently regress it.
-    it('maps "M7" the same as "m7" (case-folded before branch logic; ambiguous, pinned to min7)', () => {
-      expect(mapToVoicingQuality("M7")).toBe("min7");
+    // "M7" is Tonal's alias for major seventh. "m7" is minor seventh. Case
+    // is the *only* signal that tells them apart, so mapToVoicingQuality
+    // must test this uppercase-M shorthand case-sensitively before it
+    // lowercases the input for every other check.
+    it('maps "M7" to maj7, not min7 (case is the only signal distinguishing it from "m7")', () => {
+      expect(mapToVoicingQuality("M7")).toBe("maj7");
+    });
+  });
+
+  // Trap #3: mapToVoicingQuality's first line lowercases the input before
+  // any branch logic runs. Case is the *only* thing distinguishing
+  // uppercase-M shorthand ("M", "M7", "M9", "M11", "M13", "M6" — major)
+  // from lowercase-m shorthand ("m", "m7", ... — minor, Trap #2 above), so
+  // lowercasing first destroys that signal and "M7" silently resolves to
+  // min7. This convention (uppercase M = major) is real and used elsewhere
+  // in the monorepo (chordl-guitar's toDbSuffix). The uppercase-M shorthand
+  // must be matched case-sensitively *before* the `toLowerCase()` call, not
+  // folded into the lowercase branch logic. Do not "simplify" this away by
+  // moving the check after lowercasing.
+  describe("uppercase-M shorthand is distinguished from lowercase-m shorthand", () => {
+    it.each([
+      ["M", undefined],
+      ["M7", "maj7"],
+      ["M9", "maj7"],
+      ["M11", "maj7"],
+      ["M13", "maj7"],
+      ["M6", "maj6"],
+    ] as const)('maps "%s" to %s', (type, expected) => {
+      expect(mapToVoicingQuality(type)).toBe(expected);
+    });
+
+    it('maps bare "m" to undefined, same as "minor"/"minor triad"', () => {
+      expect(mapToVoicingQuality("m")).toBeUndefined();
+    });
+
+    // "M7b5" is not a standard chord symbol: m7b5 (half-diminished) is
+    // always written lowercase, and there is no established "major seventh
+    // flat five" chord — nor a VoicingQuality for one. So "M7b5" is not
+    // given special uppercase handling; it falls through to the general
+    // lowercase logic, where it resolves identically to "m7b5".
+    it('maps "M7b5" the same as "m7b5" (not a standard symbol; no special-cased meaning)', () => {
+      expect(mapToVoicingQuality("M7b5")).toBe("m7b5");
     });
   });
 
