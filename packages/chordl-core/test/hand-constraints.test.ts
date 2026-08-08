@@ -272,6 +272,37 @@ describe("constrainVoicing", () => {
     // C3=48, G3=55, E4=64, B4=71 — no hand-crossing fold
     expect(r.notes.map((n) => n.midi)).toEqual([48, 55, 64, 71]);
   });
+
+  it("handles interleaved hand hints, not just block-contiguous ones", () => {
+    // Every other test uses ["LH","LH","RH","RH"]. Here hints alternate
+    // ["LH","RH","LH","RH"], so each hand's notes are non-adjacent in the
+    // voicing — the grouping-by-hand and the per-hand fold both have to do
+    // real work to find them.
+    //
+    // Derivation, from midi = PC_SEMITONES[note] + (octave + 1) * 12:
+    //   Unfolded placement walks all four notes in voicing order (hand is
+    //   irrelevant to this pass), bumping the octave only when a note's
+    //   semitone would not ascend past the previous note's:
+    //     C: semitone 0, first note -> octave 3
+    //     E: semitone 4, ascends past 0 -> octave 3
+    //     G: semitone 7, ascends past 4 -> octave 3
+    //     B: semitone 11, ascends past 7 -> octave 3
+    //   So unfolded = C3 E3 G3 B3 = MIDI 48, 52, 55, 59.
+    //   Grouped by hand: LH = [C3=48, G3=55], span 7; RH = [E3=52, B3=59],
+    //   span 7. Both spans are already within the 9-semitone cap, so neither
+    //   hand needs re-folding — the unfolded placement stands.
+    const r = constrainVoicing({
+      notes: ["C", "E", "G", "B"],
+      handHints: ["LH", "RH", "LH", "RH"],
+      dropOrder: ["G", "C", "E", "B"],
+      keepAtLeast: ["E", "B"],
+      constraints: JUNIOR,
+    });
+    expect(r.satisfied).toBe(true);
+    expect(r.dropped).toEqual([]);
+    expect(r.notes.map((n) => n.midi)).toEqual([48, 52, 55, 59]);
+    expect(r.notes.map((n) => n.hand)).toEqual(["LH", "RH", "LH", "RH"]);
+  });
 });
 
 import * as core from "../src/index";
