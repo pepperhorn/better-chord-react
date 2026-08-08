@@ -6,6 +6,7 @@ import {
   realizeVoicing,
   voicingPitchClasses,
   inferStyle,
+  mapToVoicingQuality,
 } from "../src/index";
 
 describe("VOICING_LIBRARY", () => {
@@ -175,5 +176,69 @@ describe("voicingPitchClasses", () => {
     expect(pcs).toContain("G");
     expect(pcs).toContain("A#");
     expect(pcs).toContain("D");
+  });
+});
+
+describe("mapToVoicingQuality", () => {
+  // Regression guard: "dominant" contains the substring "min" (do-MIN-ant),
+  // so the "dom" check must be tested before the "min" check. Reordering
+  // these two branches back to a bare min-before-dom test will silently
+  // route every dominant chord to min7 again. Do not "simplify" this away.
+  describe("dominant types resolve to dom7", () => {
+    it.each([
+      "dominant seventh",
+      "dominant ninth",
+      "dominant thirteenth",
+    ])('maps "%s" to dom7', (type) => {
+      expect(mapToVoicingQuality(type)).toBe("dom7");
+    });
+
+    it('maps "altered dominant" to alt, not dom7 (alt must still win)', () => {
+      expect(mapToVoicingQuality("altered dominant")).toBe("alt");
+    });
+  });
+
+  describe("minor and major types are unaffected by the dom/min reorder", () => {
+    it('maps "minor seventh" to min7', () => {
+      expect(mapToVoicingQuality("minor seventh")).toBe("min7");
+    });
+
+    it('maps "major seventh" to maj7', () => {
+      expect(mapToVoicingQuality("major seventh")).toBe("maj7");
+    });
+
+    it('maps bare "minor" triad to undefined', () => {
+      expect(mapToVoicingQuality("minor")).toBeUndefined();
+    });
+
+    it('maps bare "major" triad to undefined', () => {
+      expect(mapToVoicingQuality("major")).toBeUndefined();
+    });
+
+    it('maps "min7" shorthand to min7', () => {
+      expect(mapToVoicingQuality("min7")).toBe("min7");
+    });
+  });
+
+  describe("other specific qualities still win over the general checks", () => {
+    it('maps "m7b5" to m7b5', () => {
+      expect(mapToVoicingQuality("m7b5")).toBe("m7b5");
+    });
+
+    it('maps "half-diminished" to m7b5', () => {
+      expect(mapToVoicingQuality("half-diminished")).toBe("m7b5");
+    });
+
+    it('maps "diminished seventh" to dim7', () => {
+      expect(mapToVoicingQuality("diminished seventh")).toBe("dim7");
+    });
+
+    it('maps "suspended fourth" to sus4', () => {
+      expect(mapToVoicingQuality("suspended fourth")).toBe("sus4");
+    });
+
+    it('maps "altered" to alt', () => {
+      expect(mapToVoicingQuality("altered")).toBe("alt");
+    });
   });
 });

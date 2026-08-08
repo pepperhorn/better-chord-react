@@ -45,6 +45,10 @@ const ARTIST_STYLE_MAP: Record<string, { style?: VoicingStyle; era?: string }> =
  * IMPORTANT: Check order matters. More specific types (alt, dim7, m7b5, sus)
  * must be tested before general ones (min, maj, dom7) because the general
  * checks use broad substring matching (e.g., "7" would match "m7b5").
+ *
+ * The "dom" check must also precede the "min" check: "dominant" contains
+ * the substring "min" (do-**min**-ant), so without this ordering every
+ * dominant chord type would be misclassified as minor.
  */
 export function mapToVoicingQuality(chordType: string, notes?: string[]): VoicingQuality | undefined {
   const t = chordType.toLowerCase();
@@ -53,6 +57,9 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   if (t.includes("dim7") || t.includes("diminished seventh")) return "dim7";
   if (t.includes("m7b5") || t.includes("half")) return "m7b5";
   if (t.includes("sus")) return "sus4";
+  // "dominant" contains the substring "min", so this must precede the minor
+  // test below or every dominant chord resolves to min7.
+  if (t.includes("dom")) return "dom7";
   if (t.includes("min") || t.includes("minor")) {
     // Plain triads ("minor", "minor triad") don't map to 7th voicings
     if (t === "minor" || t === "minor triad") return undefined;
