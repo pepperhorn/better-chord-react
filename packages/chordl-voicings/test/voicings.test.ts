@@ -233,12 +233,88 @@ describe("mapToVoicingQuality", () => {
       expect(mapToVoicingQuality("diminished seventh")).toBe("dim7");
     });
 
+    it('maps "dim7" shorthand to dim7', () => {
+      expect(mapToVoicingQuality("dim7")).toBe("dim7");
+    });
+
     it('maps "suspended fourth" to sus4', () => {
       expect(mapToVoicingQuality("suspended fourth")).toBe("sus4");
     });
 
+    it('maps "sus4" shorthand to sus4', () => {
+      expect(mapToVoicingQuality("sus4")).toBe("sus4");
+    });
+
     it('maps "altered" to alt', () => {
       expect(mapToVoicingQuality("altered")).toBe("alt");
+    });
+  });
+
+  // Trap #2 (in addition to the "dominant"/"min" collision above): minor
+  // shorthand like "m7"/"m9"/"m11"/"m13"/"m6" contains neither "min" nor
+  // "minor". Without an explicit "m" + digit check it falls all the way
+  // through to the trailing dominant/6 catchall and gets misclassified
+  // (e.g. "m7" -> dom7, "m6" -> maj6). A naive `t.startsWith("m")` fix would
+  // be just as wrong the other way: it would also swallow "maj7" and
+  // "major seventh". Do not re-simplify this to either of those.
+  describe("minor shorthand is distinguished from major shorthand", () => {
+    it.each(["m7", "m9", "m11", "m13"])('maps "%s" to min7, not dom7', (type) => {
+      expect(mapToVoicingQuality(type)).toBe("min7");
+    });
+
+    it('maps "m6" to min6, not maj6', () => {
+      expect(mapToVoicingQuality("m6")).toBe("min6");
+    });
+
+    it('maps "m6/9" to m6/9, not dom7', () => {
+      expect(mapToVoicingQuality("m6/9")).toBe("m6/9");
+    });
+
+    it('maps "maj7" to maj7 (not captured by the minor-shorthand check)', () => {
+      expect(mapToVoicingQuality("maj7")).toBe("maj7");
+    });
+
+    // "M7" is Tonal's alias for major seventh, but mapToVoicingQuality
+    // lowercases its input before any branch logic runs, so "M7" and "m7"
+    // are indistinguishable by the time they reach this function. This is a
+    // pre-existing case-folding limitation, not one of the two bugs fixed
+    // here — we document and pin the current (minor-shorthand) behavior
+    // rather than silently regress it.
+    it('maps "M7" the same as "m7" (case-folded before branch logic; ambiguous, pinned to min7)', () => {
+      expect(mapToVoicingQuality("M7")).toBe("min7");
+    });
+  });
+
+  // Trap #3: Tonal spells the sixth-chord family out with words, not digits
+  // — "minor sixth", "sixth" (bare major sixth), and "sixth added ninth"
+  // (bare major 6/9). A numeral-only `t.includes("6")` test misses all of
+  // these and falls through to a 7th-chord quality instead. Both the minor
+  // and major branches, and the bare-shorthand catchall, must recognize the
+  // spelled-out word alongside the digit. Do not simplify this back to a
+  // digit-only check.
+  describe("spelled-out sixths are recognized alongside the digit", () => {
+    it('maps "minor sixth" to min6, not min7', () => {
+      expect(mapToVoicingQuality("minor sixth")).toBe("min6");
+    });
+
+    it('maps "major sixth" to maj6, not maj7', () => {
+      expect(mapToVoicingQuality("major sixth")).toBe("maj6");
+    });
+
+    it('maps bare "sixth" to maj6, not undefined', () => {
+      expect(mapToVoicingQuality("sixth")).toBe("maj6");
+    });
+
+    it('maps digit "6" to maj6', () => {
+      expect(mapToVoicingQuality("6")).toBe("maj6");
+    });
+
+    it('maps "6/9" to 6/9, not dom7', () => {
+      expect(mapToVoicingQuality("6/9")).toBe("6/9");
+    });
+
+    it('maps "6add9" to 6/9, not dom7', () => {
+      expect(mapToVoicingQuality("6add9")).toBe("6/9");
     });
   });
 });
