@@ -101,3 +101,11 @@ describe("dbPositionToChord", () => {
     expect(chord.fingers).toContainEqual([1, 0]);    // high E open (last entry)
   });
 });
+
+describe("bass lookup", () => {
+  it("returns null — chords-db ships no bass library, and we never invent shapes", () => {
+    expect(lookupGuitarChord("C", "bass4")).toBeNull();
+    expect(lookupGuitarChord("Am", "bass5")).toBeNull();
+    expect(hasGuitarChord("C", "bass4")).toBe(false);
+  });
+});

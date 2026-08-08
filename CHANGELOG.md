@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### chordl-guitar 0.2.0
+
+**Breaking:** `OPEN_STRING_MIDI` is removed. Use `INSTRUMENTS[id].openMidi`,
+which is chords-db index order (`openMidi[i]` is the string `frets[i]` refers
+to) rather than svguitar's highest-pitch-first numbering.
+
+- `positionToMidi(pos, openMidi)` derives sounding pitches from tuning and
+  `baseFret`. Verified against all 4,183 chords-db positions. `capo` is a
+  rendering hint and is ignored.
+- `positionFacts` exposes bass note, inversion, note count, doubling, pitch
+  classes and open/barre classification.
+- `duplicateVoicingMap` flags chords-db's 63 redundant identical-sounding
+  positions. Flagged, not removed — frames' `/api/frame` exposes a
+  `positionIndex`.
+- `canonicalPositionIndex` picks a default shape, instrument-aware: guitar
+  prefers root position, ukulele ranks on lowest `baseFret`.
+- `selectVoicings` returns a primary plus diversity-ranked alternates.
+- `powerChordPosition` / `powerChordShape` generate movable power chords,
+  which chords-db does not carry.
+- New instruments: `bass4`, `bass5`. Lookup returns `null` — chords-db has no
+  bass library.
+
 ### Added
 
 - **Guitar & ukulele chord diagrams (`@pepperhorn/chordl-guitar`).** A new **Guitar** option on the Display toggle renders fretboard "frames" for a chord via svguitar, backed by `@tombatossals/chords-db`. A **Guitar / Ukulele** switch flips between the 6-string and 4-string (G C E A) instruments — the ukulele library spells accidental roots as flats (`Db`/`Gb`) where guitar uses sharps, and the lookup resolves either enharmonic spelling. Each chord's **alternate placements** (open, barre, higher positions) are browsable with an A/B/C toggle that shows the base fret. Based on the pepperhorn/frames project. The view (svguitar + shape library, ~200KB) is lazy-loaded, so it only ships when selected.

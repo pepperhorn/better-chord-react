@@ -7,7 +7,7 @@
  */
 import type { Chord } from "svguitar";
 
-export type InstrumentId = "guitar" | "ukulele" | "guitar-top3";
+export type InstrumentId = "guitar" | "ukulele" | "guitar-top3" | "bass4" | "bass5";
 
 export interface InstrumentConfig {
   id: InstrumentId;
@@ -18,6 +18,14 @@ export interface InstrumentConfig {
   frets: number;
   /** Open-string tuning, low → high. */
   tuning: string[];
+  /**
+   * Open-string MIDI numbers in **chords-db index order** — `openMidi[i]` is
+   * the string that `frets[i]` refers to. This is NOT svguitar's string
+   * numbering, which runs highest-pitch-first; `dbPositionToChord` is the one
+   * place that inverts. Ukulele's reentrant high-G means the array is not
+   * ascending, so the order cannot be recovered by sorting.
+   */
+  openMidi: number[];
 }
 
 export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
@@ -28,6 +36,7 @@ export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
     strings: 6,
     frets: 5,
     tuning: ["E", "A", "D", "G", "B", "E"],
+    openMidi: [40, 45, 50, 55, 59, 64],
   },
   ukulele: {
     id: "ukulele",
@@ -36,6 +45,7 @@ export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
     strings: 4,
     frets: 5,
     tuning: ["G", "C", "E", "A"],
+    openMidi: [67, 60, 64, 69],
   },
   "guitar-top3": {
     id: "guitar-top3",
@@ -46,6 +56,25 @@ export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
     strings: 6,
     frets: 4,
     tuning: ["E", "A", "D", "G", "B", "E"],
+    openMidi: [40, 45, 50, 55, 59, 64],
+  },
+  bass4: {
+    id: "bass4",
+    label: "Bass (4-string)",
+    description: "Standard 4-string bass (E A D G)",
+    strings: 4,
+    frets: 5,
+    tuning: ["E", "A", "D", "G"],
+    openMidi: [28, 33, 38, 43],
+  },
+  bass5: {
+    id: "bass5",
+    label: "Bass (5-string)",
+    description: "5-string bass with low B (B E A D G)",
+    strings: 5,
+    frets: 5,
+    tuning: ["B", "E", "A", "D", "G"],
+    openMidi: [23, 28, 33, 38, 43],
   },
 };
 
@@ -134,13 +163,3 @@ export function dbPositionToChord(
   };
 }
 
-/**
- * Open-string MIDI numbers, ordered string 1 first (highest pitch), matching
- * svguitar's string numbering. Used to verify that a hand-authored shape
- * actually spells the chord it claims to.
- */
-export const OPEN_STRING_MIDI: Record<InstrumentId, number[]> = {
-  guitar: [64, 59, 55, 50, 45, 40],
-  "guitar-top3": [64, 59, 55, 50, 45, 40],
-  ukulele: [69, 64, 60, 67],
-};
