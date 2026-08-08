@@ -131,4 +131,54 @@ describe("constrainVoicing", () => {
     });
     expect(r.notes.length).toBeLessThan(4);
   });
+
+  it("preserves hand hints for duplicate pitch classes", () => {
+    // Doubled root across hands: C in LH and C in RH. Each should keep its hint.
+    const r = constrainVoicing({
+      notes: ["C", "E", "G", "C"],
+      handHints: ["LH", "LH", "RH", "RH"],
+      dropOrder: ["G", "C", "E"],
+      keepAtLeast: ["E"],
+      constraints: { maxSpanPerHand: 24, maxNotesPerHand: 4 },
+    });
+    expect(r.notes).toHaveLength(4);
+    // Verify hand assignments: first C is LH, second C is RH
+    expect(r.notes[0].note).toBe("C");
+    expect(r.notes[0].hand).toBe("LH");
+    expect(r.notes[3].note).toBe("C");
+    expect(r.notes[3].hand).toBe("RH");
+  });
+
+  it("drops only one occurrence when dropping a duplicate pitch class", () => {
+    // Voicing with doubled root: ["C", "E", "G", "C"] treated as single hand.
+    // With maxNotesPerHand: 3, one note must drop.
+    const r = constrainVoicing({
+      notes: ["C", "E", "G", "C"],
+      dropOrder: ["C", "G", "E"],
+      keepAtLeast: ["E"],
+      constraints: { maxSpanPerHand: 24, maxNotesPerHand: 3 },
+    });
+    // Dropping C should remove exactly one occurrence (the last one, C4).
+    expect(r.dropped).toEqual(["C"]);
+    expect(r.notes).toHaveLength(3);
+    // Remaining notes in voicing order: C3, E3, G3.
+    expect(r.notes.map((n) => n.note)).toEqual(["C", "E", "G"]);
+    expect(r.notes.map((n) => n.midi)).toEqual([48, 52, 55]);
+  });
+
+  it("asserts per-hand octaves in hand-split voicing", () => {
+    // Test that octaves remain hand-local and unfolded when each hand fits independently.
+    const r = constrainVoicing({
+      notes: ["C", "G", "E", "B"],
+      handHints: ["LH", "LH", "RH", "RH"],
+      dropOrder: ["G", "C", "E", "B"],
+      keepAtLeast: ["E", "B"],
+      constraints: { maxSpanPerHand: 9, maxNotesPerHand: 2 },
+    });
+    expect(r.satisfied).toBe(true);
+    expect(r.dropped).toEqual([]);
+    expect(r.notes).toHaveLength(4);
+    // C3=48, G3=55, E4=64, B4=71 — no hand-crossing fold
+    expect(r.notes.map((n) => n.midi)).toEqual([48, 55, 64, 71]);
+  });
 });

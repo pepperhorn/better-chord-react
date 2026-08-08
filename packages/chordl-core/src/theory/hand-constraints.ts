@@ -135,19 +135,71 @@ export function constrainVoicing(input: ConstrainVoicingInput): ConstrainedVoici
   const maxNotes = Math.max(2, input.constraints.maxNotesPerHand);
   const keep = new Set(input.keepAtLeast);
 
-  let working = [...input.notes];
+  // Track note indices instead of strings to handle duplicates correctly.
+  // Each entry is an index into input.notes.
+  let working = input.notes.map((_, i) => i);
   const dropped: string[] = [];
 
-  const place = (notes: string[]): ConstrainedNote[] => {
-    const placed = placeAscending(notes, baseOctave, input.constraints.maxSpanPerHand);
-    return placed.map((p, i) => {
-      // Hand hints index the ORIGINAL note order, so look the hand up by
-      // pitch class rather than by position in the reduced array.
-      const original = input.handHints
-        ? input.handHints[input.notes.indexOf(notes[i])]
-        : undefined;
-      return { ...p, hand: original ?? DEFAULT_HAND };
-    });
+  const place = (indices: number[]): ConstrainedNote[] => {
+    const notesForThisCall = indices.map((i) => input.notes[i]);
+
+    // Step 1: Place ascending with NO folding to preserve the voicing's true shape.
+    const unfolded = placeAscending(notesForThisCall, baseOctave, 0);
+
+    // Step 2: Group by hand and re-fold each hand independently if needed.
+    interface IndexedPlacedNote extends PlacedNote {
+      originalIndex: number;
+    }
+
+    let placed: IndexedPlacedNote[] = unfolded.map((p, i) => ({
+      ...p,
+      originalIndex: indices[i],
+    }));
+
+    // Group by hand
+    const handToNotes = new Map<Hand, IndexedPlacedNote[]>();
+    for (const p of placed) {
+      const hand = input.handHints ? input.handHints[p.originalIndex] : DEFAULT_HAND;
+      const list = handToNotes.get(hand);
+      if (list) list.push(p);
+      else handToNotes.set(hand, [p]);
+    }
+
+    // Recompute placed by re-folding each hand that exceeds maxSpan.
+    const refolded: IndexedPlacedNote[] = [];
+    for (const [hand, notesInHand] of handToNotes) {
+      const notesForFold = notesInHand.map((n) => n.note);
+      const handBaseOctave = notesInHand[0].octave;
+
+      const span = spanOf(notesInHand.map((n) => n.midi));
+      if (span <= input.constraints.maxSpanPerHand) {
+        // Already fits, use as-is
+        refolded.push(...notesInHand);
+      } else {
+        // Exceeds span, re-fold this hand's notes
+        const refolded_hand = placeAscending(
+          notesForFold,
+          handBaseOctave,
+          input.constraints.maxSpanPerHand,
+        );
+        for (let i = 0; i < refolded_hand.length; i++) {
+          refolded.push({
+            ...refolded_hand[i],
+            originalIndex: notesInHand[i].originalIndex,
+          });
+        }
+      }
+    }
+
+    // Restore original voicing order by sorting by originalIndex.
+    refolded.sort((a, b) => a.originalIndex - b.originalIndex);
+
+    return refolded.map((p) => ({
+      note: p.note,
+      octave: p.octave,
+      midi: p.midi,
+      hand: input.handHints ? input.handHints[p.originalIndex] : DEFAULT_HAND,
+    }));
   };
 
   for (;;) {
@@ -162,8 +214,14 @@ export function constrainVoicing(input: ConstrainVoicingInput): ConstrainedVoici
       };
     }
 
-    const next = input.dropOrder.find((n) => working.includes(n) && !keep.has(n));
-    if (next === undefined) {
+    // Find the next note to drop, by original pitch class in working indices.
+    const nextPC = input.dropOrder.find((pc) => {
+      const hasPC = working.some((idx) => input.notes[idx] === pc);
+      const isKept = keep.has(pc);
+      return hasPC && !isKept;
+    });
+
+    if (nextPC === undefined) {
       return {
         notes: placed,
         dropped,
@@ -171,7 +229,26 @@ export function constrainVoicing(input: ConstrainVoicingInput): ConstrainedVoici
         satisfied: false,
       };
     }
-    working = working.filter((n) => n !== next);
-    dropped.push(next);
+
+    // Remove the LAST occurrence of this pitch class (conventional choice).
+    let removed = false;
+    for (let i = working.length - 1; i >= 0; i--) {
+      if (input.notes[working[i]] === nextPC) {
+        working.splice(i, 1);
+        dropped.push(nextPC);
+        removed = true;
+        break;
+      }
+    }
+
+    // Safety check (should never happen, but satisfy TypeScript).
+    if (!removed) {
+      return {
+        notes: place(working),
+        dropped,
+        span: 0,
+        satisfied: false,
+      };
+    }
   }
 }
