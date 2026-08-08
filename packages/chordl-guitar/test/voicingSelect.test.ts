@@ -41,12 +41,30 @@ describe("canonicalPositionIndex", () => {
     expect(i).toBe(0);
   });
 
+  it("prefers root position over a lower-fret inversion on guitar", () => {
+    // BARRE_C3 is 2nd inversion at baseFret 3; BARRE_C8 is root position at
+    // baseFret 8. A compactness rule would pick index 0 — on guitar the
+    // inversion must win, which is what separates it from the ukulele rule.
+    const i = canonicalPositionIndex([BARRE_C3, BARRE_C8], guitar, {
+      instrument: "guitar",
+      rootPc: 0,
+    });
+    expect(i).toBe(1);
+  });
+
   it("ranks ukulele on compactness, not inversion", () => {
     const uke = INSTRUMENTS.ukulele.openMidi;
-    const high = { frets: [5, 4, 3, 3], fingers: [4, 3, 1, 2], baseFret: 3, barres: [] };
-    const low = { frets: [0, 0, 0, 3], fingers: [0, 0, 0, 3], baseFret: 1, barres: [] };
-    const i = canonicalPositionIndex([high, low], uke, { instrument: "ukulele", rootPc: 0 });
-    expect(i).toBe(1); // lowest baseFret wins
+    // Root position (bass C at MIDI 60) with higher baseFret; ukulele should reject it
+    // in favor of lower baseFret even though it's non-root (1st inversion, bass E at MIDI 64).
+    const rootHighFret = { frets: [-1, 0, -1, -1], fingers: [0, 0, 0, 0], baseFret: 5, barres: [] };
+    // Bass MIDI: 60 (C, root position for C chord)
+    const nonRootLowFret = { frets: [-1, -1, 0, -1], fingers: [0, 0, 0, 0], baseFret: 1, barres: [] };
+    // Bass MIDI: 64 (E, 1st inversion for C chord)
+    const i = canonicalPositionIndex([rootHighFret, nonRootLowFret], uke, {
+      instrument: "ukulele",
+      rootPc: 0,
+    });
+    expect(i).toBe(1); // lowest baseFret wins despite non-root inversion
   });
 
   it("never picks a duplicate voicing", () => {
