@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchesShapeClass, canonicalPositionIndex } from "../src/voicingSelect";
+import { matchesShapeClass, canonicalPositionIndex, selectVoicings } from "../src/voicingSelect";
 import { positionFacts } from "../src/voicingFacts";
 import { INSTRUMENTS } from "../src/instruments";
 
@@ -73,5 +73,90 @@ describe("canonicalPositionIndex", () => {
       rootPc: 0,
     });
     expect(i).toBe(0);
+  });
+});
+
+describe("selectVoicings", () => {
+  it("picks the canonical shape as primary", () => {
+    const r = selectVoicings(C_POSITIONS, guitar, {
+      instrument: "guitar",
+      rootPc: 0,
+      alternates: 2,
+    })!;
+    expect(r.primary.index).toBe(0);
+    expect(r.primary.facts.isOpenShape).toBe(true);
+  });
+
+  it("avoids two same-profile alternates and surfaces the contrasting one", () => {
+    // positions 1 and 2 are both 2nd-inversion barres; position 3 is a
+    // root-position barre. Naive first-n takes 1 and 2 and never reaches 3.
+    const r = selectVoicings(C_POSITIONS, guitar, {
+      instrument: "guitar",
+      rootPc: 0,
+      alternates: 2,
+    })!;
+    const picked = r.alternates.map((a) => a.index);
+    expect(picked).toContain(3);
+    expect(picked).not.toEqual([1, 2]);
+    expect(r.short).toBe(false);
+  });
+
+  it("never returns the same voicing twice", () => {
+    const r = selectVoicings([OPEN_C, { ...OPEN_C }, BARRE_C8], guitar, {
+      instrument: "guitar",
+      rootPc: 0,
+      alternates: 2,
+    })!;
+    const chosen = [r.primary.index, ...r.alternates.map((a) => a.index)];
+    expect(new Set(chosen).size).toBe(chosen.length);
+    expect(r.alternates).toHaveLength(1);
+    expect(r.short).toBe(true);
+  });
+
+  it("restricts candidates to the requested shape class", () => {
+    const r = selectVoicings(C_POSITIONS, guitar, {
+      instrument: "guitar",
+      rootPc: 0,
+      alternates: 2,
+      shapeClass: "open",
+    })!;
+    expect(r.primary.facts.isOpenShape).toBe(true);
+    expect(r.alternates).toHaveLength(0);
+    expect(r.short).toBe(true);
+  });
+
+  it("widens by one rung when allowNextRung is set", () => {
+    // Only the open C is barre-free, so "no-barre" alone yields no alternates;
+    // widening to "any" brings the barre shapes into the pool.
+    const narrow = selectVoicings(C_POSITIONS, guitar, {
+      instrument: "guitar",
+      rootPc: 0,
+      alternates: 2,
+      shapeClass: "no-barre",
+    })!;
+    expect(narrow.alternates).toHaveLength(0);
+
+    const widened = selectVoicings(C_POSITIONS, guitar, {
+      instrument: "guitar",
+      rootPc: 0,
+      alternates: 2,
+      shapeClass: "no-barre",
+      allowNextRung: true,
+    })!;
+    expect(widened.alternates).toHaveLength(2);
+  });
+
+  it("labels each choice from its facts", () => {
+    const r = selectVoicings(C_POSITIONS, guitar, {
+      instrument: "guitar",
+      rootPc: 0,
+      alternates: 2,
+    })!;
+    expect(r.primary.label).toBe("Open");
+    expect(r.alternates.some((a) => a.label.startsWith("Barre, fret "))).toBe(true);
+  });
+
+  it("returns null for an empty position list", () => {
+    expect(selectVoicings([], guitar, { instrument: "guitar", rootPc: 0, alternates: 2 })).toBeNull();
   });
 });

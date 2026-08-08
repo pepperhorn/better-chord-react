@@ -4,7 +4,9 @@
  * The package offers a sensible default and a ranked list; which shape a
  * product actually displays stays the consumer's decision.
  */
+import type { Chord } from "svguitar";
 import type { ChordsDbPosition, InstrumentId } from "./instruments";
+import { INSTRUMENTS, dbPositionToChord } from "./instruments";
 import type { PositionFacts } from "./voicingFacts";
 import { positionFacts, duplicateVoicingMap } from "./voicingFacts";
 
@@ -67,4 +69,124 @@ export function canonicalPositionIndex(
 
   const rootPosition = candidates.find((c) => c.facts.inversion === "root");
   return (rootPosition ?? candidates[0]).index;
+}
+
+export interface VoicingChoice {
+  /** Index into the original positions array — stable, so it round-trips. */
+  index: number;
+  facts: PositionFacts;
+  shape: Chord;
+  /** Human label derived from facts, e.g. "Open", "Barre, fret 8". */
+  label: string;
+}
+
+export interface SelectVoicingsOptions extends CanonicalOptions {
+  /** How many alternates to return alongside the primary. */
+  alternates: number;
+  /** Restrict candidates to a difficulty rung. Default "any". */
+  shapeClass?: ShapeClass;
+  /** Widen the pool by one rung when the requested rung runs dry. Default false. */
+  allowNextRung?: boolean;
+  title?: string;
+}
+
+export interface SelectVoicingsResult {
+  primary: VoicingChoice;
+  alternates: VoicingChoice[];
+  /** True when fewer alternates were available than requested. */
+  short: boolean;
+}
+
+function labelFor(facts: PositionFacts): string {
+  if (facts.isOpenShape) return "Open";
+  if (facts.hasBarre) return `Barre, fret ${facts.baseFret}`;
+  return `Fret ${facts.baseFret}`;
+}
+
+/**
+ * How different two shapes look and feel to a player. Higher = more contrast.
+ *
+ * Inversion dominates because it changes what the chord sounds like; barre vs
+ * open is the next most visible difference; neck distance breaks ties.
+ */
+function contrast(a: PositionFacts, b: PositionFacts): number {
+  let score = 0;
+  if (a.inversion !== b.inversion) score += 4;
+  if (a.hasBarre !== b.hasBarre) score += 2;
+  score += Math.min(Math.abs(a.baseFret - b.baseFret), 5) / 5;
+  return score;
+}
+
+function widen(cls: ShapeClass): ShapeClass {
+  const i = SHAPE_CLASS_LADDER.indexOf(cls);
+  return SHAPE_CLASS_LADDER[Math.min(i + 1, SHAPE_CLASS_LADDER.length - 1)];
+}
+
+/**
+ * A primary shape plus up to `alternates` maximally-contrasting others.
+ *
+ * Alternates are chosen greedily: each pick maximises its minimum contrast
+ * against everything already chosen. Naive first-n selection repeats an
+ * (inversion, barre) profile on 74.9% of guitar entries, which reads as a
+ * broken card when three shapes appear side by side.
+ *
+ * Duplicate voicings are excluded, so a card can never print visual twins.
+ * Returns fewer alternates than asked for rather than padding, with `short`
+ * set — 5 guitar entries have fewer than 3 unique voicings.
+ */
+export function selectVoicings(
+  positions: ChordsDbPosition[],
+  openMidi: number[],
+  opts: SelectVoicingsOptions,
+): SelectVoicingsResult | null {
+  if (positions.length === 0) return null;
+
+  const dupes = duplicateVoicingMap(positions, openMidi);
+  const stringCount = INSTRUMENTS[opts.instrument].strings;
+
+  const build = (index: number): VoicingChoice => {
+    const facts = positionFacts(positions[index], openMidi, opts.rootPc);
+    return {
+      index,
+      facts,
+      shape: dbPositionToChord(positions[index], stringCount, opts.title),
+      label: labelFor(facts),
+    };
+  };
+
+  const requested: ShapeClass = opts.shapeClass ?? "any";
+  const classes = opts.allowNextRung ? [requested, widen(requested)] : [requested];
+
+  let pool: VoicingChoice[] = [];
+  for (const cls of classes) {
+    pool = positions
+      .map((_, index) => index)
+      .filter((index) => dupes[index] === null)
+      .map(build)
+      .filter((c) => matchesShapeClass(c.facts, cls));
+    if (pool.length > opts.alternates) break;
+  }
+  if (pool.length === 0) return null;
+
+  const canonical = canonicalPositionIndex(positions, openMidi, opts);
+  const primary = pool.find((c) => c.index === canonical) ?? pool[0];
+
+  const chosen: VoicingChoice[] = [primary];
+  const remaining = pool.filter((c) => c.index !== primary.index);
+
+  while (chosen.length <= opts.alternates && remaining.length > 0) {
+    let bestAt = 0;
+    let bestScore = -Infinity;
+    remaining.forEach((cand, i) => {
+      const score = Math.min(...chosen.map((c) => contrast(c.facts, cand.facts)));
+      if (score > bestScore) {
+        bestScore = score;
+        bestAt = i;
+      }
+    });
+    chosen.push(remaining.splice(bestAt, 1)[0]);
+  }
+
+  const alternates = chosen.slice(1);
+  return { primary, alternates, short: alternates.length < opts.alternates };
 }
