@@ -7,7 +7,7 @@
  */
 import type { Chord } from "svguitar";
 
-export type InstrumentId = "guitar" | "ukulele" | "guitar-top3";
+export type InstrumentId = "guitar" | "ukulele" | "guitar-top3" | "bass4" | "bass5";
 
 export interface InstrumentConfig {
   id: InstrumentId;
@@ -57,6 +57,24 @@ export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
     frets: 4,
     tuning: ["E", "A", "D", "G", "B", "E"],
     openMidi: [40, 45, 50, 55, 59, 64],
+  },
+  bass4: {
+    id: "bass4",
+    label: "Bass (4-string)",
+    description: "Standard 4-string bass (E A D G)",
+    strings: 4,
+    frets: 5,
+    tuning: ["E", "A", "D", "G"],
+    openMidi: [28, 33, 38, 43],
+  },
+  bass5: {
+    id: "bass5",
+    label: "Bass (5-string)",
+    description: "5-string bass with low B (B E A D G)",
+    strings: 5,
+    frets: 5,
+    tuning: ["B", "E", "A", "D", "G"],
+    openMidi: [23, 28, 33, 38, 43],
   },
 };
 

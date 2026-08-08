@@ -19,3 +19,15 @@ describe("guitar-top3 instrument", () => {
     expect(INSTRUMENTS.ukulele.openMidi).toEqual([67, 60, 64, 69]);
   });
 });
+
+describe("bass instruments", () => {
+  it("registers 4- and 5-string bass with standard tunings", () => {
+    expect(INSTRUMENTS.bass4.strings).toBe(4);
+    expect(INSTRUMENTS.bass4.tuning).toEqual(["E", "A", "D", "G"]);
+    expect(INSTRUMENTS.bass4.openMidi).toEqual([28, 33, 38, 43]);
+
+    expect(INSTRUMENTS.bass5.strings).toBe(5);
+    expect(INSTRUMENTS.bass5.tuning).toEqual(["B", "E", "A", "D", "G"]);
+    expect(INSTRUMENTS.bass5.openMidi).toEqual([23, 28, 33, 38, 43]);
+  });
+});
