@@ -156,6 +156,76 @@ interface IndexedConstrainedNote extends ConstrainedNote {
 }
 
 /**
+ * Place a subset of the voicing (by index) and settle each hand's octaves.
+ *
+ * Step 1 stacks the whole subset ascending with no folding, so the voicing's
+ * true shape is preserved. Step 2 groups the result by hand and re-folds
+ * only the hands whose span exceeds the cap — folding is per-hand because
+ * two hands an octave apart should not be squeezed together just because
+ * the whole voicing looks wide. Step 3 collapses duplicate MIDI numbers
+ * (same key, one finger) so they cost one slot of the note-count budget.
+ */
+function place(
+  indices: number[],
+  notes: string[],
+  baseOctave: number,
+  maxSpanPerHand: number,
+  handOf: (originalIndex: number) => Hand,
+): IndexedConstrainedNote[] {
+  const notesForThisCall = indices.map((i) => notes[i]);
+
+  // Step 1: Place ascending with NO folding to preserve the voicing's true shape.
+  const unfolded: IndexedConstrainedNote[] = placeAscending(notesForThisCall, baseOctave, 0).map(
+    (p, i) => ({ ...p, originalIndex: indices[i], hand: handOf(indices[i]) }),
+  );
+
+  // Step 2: Group by hand and re-fold each hand independently if needed.
+  const handToNotes = new Map<Hand, IndexedConstrainedNote[]>();
+  for (const p of unfolded) {
+    const list = handToNotes.get(p.hand);
+    if (list) list.push(p);
+    else handToNotes.set(p.hand, [p]);
+  }
+
+  const refolded: IndexedConstrainedNote[] = [];
+  for (const [hand, notesInHand] of handToNotes) {
+    const span = spanOf(notesInHand.map((n) => n.midi));
+    if (span <= maxSpanPerHand) {
+      // Already fits, use as-is
+      refolded.push(...notesInHand);
+      continue;
+    }
+    // Exceeds span, re-fold this hand's notes
+    const refoldedHand = placeAscending(
+      notesInHand.map((n) => n.note),
+      notesInHand[0].octave,
+      maxSpanPerHand,
+    );
+    for (let i = 0; i < refoldedHand.length; i++) {
+      refolded.push({
+        ...refoldedHand[i],
+        originalIndex: notesInHand[i].originalIndex,
+        hand,
+      });
+    }
+  }
+
+  // Restore original voicing order by sorting by originalIndex.
+  refolded.sort((a, b) => a.originalIndex - b.originalIndex);
+
+  // Step 3: Two notes on the same MIDI number are one key under one finger.
+  // Collapse them so they cost one slot of the note-count budget, not two.
+  // The first in voicing order wins, so the surviving spelling and hand are
+  // the ones the voicing led with.
+  const seenMidi = new Set<number>();
+  return refolded.filter((p) => {
+    if (seenMidi.has(p.midi)) return false;
+    seenMidi.add(p.midi);
+    return true;
+  });
+}
+
+/**
  * Fit a voicing inside a hand's reach and note count.
  *
  * Strategy, in order:
@@ -188,64 +258,14 @@ export function constrainVoicing(input: ConstrainVoicingInput): ConstrainedVoici
   let working = input.notes.map((_, i) => i);
   const dropped: string[] = [];
 
-  const place = (indices: number[]): IndexedConstrainedNote[] => {
-    const notesForThisCall = indices.map((i) => input.notes[i]);
-
-    // Step 1: Place ascending with NO folding to preserve the voicing's true shape.
-    const unfolded: IndexedConstrainedNote[] = placeAscending(
-      notesForThisCall,
-      baseOctave,
-      0,
-    ).map((p, i) => ({ ...p, originalIndex: indices[i], hand: handOf(indices[i]) }));
-
-    // Step 2: Group by hand and re-fold each hand independently if needed.
-    const handToNotes = new Map<Hand, IndexedConstrainedNote[]>();
-    for (const p of unfolded) {
-      const list = handToNotes.get(p.hand);
-      if (list) list.push(p);
-      else handToNotes.set(p.hand, [p]);
-    }
-
-    const refolded: IndexedConstrainedNote[] = [];
-    for (const [hand, notesInHand] of handToNotes) {
-      const span = spanOf(notesInHand.map((n) => n.midi));
-      if (span <= input.constraints.maxSpanPerHand) {
-        // Already fits, use as-is
-        refolded.push(...notesInHand);
-        continue;
-      }
-      // Exceeds span, re-fold this hand's notes
-      const refoldedHand = placeAscending(
-        notesInHand.map((n) => n.note),
-        notesInHand[0].octave,
-        input.constraints.maxSpanPerHand,
-      );
-      for (let i = 0; i < refoldedHand.length; i++) {
-        refolded.push({
-          ...refoldedHand[i],
-          originalIndex: notesInHand[i].originalIndex,
-          hand,
-        });
-      }
-    }
-
-    // Restore original voicing order by sorting by originalIndex.
-    refolded.sort((a, b) => a.originalIndex - b.originalIndex);
-
-    // Step 3: Two notes on the same MIDI number are one key under one finger.
-    // Collapse them so they cost one slot of the note-count budget, not two.
-    // The first in voicing order wins, so the surviving spelling and hand are
-    // the ones the voicing led with.
-    const seenMidi = new Set<number>();
-    return refolded.filter((p) => {
-      if (seenMidi.has(p.midi)) return false;
-      seenMidi.add(p.midi);
-      return true;
-    });
-  };
-
   for (;;) {
-    const placed = place(working);
+    const placed = place(
+      working,
+      input.notes,
+      baseOctave,
+      input.constraints.maxSpanPerHand,
+      handOf,
+    );
 
     // A collapsed duplicate is gone from the result, so drop it from `working`
     // too — otherwise the drop loop would keep offering a note the caller can
