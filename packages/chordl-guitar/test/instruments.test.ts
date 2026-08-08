@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { INSTRUMENTS, OPEN_STRING_MIDI } from "../src/instruments";
+import { INSTRUMENTS } from "../src/instruments";
 
 describe("guitar-top3 instrument", () => {
   it("is registered", () => {
@@ -13,9 +13,9 @@ describe("guitar-top3 instrument", () => {
     expect(inst.frets).toBe(4);
   });
 
-  it("exposes open-string MIDI ordered string 1 (high E) first", () => {
-    expect(OPEN_STRING_MIDI["guitar-top3"].slice(0, 3)).toEqual([64, 59, 55]);
-    expect(OPEN_STRING_MIDI.guitar.slice(0, 3)).toEqual([64, 59, 55]);
-    expect(OPEN_STRING_MIDI.ukulele).toEqual([69, 64, 60, 67]);
+  it("exposes open-string MIDI in chords-db index order (low string first)", () => {
+    expect(INSTRUMENTS["guitar-top3"].openMidi.slice(0, 3)).toEqual([40, 45, 50]);
+    expect(INSTRUMENTS.guitar.openMidi.slice(0, 3)).toEqual([40, 45, 50]);
+    expect(INSTRUMENTS.ukulele.openMidi).toEqual([67, 60, 64, 69]);
   });
 });

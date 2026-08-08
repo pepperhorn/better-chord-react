@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { GUITAR_TOP3_PRESETS, lookupTop3Chord } from "../src/staticPresets";
-import { OPEN_STRING_MIDI } from "../src/instruments";
+import { INSTRUMENTS } from "../src/instruments";
 
 const PC: Record<string, number> = {
   C: 0, "C#": 1, D: 2, "D#": 3, E: 4, F: 5,
@@ -25,7 +25,9 @@ function chordTones(key: string, suffix: string): { pcs: Set<number>; third: num
 }
 
 describe("GUITAR_TOP3_PRESETS", () => {
-  const midi = OPEN_STRING_MIDI["guitar-top3"];
+  // Presets index by svguitar string number (1 = high E), so reverse the
+  // chords-db-order openMidi to get midi[stringNum - 1].
+  const midi = [...INSTRUMENTS["guitar-top3"].openMidi].reverse();
 
   for (const preset of GUITAR_TOP3_PRESETS) {
     it(`${preset.key}${preset.suffix} spells its chord on strings G B E`, () => {

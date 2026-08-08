@@ -145,13 +145,3 @@ export function dbPositionToChord(
   };
 }
 
-/**
- * Open-string MIDI numbers, ordered string 1 first (highest pitch), matching
- * svguitar's string numbering. Used to verify that a hand-authored shape
- * actually spells the chord it claims to.
- */
-export const OPEN_STRING_MIDI: Record<InstrumentId, number[]> = {
-  guitar: [64, 59, 55, 50, 45, 40],
-  "guitar-top3": [64, 59, 55, 50, 45, 40],
-  ukulele: [69, 64, 60, 67],
-};
