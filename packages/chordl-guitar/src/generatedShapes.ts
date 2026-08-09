@@ -26,47 +26,51 @@ const PC: Record<string, number> = {
 };
 
 /**
- * Bass root-fifth-octave shape for one root.
+ * Bass root-fifth-octave shape for one root, placed where it sounds good.
  *
- * The root goes on the E string when it lies within the first four frets
- * (E, F, F#, G, G#), otherwise on the A string, and the diagram window
- * slides to the root when the pattern would not fit against the nut
- * (chords-db convention, matching `dbPositionToChord`: `position` is the
- * window's first fret and finger frets are window-relative). That is also
- * how the pattern is taught: find the root, walk the same two-string
- * triangle from it — D at the 5th fret is the same shape as F at the 1st.
+ * The root always lands FRETTED between the 3rd and 9th fret — never on an
+ * open string and never crammed against the nut. Two reasons, both audible:
+ * open-position roots boom and mud on a bass, and the whole point of the
+ * pattern is that it is movable, which an open string breaks (you cannot
+ * slide an open E up a tone). E string is preferred when its root fret sits
+ * in the sweet range; otherwise the A string's does (every root lands in
+ * 3-9 on one of the two).
+ *
+ * The window slides to the root (chords-db convention, matching
+ * `dbPositionToChord`: `position` is the window's first fret, finger frets
+ * window-relative) — D at the 5th fret is the same shape as G at the 3rd.
  *
  * svguitar strings are numbered from the highest pitch: 1=G, 2=D, 3=A, 4=E.
- * Fingers carry the conventional one-finger-per-fret labels (root 1,
- * fifth 3, octave 4); an open root leaves the marker label off, since
- * svguitar renders fret 0 as a nut ring with no text.
+ * Fingers carry the conventional one-finger-per-fret labels: root 1,
+ * fifth 3, octave 4.
  */
+const BASS_SWEET_LOW = 3;
+const BASS_SWEET_HIGH = 9;
+
 export function bassShapeFor(root: string): Chord | null {
   const pc = PC[root];
   if (pc === undefined) return null;
 
   const fretOnE = (pc - PC.E + 12) % 12;
-  const onEString = fretOnE <= 4;
-  const rootFret = onEString ? fretOnE : (pc - PC.A + 12) % 12;
+  const fretOnA = (pc - PC.A + 12) % 12;
+  const sweet = (f: number) => f >= BASS_SWEET_LOW && f <= BASS_SWEET_HIGH;
+  const onEString = sweet(fretOnE) || !sweet(fretOnA);
+  const rootFret = onEString ? fretOnE : fretOnA;
 
   // [rootString, fifthString, octaveString] in svguitar numbering.
   const [rootS, fifthS, octaveS] = onEString ? [4, 3, 2] : [3, 2, 1];
   const mutedS = onEString ? 1 : 4;
 
-  // Fits against the nut? Draw absolute. Otherwise slide the window to the
-  // root fret and speak window-relative, like every chords-db position.
+  // Slide the window to the root whenever the pattern outgrows the nut view.
   const slide = rootFret + 2 > 6;
   const position = slide ? rootFret : 1;
   const rel = (abs: number): number => (slide ? abs - rootFret + 1 : abs);
 
-  const finger = (s: number, f: number, label: string): Chord["fingers"][number] =>
-    f === 0 ? [s, 0] : [s, f, label];
-
   return {
     fingers: [
-      finger(rootS, rel(rootFret), "1"),
-      finger(fifthS, rel(rootFret + 2), "3"),
-      finger(octaveS, rel(rootFret + 2), "4"),
+      [rootS, rel(rootFret), "1"],
+      [fifthS, rel(rootFret + 2), "3"],
+      [octaveS, rel(rootFret + 2), "4"],
       [mutedS, "x"],
     ],
     barres: [],

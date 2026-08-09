@@ -48,6 +48,18 @@ describe("bassShapeFor", () => {
       expect(shape.position ?? 1).toBeGreaterThanOrEqual(1);
       // Exactly one string is muted on a 4-string bass playing 3 notes.
       expect(shape.fingers.filter((f) => f[1] === "x")).toHaveLength(1);
+
+      // Sweet-spot placement: the root is FRETTED between frets 3 and 9 —
+      // never an open string (booms, and breaks the movable pattern), never
+      // against the nut. Absolute root fret = the "1"-labelled finger.
+      const pos = shape.position ?? 1;
+      const rootFinger = shape.fingers.find((f) => f[2] === "1")!;
+      const absRoot = pos <= 1 ? Number(rootFinger[1]) : pos + Number(rootFinger[1]) - 1;
+      expect(absRoot, `${root} root fret`).toBeGreaterThanOrEqual(3);
+      expect(absRoot, `${root} root fret`).toBeLessThanOrEqual(9);
+      for (const f of shape.fingers) {
+        if (f[1] !== "x") expect(Number(f[1]), `${root} has an open string`).toBeGreaterThan(0);
+      }
     });
   }
 
