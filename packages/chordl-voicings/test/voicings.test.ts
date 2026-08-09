@@ -319,7 +319,7 @@ describe("mapToVoicingQuality", () => {
     });
   });
 
-  // Trap #3: Tonal spells the sixth-chord family out with words, not digits
+  // Trap #4: Tonal spells the sixth-chord family out with words, not digits
   // — "minor sixth", "sixth" (bare major sixth), and "sixth added ninth"
   // (bare major 6/9). A numeral-only `t.includes("6")` test misses all of
   // these and falls through to a 7th-chord quality instead. Both the minor
@@ -349,6 +349,55 @@ describe("mapToVoicingQuality", () => {
 
     it('maps "6add9" to 6/9, not dom7', () => {
       expect(mapToVoicingQuality("6add9")).toBe("6/9");
+    });
+  });
+
+  // Regression guard for the sus/dom ordering: "7sus4" contains both "sus"
+  // and a "7" that the dominant catchall matches. It only resolves to sus4
+  // today because the `sus` check runs before the `dom` check earlier in
+  // the function. Nothing else locks this in — a future reordering (e.g.
+  // moving `dom` up, or "simplifying" the checks into a lookup table that
+  // loses the ordering) would silently break every dominant-sus voicing.
+  // Do not reorder `sus` after `dom`.
+  describe("sus is tested before dom (ordering dependency)", () => {
+    it('maps "7sus4" to sus4, not dom7', () => {
+      expect(mapToVoicingQuality("7sus4")).toBe("sus4");
+    });
+
+    it('maps "sus2" to sus4', () => {
+      expect(mapToVoicingQuality("sus2")).toBe("sus4");
+    });
+
+    it('maps "sus" to sus4', () => {
+      expect(mapToVoicingQuality("sus")).toBe("sus4");
+    });
+  });
+
+  // Trap #5: Tonal's canonical type for an 11th chord is the bare word
+  // "eleventh" (`Chord.get("C11").type === "eleventh"`), not "dominant
+  // eleventh" — and it has no "7"/"9"/"13" digit for the trailing catchall
+  // to match. Without recognizing "11"/"eleventh" explicitly, every 11th
+  // chord resolved to `undefined` (no voicing at all). This is live: all
+  // three internal call sites pass `resolveChord(...).type` straight
+  // through, so a real C11 chord hit this gap in the shipped app.
+  describe("eleventh chords resolve to dom7", () => {
+    it('maps "11" to dom7', () => {
+      expect(mapToVoicingQuality("11")).toBe("dom7");
+    });
+
+    it('maps "eleventh" to dom7', () => {
+      expect(mapToVoicingQuality("eleventh")).toBe("dom7");
+    });
+
+    it('maps "dominant eleventh" to dom7', () => {
+      expect(mapToVoicingQuality("dominant eleventh")).toBe("dom7");
+    });
+
+    // "minor eleventh" contains "min", which must still be tested before
+    // this catchall is ever reached — confirms the new "11"/"eleventh"
+    // handling doesn't leak into the minor branch's territory.
+    it('maps "minor eleventh" to min7, not dom7', () => {
+      expect(mapToVoicingQuality("minor eleventh")).toBe("min7");
     });
   });
 });

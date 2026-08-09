@@ -87,7 +87,7 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // "dominant" contains the substring "min", so this must precede the minor
   // test below or every dominant chord resolves to min7.
   if (t.includes("dom")) return "dom7";
-  // Trap: minor shorthand ("m7", "m9", "m11", "m13", "m6", "m6/9") contains
+  // Trap #2: minor shorthand ("m7", "m9", "m11", "m13", "m6", "m6/9") contains
   // neither "min" nor "minor", so without this it falls through all the way
   // to the dominant/6 catchall below and gets misclassified (e.g. "m7" ->
   // dom7, "m6" -> maj6). Match "m" directly followed by a digit instead:
@@ -98,7 +98,7 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
     // Plain triads ("minor", "minor triad") don't map to 7th voicings
     if (t === "minor" || t === "minor triad") return undefined;
     if (t.includes("6/9") || t.includes("6add9")) return "m6/9";
-    // Trap: Tonal spells the minor sixth chord "minor sixth" with no digit
+    // Trap #4: Tonal spells the minor sixth chord "minor sixth" with no digit
     // at all, so the numeral-only test misses it and falls through to
     // min7. Recognize the spelled-out word alongside the numeral.
     if (t.includes("6") || t.includes("sixth")) return "min6";
@@ -107,18 +107,35 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   if (t.includes("maj") || t.includes("major")) {
     if (t === "major" || t === "major triad") return undefined;
     if (t.includes("6/9") || t.includes("6add9") || t.includes("sixth added ninth")) return "6/9";
-    // Same spelled-out-sixth trap as the minor branch above ("major sixth"
-    // has no digit); without this "major sixth" falls through to maj7.
+    // Same Trap #4 spelled-out-sixth issue as the minor branch above
+    // ("major sixth" has no digit); without this "major sixth" falls
+    // through to maj7.
     if (t.includes("6") || t.includes("sixth")) return "maj6";
     return "maj7";
   }
   // Bare extension/6-chord shorthand with no "dom"/"min"/"maj" qualifier
-  // word (e.g. "7", "9", "13", "6", "6/9", "6add9", or Tonal's bare "sixth"
-  // / "sixth added ninth" names). The 6-family checks must run before the
-  // 7/9/13 catchall or "6/9" and "6add9" (which contain "9") get caught by
-  // it and misclassified as dom7.
+  // word (e.g. "7", "9", "11", "13", "6", "6/9", "6add9", or Tonal's bare
+  // "sixth" / "sixth added ninth" / "eleventh" names). The 6-family checks
+  // must run before the 7/9/11/13 catchall or "6/9" and "6add9" (which
+  // contain "9") get caught by it and misclassified as dom7.
   if (t.includes("6/9") || t.includes("6add9") || t.includes("sixth added ninth")) return "6/9";
-  if (t.includes("dom") || t.includes("7") || t.includes("9") || t.includes("13")) return "dom7";
+  // Trap #5: Tonal's canonical type for an 11th chord is the bare word
+  // "eleventh" ("C11".type === "eleventh"), with no "7"/"9"/"13" digit for
+  // this catchall to match — so 11th chords fell through to `undefined`
+  // (no voicing at all) instead of dom7. Recognize both the digit "11" and
+  // the spelled-out word, matching how "9"/"13" (digit only, since Tonal
+  // never emits a bare "ninth"/"thirteenth" without a qualifier) are
+  // already handled.
+  if (
+    t.includes("dom") ||
+    t.includes("7") ||
+    t.includes("9") ||
+    t.includes("11") ||
+    t.includes("13") ||
+    t.includes("eleventh")
+  ) {
+    return "dom7";
+  }
   // Trap: Tonal's canonical name for the bare major sixth chord is "sixth"
   // (no digit), not "major sixth" — recognize the spelled-out word here too,
   // or "sixth" alone resolves to undefined instead of maj6.
