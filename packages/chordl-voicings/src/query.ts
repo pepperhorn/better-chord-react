@@ -42,13 +42,20 @@ const ARTIST_STYLE_MAP: Record<string, { style?: VoicingStyle; era?: string }> =
  * Map a chord quality string (from our resolver) to a VoicingQuality.
  * Handles the many names Tonal/our resolver can produce.
  *
- * IMPORTANT: Check order matters. More specific types (alt, dim7, m7b5, sus)
- * must be tested before general ones (min, maj, dom7) because the general
- * checks use broad substring matching (e.g., "7" would match "m7b5").
+ * IMPORTANT: Check order matters, and the reason differs per check. Every
+ * ordering dependency below has been verified by reordering the branches and
+ * observing the result, not by reasoning about it — one of them was reasoned
+ * about first and the reasoning was wrong.
  *
- * The "dom" check must also precede the "min" check: "dominant" contains
- * the substring "min" (do-**min**-ant), so without this ordering every
- * dominant chord type would be misclassified as minor.
+ * - alt, dim7, m7b5 and sus must precede the TRAILING DIGIT CATCHALL at the
+ *   end, because that catchall matches any "7"/"9"/"11"/"13" anywhere in the
+ *   string. "m7b5" and "7sus4" both contain a digit it would claim.
+ *   Note this is a dependency on the catchall, NOT on the "dom" check — no
+ *   sus or m7b5 name contains the substring "dom", so swapping those two
+ *   branches changes nothing.
+ * - The "dom" check must precede the "min" check: "dominant" contains the
+ *   substring "min" (do-**min**-ant), so without this ordering every dominant
+ *   chord type is misclassified as minor.
  */
 export function mapToVoicingQuality(chordType: string, notes?: string[]): VoicingQuality | undefined {
   // Trap #3: lowercasing chordType below (for every other check in this

@@ -352,16 +352,25 @@ describe("mapToVoicingQuality", () => {
     });
   });
 
-  // Regression guard for the sus/dom ordering: "7sus4" contains both "sus"
-  // and a "7" that the dominant catchall matches. It only resolves to sus4
-  // today because the `sus` check runs before the `dom` check earlier in
-  // the function. Nothing else locks this in — a future reordering (e.g.
-  // moving `dom` up, or "simplifying" the checks into a lookup table that
-  // loses the ordering) would silently break every dominant-sus voicing.
-  // Do not reorder `sus` after `dom`.
-  describe("sus is tested before dom (ordering dependency)", () => {
+  // Trap #6: `sus` must be tested before the TRAILING DIGIT CATCHALL — not,
+  // as an earlier version of this comment claimed, before the `dom` check.
+  //
+  // The distinction was got wrong once already and is worth stating exactly.
+  // No sus name contains the substring "dom", so swapping the `sus` and `dom`
+  // branches changes nothing and these tests pass either way. What actually
+  // breaks them is moving the `sus` check below the
+  // `includes("7") || includes("9") || includes("11") || includes("13")`
+  // catchall, at which point "7sus4" and "9sus4" resolve to dom7.
+  //
+  // Verified empirically both ways rather than reasoned about, because the
+  // reasoned version was wrong.
+  describe("sus is tested before the trailing digit catchall", () => {
     it('maps "7sus4" to sus4, not dom7', () => {
       expect(mapToVoicingQuality("7sus4")).toBe("sus4");
+    });
+
+    it('maps "9sus4" to sus4, not dom7', () => {
+      expect(mapToVoicingQuality("9sus4")).toBe("sus4");
     });
 
     it('maps "sus2" to sus4', () => {
