@@ -7,7 +7,8 @@
  */
 import type { Chord } from "svguitar";
 
-export type InstrumentId = "guitar" | "ukulele" | "guitar-top3" | "bass4" | "bass5";
+export type InstrumentId =
+  | "guitar" | "ukulele" | "guitar-top3" | "bass4" | "bass5" | "violin";
 
 export interface InstrumentConfig {
   id: InstrumentId;
@@ -61,9 +62,15 @@ export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
   bass4: {
     id: "bass4",
     label: "Bass (4-string)",
-    description: "Standard 4-string bass (E A D G)",
+    description:
+      "Standard 4-string bass (E A D G). Also the instrument `bassShapeFor` " +
+      "targets: generated root-fifth-octave patterns rather than chords-db " +
+      "lookups, because a bass card teaches the pattern, not a strum.",
     strings: 4,
-    frets: 5,
+    // Six, not five: the generated root-fifth-octave patterns reach a sixth
+    // fret, and this count is what consumers draw the window from. Five clips
+    // them. See generatedShapes.bassShapeFor and its test.
+    frets: 6,
     tuning: ["E", "A", "D", "G"],
     openMidi: [28, 33, 38, 43],
   },
@@ -75,6 +82,18 @@ export const INSTRUMENTS: Record<InstrumentId, InstrumentConfig> = {
     frets: 5,
     tuning: ["B", "E", "A", "D", "G"],
     openMidi: [23, 28, 33, 38, 43],
+  },
+  violin: {
+    id: "violin",
+    label: "Violin",
+    description:
+      "Violin in first position (G D A E). The \"fret\" axis is semitones above the " +
+      "open string (0-7, the first-position reach); markers carry violin finger " +
+      "numbers, not guitar fingerings. Generated from chord tones — see generatedShapes.",
+    strings: 4,
+    frets: 7,
+    tuning: ["G", "D", "A", "E"],
+    openMidi: [55, 62, 69, 76],
   },
 };
 
