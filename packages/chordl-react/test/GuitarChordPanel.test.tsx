@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent, within } from "@testing-library/react";
 import { GuitarChordPanel } from "../src/components/GuitarChordPanel";
 
@@ -82,8 +82,104 @@ describe("GuitarChordPanel", () => {
     expect(positionButtons(container)[0].dataset.active).toBe("true");
   });
 
-  it("prefers an explicit title over the chord label as heading", () => {
-    const { container } = render(<GuitarChordPanel chord="Am" title="First shape" />);
-    expect(container.textContent).toContain("First shape");
+  it("shows a descriptive title above the chord name, not instead of it", () => {
+    const { container } = render(<GuitarChordPanel chord="Am" title="bar 1 turnaround" />);
+    expect(container.querySelector(".bc-guitar-heading")?.textContent).toBe("bar 1 turnaround");
+    expect(container.querySelector(".bc-guitar-chord-name")?.textContent).toBe("Am");
+  });
+
+  it("leads with the chord name when no title is given", () => {
+    const { container } = render(<GuitarChordPanel chord="Am" />);
+    expect(container.querySelector(".bc-guitar-heading")?.textContent).toBe("Am");
+    expect(container.querySelector(".bc-guitar-chord-name")).toBeNull();
+  });
+
+  it("does not let svguitar draw a second copy of the chord name", () => {
+    const { container } = render(<GuitarChordPanel chord="Am" />);
+    const occurrences = (container.textContent?.match(/Am/g) ?? []).length;
+    expect(occurrences).toBe(1);
+  });
+});
+
+/**
+ * How a chord-board card renders the panel: a fixed shape, no pickers, with the
+ * instrument and position supplied from the saved card.
+ */
+describe("GuitarChordPanel as a board card (showControls=false)", () => {
+  it("draws the diagram but no instrument or position pickers", () => {
+    const { container } = render(
+      <GuitarChordPanel chord="Am" showControls={false} title="Am" />,
+    );
+    expect(container.querySelector(".bc-guitar-chord")).toBeTruthy();
+    expect(container.textContent).toContain("Am");
+    expect(positionButtons(container)).toHaveLength(0);
+    expect(within(container).queryByText("Ukulele")).toBeNull();
+    expect(container.querySelectorAll("button")).toHaveLength(0);
+  });
+
+  it("renders the fret position it was given, not the first one", () => {
+    const withDefault = render(<GuitarChordPanel chord="Am" showControls={false} />);
+    const withSecond = render(
+      <GuitarChordPanel chord="Am" showControls={false} position={1} />,
+    );
+    const fretLabel = (c: HTMLElement) =>
+      c.querySelector(".bc-guitar-chord")?.textContent ?? "";
+    expect(fretLabel(withSecond.container)).not.toBe(fretLabel(withDefault.container));
+  });
+
+  it("clamps an out-of-range position instead of blanking the card", () => {
+    const { container } = render(
+      <GuitarChordPanel chord="Am" showControls={false} position={999} />,
+    );
+    expect(container.querySelector(".bc-guitar-chord")).toBeTruthy();
+  });
+
+  it("falls back to guitar for an instrument this build does not know", () => {
+    // Reachable from an imported board file or an older export.
+    const { container } = render(
+      // @ts-expect-error deliberately outside InstrumentId, as untrusted JSON can be
+      <GuitarChordPanel chord="Am" showControls={false} instrument="theremin" />,
+    );
+    expect(container.querySelector(".bc-guitar-chord")).toBeTruthy();
+  });
+});
+
+describe("GuitarChordPanel position reporting", () => {
+  it("does not clobber a restored position on mount", () => {
+    const onPositionChange = vi.fn();
+    render(
+      <GuitarChordPanel chord="Am" position={1} onPositionChange={onPositionChange} />,
+    );
+    expect(onPositionChange).not.toHaveBeenCalled();
+  });
+
+  it("reports the index when the user picks a placement", () => {
+    const onPositionChange = vi.fn();
+    const { container } = render(
+      <GuitarChordPanel chord="Am" onPositionChange={onPositionChange} />,
+    );
+    fireEvent.click(positionButtons(container)[1]);
+    expect(onPositionChange).toHaveBeenCalledWith(1);
+  });
+
+  it("reports the reset to 0 when the chord changes, so a host cannot drift", () => {
+    const onPositionChange = vi.fn();
+    const { rerender } = render(
+      <GuitarChordPanel chord="Am" position={1} onPositionChange={onPositionChange} />,
+    );
+    onPositionChange.mockClear();
+    rerender(
+      <GuitarChordPanel chord="C" position={1} onPositionChange={onPositionChange} />,
+    );
+    expect(onPositionChange).toHaveBeenCalledWith(0);
+  });
+
+  it("reports the instrument the user switched to", () => {
+    const onInstrumentChange = vi.fn();
+    const { container } = render(
+      <GuitarChordPanel chord="Am" onInstrumentChange={onInstrumentChange} />,
+    );
+    fireEvent.click(instrumentButtons(container).ukulele);
+    expect(onInstrumentChange).toHaveBeenCalledWith("ukulele");
   });
 });

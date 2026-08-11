@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { parseChordDescription } from "@pepperhorn/chordl-core";
 import { lookupGuitarChord, INSTRUMENTS } from "@pepperhorn/chordl-guitar";
@@ -6,11 +6,27 @@ import type { InstrumentId } from "@pepperhorn/chordl-guitar";
 import type { UIThemeMode } from "../config";
 import { resolveUITheme, UIThemeProvider } from "../ui-theme";
 import { GuitarChord } from "./GuitarChord";
+import { CardHeading, CardFooter } from "./CardHeading";
 
 export interface GuitarChordPanelProps {
   /** NL chord string (same input the piano view takes). */
   chord: string;
   instrument?: InstrumentId;
+  /** Fires when the user picks a different instrument, so hosts can persist it. */
+  onInstrumentChange?: (instrument: InstrumentId) => void;
+  /**
+   * Index of the fret position to show. Like `instrument`, this seeds internal
+   * state and re-syncs whenever the prop changes, so a host can either leave it
+   * alone or drive it. Out-of-range values clamp to the last available shape.
+   */
+  position?: number;
+  /** Fires when the user picks a different fret position. */
+  onPositionChange?: (position: number) => void;
+  /**
+   * Show the instrument and A/B/C position toggles. Default true; board cards
+   * render one fixed shape and pass false.
+   */
+  showControls?: boolean;
   scale?: number;
   uiTheme?: UIThemeMode;
   title?: string;
@@ -31,6 +47,10 @@ const INSTRUMENT_ORDER: InstrumentId[] = ["guitar", "ukulele"];
 export function GuitarChordPanel({
   chord,
   instrument: instrumentProp = "guitar",
+  onInstrumentChange,
+  position: positionProp,
+  onPositionChange,
+  showControls = true,
   scale = 1,
   uiTheme,
   title,
@@ -48,42 +68,75 @@ export function GuitarChordPanel({
   const [prevProp, setPrevProp] = useState(instrumentProp);
   if (instrumentProp !== prevProp) { setPrevProp(instrumentProp); setInstrument(instrumentProp); }
 
+  // A persisted board card can name an instrument this build doesn't have (an
+  // older export, a hand-edited file). Resolve it once here and use the
+  // resolved id everywhere below, so an unknown id degrades to guitar instead
+  // of throwing on `INSTRUMENTS[id].strings` or silently finding no shapes.
+  const resolved: InstrumentId = Object.prototype.hasOwnProperty.call(INSTRUMENTS, instrument)
+    ? instrument
+    : "guitar";
+  const cfg = INSTRUMENTS[resolved];
+
   const parsed = useMemo(() => {
     try { return parseChordDescription(chord); } catch { return null; }
   }, [chord]);
 
   const label = parsed?.chordName ?? "";
   const result = useMemo(
-    () => (label ? lookupGuitarChord(label, instrument) : null),
-    [label, instrument],
+    () => (label ? lookupGuitarChord(label, resolved) : null),
+    [label, resolved],
   );
   // Stable settings object so GuitarChord (which re-draws when `settings`
   // changes identity) only redraws when the instrument actually changes.
   const guitarSettings = useMemo(
-    () => ({ strings: INSTRUMENTS[instrument].strings, tuning: INSTRUMENTS[instrument].tuning }),
-    [instrument],
+    () => ({ strings: cfg.strings, tuning: cfg.tuning }),
+    [cfg],
   );
 
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(positionProp ?? 0);
+  // Follow the prop if the host drives the position.
+  const [prevPos, setPrevPos] = useState(positionProp);
+  if (positionProp !== prevPos) {
+    setPrevPos(positionProp);
+    if (positionProp !== undefined) setActive(positionProp);
+  }
+
   // Reset the selected position when the chord identity or instrument changes.
-  const [prevKey, setPrevKey] = useState(`${label}|${instrument}`);
-  if (`${label}|${instrument}` !== prevKey) { setPrevKey(`${label}|${instrument}`); setActive(0); }
+  const identity = `${label}|${resolved}`;
+  const [prevKey, setPrevKey] = useState(identity);
+  if (identity !== prevKey) { setPrevKey(identity); setActive(0); }
+
+  // Tell the host about that reset, so a stored position can't drift from what
+  // is on screen. In an effect because the setter belongs to the parent, and
+  // ref-guarded so the mount render doesn't clobber a restored position.
+  const notifiedIdentity = useRef(identity);
+  useEffect(() => {
+    if (notifiedIdentity.current === identity) return;
+    notifiedIdentity.current = identity;
+    onPositionChange?.(0);
+  }, [identity, onPositionChange]);
+
+  const selectPosition = (i: number) => { setActive(i); onPositionChange?.(i); };
+  const selectInstrument = (id: InstrumentId) => { setInstrument(id); onInstrumentChange?.(id); };
 
   const notice = (msg: string) => (
-    <div className={`bc-guitar-panel ${className ?? ""}`.trim()}
-      style={{ textAlign: "center", color: muted, fontSize: "0.85rem", padding: "24px 0", ...style }}>
-      {msg}
-    </div>
+    <UIThemeProvider value={uiCtx}>
+      <div className={`bc-guitar-panel bc-guitar-notice ${className ?? ""}`.trim()}
+        style={{ textAlign: "center", color: muted, fontSize: "0.85rem", padding: "24px 0", ...style }}>
+        {msg}
+      </div>
+    </UIThemeProvider>
   );
 
-  const instrumentToggle = (
-    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+  const instrumentToggle = !showControls ? null : (
+    <div className="bc-guitar-instrument-toggle" style={{ display: "flex", gap: 6, justifyContent: "center" }}>
       {INSTRUMENT_ORDER.map((id) => {
-        const on = id === instrument;
+        const on = id === resolved;
         return (
           <button
             key={id}
-            onClick={() => setInstrument(id)}
+            className="bc-guitar-instrument-btn"
+            onClick={() => selectInstrument(id)}
             data-active={on}
             style={{
               padding: "4px 14px", borderRadius: 999, cursor: "pointer",
@@ -110,17 +163,20 @@ export function GuitarChordPanel({
           style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, ...style }}
         >
           {instrumentToggle}
-          <div style={{ textAlign: "center", color: muted, fontSize: "0.85rem", padding: "12px 0" }}>
-            No {INSTRUMENTS[instrument].label.toLowerCase()} shape found for “{label}”.
+          <div className="bc-guitar-notice" style={{ textAlign: "center", color: muted, fontSize: "0.85rem", padding: "12px 0" }}>
+            No {cfg.label.toLowerCase()} shape found for “{label}”.
           </div>
         </div>
       </UIThemeProvider>
     );
   }
 
-  const idx = Math.min(active, result.shapes.length - 1);
-  const heading = title || label;
-  const cfg = INSTRUMENTS[instrument];
+  const idx = Math.max(0, Math.min(active, result.shapes.length - 1));
+  // chordLookup bakes the chord name into the shape as svguitar's diagram title.
+  // The panel renders the name itself (in the same type as the keyboard and
+  // staff cards), so drop the SVG's copy rather than showing it twice in a font
+  // svguitar sizes independently of the DOM.
+  const { title: _shapeTitle, ...diagram } = result.shapes[idx];
 
   return (
     <UIThemeProvider value={uiCtx}>
@@ -128,33 +184,37 @@ export function GuitarChordPanel({
         className={`bc-guitar-panel ${className ?? ""}`.trim()}
         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, ...style }}
       >
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: text, fontFamily: "system-ui, sans-serif" }}>
-            {heading}
-          </div>
-          {subheading && (
-            <div style={{ fontSize: 11, color: muted, fontFamily: "system-ui, sans-serif" }}>{subheading}</div>
-          )}
+        {/* Shared with the keyboard and staff renderers so a mixed board agrees
+            on type: the descriptive title leads, the chord name sits beneath. */}
+        <div className="bc-guitar-titles" style={{ width: "100%" }}>
+          <CardHeading
+            title={title}
+            chordName={label}
+            subheading={subheading}
+            tokens={uiCtx.tokens}
+            variant="guitar"
+          />
         </div>
 
         {instrumentToggle}
 
         <GuitarChord
-          chord={result.shapes[idx]}
+          chord={diagram}
           scale={scale}
           frets={cfg.frets}
           settings={guitarSettings}
         />
 
         {/* Alternate placements */}
-        {result.shapes.length > 1 && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+        {showControls && result.shapes.length > 1 && (
+          <div className="bc-guitar-position-toggle" style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
             {result.shapes.map((_, i) => {
               const baseFret = result.positions[i].baseFret;
               return (
                 <button
                   key={i}
-                  onClick={() => setActive(i)}
+                  className="bc-guitar-position-btn"
+                  onClick={() => selectPosition(i)}
                   data-active={i === idx}
                   title={`Position ${i + 1} (fret ${baseFret})`}
                   style={{
@@ -175,11 +235,7 @@ export function GuitarChordPanel({
           </div>
         )}
 
-        {footerText && (
-          <div style={{ fontSize: 11, color: muted, fontFamily: "system-ui, sans-serif", textAlign: "center" }}>
-            {footerText}
-          </div>
-        )}
+        <CardFooter text={footerText} tokens={uiCtx.tokens} variant="guitar" />
       </div>
     </UIThemeProvider>
   );
