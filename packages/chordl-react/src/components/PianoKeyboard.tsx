@@ -10,6 +10,7 @@ import {
 import { SHOW_NOTE_NAMES } from "../config";
 import { PlaybackControls } from "./PlaybackControls";
 import { useUITheme, resolveUITheme, UIThemeProvider } from "../ui-theme";
+import { CardHeading } from "./CardHeading";
 
 function renderBracket(
   keys: { note: string; octave: number; isBlack: boolean; x: number; width: number; height: number }[],
@@ -132,6 +133,7 @@ export function PianoKeyboard({
   showPlayback = true,
   chordLabel,
   showHeading,
+  showChordName,
   handBrackets,
   scale = 0.5,
   showNoteNames,
@@ -348,35 +350,19 @@ export function PianoKeyboard({
     }
   };
 
-  // Title: explicit `title` prop wins; falls back to chordLabel when showHeading is on.
-  const headingText = title ?? (showHeading ? chordLabel : undefined);
+  // The name renders when a card asked for it (`showChordName`) or the NL input
+  // did (`showHeading`); CardHeading owns how it sits relative to `title`.
+  const nameShown = (showChordName || showHeading) && chordLabel ? chordLabel : undefined;
 
   const content = (
     <div className="bc-keyboard-container" ref={containerRef} style={{ width: "100%", maxWidth: vbW * scale * 2 }}>
-      {headingText && (
-        <div className="bc-keyboard-heading" style={{
-          textAlign: "center",
-          fontSize: 14,
-          fontWeight: 600,
-          color: uiTokens.text,
-          fontFamily: "system-ui, sans-serif",
-          marginBottom: subheading ? 0 : 4,
-        }}>
-          {headingText}
-        </div>
-      )}
-      {subheading && (
-        <div className="bc-keyboard-subheading" style={{
-          textAlign: "center",
-          fontSize: 11,
-          fontWeight: 400,
-          color: uiTokens.textMuted,
-          fontFamily: "system-ui, sans-serif",
-          marginBottom: 4,
-        }}>
-          {subheading}
-        </div>
-      )}
+      <CardHeading
+        title={title}
+        chordName={nameShown}
+        subheading={subheading}
+        tokens={uiTokens}
+        variant="keyboard"
+      />
       {svg}
       {hasAnnotations && highlighted.length > 0 && (
         <div className="bc-annotations" style={{

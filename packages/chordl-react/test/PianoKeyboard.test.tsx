@@ -73,4 +73,30 @@ describe("PianoKeyboard", () => {
     const fills = Array.from(rects).map((r) => r.getAttribute("fill"));
     expect(fills).toContain("#ff0000");
   });
+
+  describe("card text", () => {
+    it("stays nameless by default — a bare diagram opts in via showHeading", () => {
+      const { container } = render(<PianoKeyboard chordLabel="G7" />);
+      expect(container.querySelector(".bc-keyboard-heading")).toBeNull();
+    });
+
+    it("shows the chord name when a card asks for it", () => {
+      const { container } = render(<PianoKeyboard chordLabel="G7" showChordName />);
+      expect(container.querySelector(".bc-keyboard-heading")?.textContent).toBe("G7");
+    });
+
+    it("keeps the chord name when a descriptive title is also set", () => {
+      const { container } = render(
+        <PianoKeyboard chordLabel="G7" showChordName title="bar 4 turnaround" />,
+      );
+      expect(container.querySelector(".bc-keyboard-heading")?.textContent).toBe("bar 4 turnaround");
+      expect(container.querySelector(".bc-keyboard-chord-name")?.textContent).toBe("G7");
+    });
+
+    it("shows only the title when the name was never requested", () => {
+      const { container } = render(<PianoKeyboard chordLabel="G7" title="just a label" />);
+      expect(container.querySelector(".bc-keyboard-heading")?.textContent).toBe("just a label");
+      expect(container.querySelector(".bc-keyboard-chord-name")).toBeNull();
+    });
+  });
 });
