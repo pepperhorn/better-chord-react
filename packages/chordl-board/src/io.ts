@@ -1,4 +1,5 @@
-import type { BoardItem, BoardMeta, BoardState } from "./types";
+import { BOARD_DISPLAY_MODES } from "./types";
+import type { BoardDisplayMode, BoardItem, BoardMeta, BoardState } from "./types";
 
 export interface BoardItemJsonV1 extends BoardItem {
   /** sha256 cache key from ph-chordl computeCacheKey; carried for future lookup. */
@@ -49,6 +50,12 @@ export async function exportBoardJson(state: BoardState): Promise<string> {
       if (it.title !== undefined) renderConfig.title = it.title;
       if (it.subheading !== undefined) renderConfig.subheading = it.subheading;
       if (it.footerText !== undefined) renderConfig.footerText = it.footerText;
+      // Renderer identity belongs in the cache key: the same `nl` drawn as a
+      // guitar frame and as a keyboard are different images, and a key that
+      // ignored `display` would serve one for the other.
+      if (it.display !== undefined) renderConfig.display = it.display;
+      if (it.instrument !== undefined) renderConfig.instrument = it.instrument;
+      if (it.position !== undefined) renderConfig.position = it.position;
       let cacheKey: string | undefined;
       try {
         cacheKey = await computeCacheKey({ user_string: it.nl, render_config: renderConfig });
@@ -65,6 +72,17 @@ export async function exportBoardJson(state: BoardState): Promise<string> {
     items,
   };
   return JSON.stringify(payload, null, 2);
+}
+
+/** Imported JSON is untrusted — an unrecognised mode degrades to the default. */
+function parseDisplayMode(value: unknown): BoardDisplayMode | undefined {
+  return BOARD_DISPLAY_MODES.includes(value as BoardDisplayMode)
+    ? (value as BoardDisplayMode)
+    : undefined;
+}
+
+function parsePosition(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
 
 export function importBoardJson(text: string): BoardState {
@@ -85,6 +103,9 @@ export function importBoardJson(text: string): BoardState {
       title: raw.title,
       subheading: raw.subheading,
       footerText: raw.footerText,
+      display: parseDisplayMode(raw.display),
+      instrument: typeof raw.instrument === "string" && raw.instrument ? raw.instrument : undefined,
+      position: parsePosition(raw.position),
     };
   });
   return { items, meta: parsed.meta ?? {} };

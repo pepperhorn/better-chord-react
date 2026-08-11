@@ -1,3 +1,17 @@
+/**
+ * How a card draws itself. The first three map straight onto `PianoChord`'s
+ * `display` prop; `"guitar"` selects the fretboard renderer instead.
+ * Omitted means `"keyboard"` — which is what every pre-existing card is.
+ */
+export type BoardDisplayMode = "keyboard" | "staff" | "both" | "guitar";
+
+export const BOARD_DISPLAY_MODES: readonly BoardDisplayMode[] = [
+  "keyboard",
+  "staff",
+  "both",
+  "guitar",
+];
+
 /** A single chord card on the board. */
 export interface BoardItem {
   /** Stable identifier for keys and drag-drop. */
@@ -10,6 +24,20 @@ export interface BoardItem {
   subheading?: string;
   /** Optional footer text below all annotations. */
   footerText?: string;
+  /** Renderer for this card. Defaults to `"keyboard"` when absent. */
+  display?: BoardDisplayMode;
+  /**
+   * Fretted instrument for `display: "guitar"` — an `InstrumentId` from
+   * chordl-guitar. Typed loosely so the board carries no runtime dependency
+   * on that package's union; an unknown id falls back to the panel default.
+   */
+  instrument?: string;
+  /**
+   * Index into the chord's shape list for `display: "guitar"` — the A/B/C
+   * position the user picked. Clamped at render time if the shape list is
+   * shorter (e.g. after a chords-db update).
+   */
+  position?: number;
 }
 
 /** Board-level metadata — title/subtitle/footer rendered around the chord grid. */
