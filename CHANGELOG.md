@@ -33,14 +33,23 @@ to) rather than svguitar's highest-pitch-first numbering.
 - **Notes: run-together sequences.** After the `notes` keyword you can write letters with no separators — `notes cdefgabc` → C D E F G A B C, `notes EbGbBb` → Eb Gb Bb (flats bind after uppercase letters), `notes E4G4C5` with octaves.
 - **Verovio font zips.** Bravura and Petaluma are bundled in the repo as Verovio custom-font zips (`packages/chordl-react/fonts/verovio`) and registered via `fontAddCustom`.
 
+- **Board cards keep the view they were created in.** A card added from the editor now renders as what you were looking at — guitar frame, notation, both, or keyboard — instead of always falling back to a piano diagram. `BoardItem` gains `display`, plus `instrument` and `position` for guitar cards, so a card remembers the instrument and the exact A/B/C fret placement you picked. One board can mix all four, and the fields survive JSON export/import, localStorage, and PNG/PDF export.
+
 ### Changed
 
 - **Notation now engraved by Verovio.** The staff view renders through Verovio (MEI → SVG) instead of the hand-rolled SVG engraver, matching the notation stack used by the other apps. Chords keep their own spelling on the staff (a `Bb` chord shows flats, not sharps). Standard/Hand-drawn maps to Bravura/Petaluma.
+- **`title` describes a card; it no longer replaces the chord name.** Every chord card shows its chord name automatically, with `title` rendered above it as a descriptive label ("bar 1 — turnaround"). Previously a `title` overrode the name, and keyboard cards showed no name at all unless the NL input asked for a heading. Keyboard, notation and fretboard cards now share one `CardHeading` so a mixed board agrees on type. Bare embedded diagrams are unchanged — the name is still opt-in there via `with heading`; cards request it with the new `showChordName` prop.
+- **Notation cards render their card text.** `PianoChord`'s staff branch passes `title`, `subheading` and `footerText` through, and `StaffNotation` takes `showLabel` so a card can supply the name via the shared DOM heading instead of the in-SVG label.
+- **"Both" cards center their text over the card** rather than over the keyboard half, and the staff/keyboard pair now wraps instead of compressing in a narrow card.
 
 ### Fixed
 
 - **`c major scale` (and other scale requests) render through the batch pipeline** instead of failing with "Could not extract a chord name".
 - **Fingering boxes accept arbitrary strings** (e.g. violin `D1`, `A1`) instead of a single character, and a non-numeral no longer throws an unrecoverable render error — each board card is isolated by its own error boundary.
+- **`useChordBoard`'s `addItem` no longer drops card fields.** It copied a fixed list of properties, so anything added to `BoardItem` later was silently discarded on the way to the board; it now spreads the item.
+- **A guitar card naming an unknown instrument degrades instead of blanking.** An imported board file or an older export could carry an instrument id this build doesn't have, which threw on `INSTRUMENTS[id].strings` and left an error tile. `GuitarChordPanel` resolves the id once and falls back to guitar.
+- **A guitar card's chord name is no longer drawn twice** — once by the panel and once by svguitar's built-in diagram title, in a font it sized independently of the page.
+- **Board PNG/PDF exports can't capture a loading placeholder.** `ChordBoard` imported the guitar panel lazily for a saving it never made (chordl-react ships as one bundle, so `PianoChord` already pulls in svguitar and chords-db), while its Suspense fallback was a live race with `html2canvas`. The import is now static.
 
 ## 0.3.5 — 2026-05-26
 

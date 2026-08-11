@@ -18,6 +18,8 @@ export { GuitarChord } from "./components/GuitarChord";
 export type { GuitarChordProps } from "./components/GuitarChord";
 export { GuitarChordPanel } from "./components/GuitarChordPanel";
 export type { GuitarChordPanelProps } from "./components/GuitarChordPanel";
+/** Re-exported so consumers can name the type `GuitarChordPanelProps` uses. */
+export type { InstrumentId } from "@pepperhorn/chordl-guitar";
 export type { ChordGroupProps } from "./components/ChordGroup";
 export type { ProgressionViewProps, GroupMode } from "./components/ProgressionView";
 

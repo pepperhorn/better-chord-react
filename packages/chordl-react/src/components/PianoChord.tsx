@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { cloneElement, useEffect, useRef } from "react";
 import { Note } from "tonal";
 import type { ChordProps, KeyboardProps, HandBracket, WhiteNote, DisplayMode } from "../types";
 import type { VariationContext } from "../types";
@@ -14,6 +14,7 @@ import type { ProgressionChord } from "@pepperhorn/chordl-core";
 import { findVoicing, voicingPitchClasses, mapToVoicingQuality, realizeVoicingFull } from "@pepperhorn/chordl-voicings";
 import type { Hand as VoicingHand } from "@pepperhorn/chordl-voicings";
 import { ChordGroup } from "./ChordGroup";
+import { CardHeading, CardFooter } from "./CardHeading";
 import { resolveUITheme, UIThemeProvider } from "../ui-theme";
 
 /**
@@ -85,7 +86,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     return <PianoKeyboard {...props} />;
   }
 
-  const { chord, format, theme: themeProp, highlightColor, padding, scale: scaleProp, display = "keyboard", uiTheme, showPlayback = true, title, subheading, footerText, className, style } =
+  const { chord, format, theme: themeProp, highlightColor, padding, scale: scaleProp, display = "keyboard", uiTheme, showPlayback = true, showChordName, title, subheading, footerText, className, style } =
     props;
   const { onVariation, renderVariationExtras, voicingId = "default", chordIndex = 0 } = props;
   const uiCtx = resolveUITheme(uiTheme);
@@ -213,6 +214,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
           highlightColor={highlightColor}
           chordLabel={parsed.scaleName}
           showHeading={parsed.showHeading}
+          showChordName={showChordName}
           scale={scale}
           showNoteNames={parsed.showNoteNames}
           noteNameSize={parsed.noteNameSize}
@@ -350,6 +352,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
               highlightColor={highlightColor}
               chordLabel={chordLabel}
               showHeading={parsed.showHeading}
+              showChordName={showChordName}
               handBrackets={notesHandBrackets.length > 0 ? notesHandBrackets : undefined}
               scale={scale}
               showNoteNames={parsed.showNoteNames}
@@ -498,6 +501,21 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
   // Fingering and hand assignment are computed after layout/octave resolution
   // so MIDI values are available for accurate hand splitting (see below).
 
+  /**
+   * Card text for the staff branches. `PianoKeyboard` renders its own via
+   * CardHeading; the staff renderer is an SVG, so PianoChord wraps it instead.
+   */
+  const cardText = Boolean(title || subheading || footerText || showChordName);
+  const staffCardText = (
+    <CardHeading
+      title={title}
+      chordName={showChordName || parsed.showHeading ? parsed.chordName : undefined}
+      subheading={subheading}
+      tokens={uiCtx.tokens}
+      variant="staff"
+    />
+  );
+
   // Staff notation helper — accepts octave-qualified notes for exact pitch matching
   const renderStaff = (
     resolvedNotes: string[],
@@ -515,6 +533,9 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
         lhOctave={lhPlaybackOctave}
         octaveQualifiedNotes={opts?.octaveQualifiedNotes}
         chordLabel={parsed.chordName}
+        // A card supplies the name (and its descriptive title) through the
+        // shared DOM heading, so the in-SVG label would double it up.
+        showLabel={!cardText}
         scale={scale}
         showPlayback={showPlayback}
         className={className}
@@ -688,6 +709,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
         highlightColor={highlightColor}
         chordLabel={parsed.chordName}
         showHeading={parsed.showHeading}
+        showChordName={showChordName}
         handBrackets={handBrackets}
         scale={scale}
         showNoteNames={parsed.showNoteNames}
@@ -705,13 +727,21 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
       />
     );
 
+    // Same keyboard without the card text — "both" mode renders one heading
+    // above the pair instead of letting the keyboard own it.
+    const bareKeyboard = cloneElement(keyboard, {
+      title: undefined, subheading: undefined, footerText: undefined, showChordName: false,
+    });
+
     currentNotes = [lhBassNote, ...notes];
     if (display === "staff") {
       return (
         <>
           <div ref={containerRef} className="bc-pianochord-root">
             <UIThemeProvider value={uiCtx}>
+              {staffCardText}
               {renderStaff(notes, { bassNote: lhBassNote, octaveQualifiedNotes: staffOctaveNotesBass })}
+              <CardFooter text={footerText} tokens={uiCtx.tokens} variant="staff" />
             </UIThemeProvider>
           </div>
           {renderVariationExtras?.(buildContextSnapshot())}
@@ -725,8 +755,11 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
           <div ref={containerRef} className="bc-pianochord-root">
             <UIThemeProvider value={uiCtx}>
               <div className="bc-display-both bc-display-both--stacked" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
-                {keyboard}
+                {/* Card text spans both diagrams rather than sitting over one. */}
+                {staffCardText}
+                {bareKeyboard}
                 {renderStaff(notes, { bassNote: lhBassNote, octaveQualifiedNotes: staffOctaveNotesBass })}
+                <CardFooter text={footerText} tokens={uiCtx.tokens} variant="staff" />
               </div>
             </UIThemeProvider>
           </div>
@@ -881,6 +914,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
       highlightColor={highlightColor}
       chordLabel={parsed.chordName}
       showHeading={parsed.showHeading}
+      showChordName={showChordName}
       handBrackets={autoHandBrackets}
       scale={scale}
       showNoteNames={parsed.showNoteNames}
@@ -899,6 +933,12 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     />
   );
 
+  // Same keyboard without the card text — "both" mode renders one heading
+  // above the pair instead of letting the keyboard own it.
+  const bareKeyboard = cloneElement(keyboard, {
+    title: undefined, subheading: undefined, footerText: undefined, showChordName: false,
+  });
+
   // Octave-qualified notes for staff notation — use absolute octave (4), not keyboard-relative
   const staffOctaveNotes = computeOctaveQualified(notes, 4 + chordShift);
 
@@ -908,7 +948,9 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
       <>
         <div ref={containerRef} className="bc-pianochord-root">
           <UIThemeProvider value={uiCtx}>
+            {staffCardText}
             {renderStaff(notes, { octaveQualifiedNotes: staffOctaveNotes })}
+            <CardFooter text={footerText} tokens={uiCtx.tokens} variant="staff" />
           </UIThemeProvider>
         </div>
         {renderVariationExtras?.(buildContextSnapshot())}
@@ -921,9 +963,14 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
       <>
         <div ref={containerRef} className="bc-pianochord-root">
           <UIThemeProvider value={uiCtx}>
-            <div className="bc-display-both" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-              {renderStaff(notes, { octaveQualifiedNotes: staffOctaveNotes })}
-              {keyboard}
+            <div className="bc-display-both bc-display-both--titled" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              {/* Card text spans both diagrams rather than sitting over one. */}
+              {staffCardText}
+              <div className="bc-display-both-row" style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap", justifyContent: "center" }}>
+                {renderStaff(notes, { octaveQualifiedNotes: staffOctaveNotes })}
+                {bareKeyboard}
+              </div>
+              <CardFooter text={footerText} tokens={uiCtx.tokens} variant="staff" />
             </div>
           </UIThemeProvider>
         </div>

@@ -6,8 +6,8 @@
     "dev": "pnpm --filter @pepperhorn/chordl-react dev",
     "build": "pnpm --filter @pepperhorn/chordl-voicings build && pnpm --filter @pepperhorn/chordl-core build && pnpm --filter @pepperhorn/chordl-listen build && pnpm --filter @pepperhorn/chordl-guitar build && pnpm --filter @pepperhorn/chordl-react build && pnpm --filter @pepperhorn/chordl-board build",
     "build:site": "pnpm run build && pnpm --filter @pepperhorn/chordl-react build:site",
-    "test": "pnpm --filter @pepperhorn/chordl-voicings test && pnpm --filter @pepperhorn/chordl-core test && pnpm --filter @pepperhorn/chordl-listen test && pnpm --filter @pepperhorn/chordl-guitar test && pnpm --filter @pepperhorn/chordl-react test",
-    "test:run": "pnpm --filter @pepperhorn/chordl-voicings test:run && pnpm --filter @pepperhorn/chordl-core test:run && pnpm --filter @pepperhorn/chordl-listen test:run && pnpm --filter @pepperhorn/chordl-guitar test:run && pnpm --filter @pepperhorn/chordl-react test:run",
+    "test": "pnpm --filter @pepperhorn/chordl-voicings test && pnpm --filter @pepperhorn/chordl-core test && pnpm --filter @pepperhorn/chordl-listen test && pnpm --filter @pepperhorn/chordl-guitar test && pnpm --filter @pepperhorn/chordl-react test && pnpm --filter @pepperhorn/chordl-board test",
+    "test:run": "pnpm --filter @pepperhorn/chordl-voicings test:run && pnpm --filter @pepperhorn/chordl-core test:run && pnpm --filter @pepperhorn/chordl-listen test:run && pnpm --filter @pepperhorn/chordl-guitar test:run && pnpm --filter @pepperhorn/chordl-react test:run && pnpm --filter @pepperhorn/chordl-board test:run",
     "lint": "pnpm --filter @pepperhorn/chordl-voicings lint && pnpm --filter @pepperhorn/chordl-core lint && pnpm --filter @pepperhorn/chordl-listen lint && pnpm --filter @pepperhorn/chordl-guitar lint && pnpm --filter @pepperhorn/chordl-react lint && pnpm --filter @pepperhorn/chordl-board lint",
     "render": "pnpm --filter @pepperhorn/render-cli render"
   },

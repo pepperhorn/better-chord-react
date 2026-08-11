@@ -10,9 +10,9 @@ const GuitarChordPanel = lazy(() =>
 import { parseChordDescription, resolveChord } from "@pepperhorn/chordl-core";
 import type { TextSize, NoteNameMode } from "@pepperhorn/chordl-core";
 import { ChordBoard, useChordBoard } from "@pepperhorn/chordl-board";
-import type { BoardItem } from "@pepperhorn/chordl-board";
+import type { BoardDisplayMode, BoardItem } from "@pepperhorn/chordl-board";
 import type { StaffGlyphSet, ChordSheetData } from "../src";
-import type { UIThemeMode } from "../src";
+import type { InstrumentId, UIThemeMode } from "../src";
 import { SHOW_HINTS, HINT_SPEED } from "../src/config";
 import { HINTS } from "./hints";
 
@@ -63,7 +63,9 @@ function PillGroup<T extends string | number>({
   );
 }
 
-type DisplayMode = "keyboard" | "both" | "staff" | "guitar";
+// Canonical union lives in chordl-board — the editor's Display toggle and a
+// saved card's `display` field are the same set, so they share one type.
+type DisplayMode = BoardDisplayMode;
 const DISPLAY_MODES: { value: DisplayMode; label: string }[] = [
   { value: "keyboard", label: "Diagram" },
   { value: "both", label: "Both" },
@@ -371,6 +373,11 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
   const [notationFont, setNotationFont] = useState<"bravura" | "petaluma">("bravura");
   const [error, setError] = useState<string | null>(null);
 
+  // Guitar selections live here rather than inside GuitarChordPanel so that
+  // "Add to board" can record the exact shape on screen.
+  const [guitarInstrument, setGuitarInstrument] = useState<InstrumentId>("guitar");
+  const [guitarPosition, setGuitarPosition] = useState(0);
+
   // Chord Details form state (separate from NL input). Title/sub/footer are
   // pure props. Annotation toggles get serialized into the chord string passed
   // downstream so existing NL paths keep working.
@@ -442,17 +449,31 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     return parts.length ? " " + parts.join(" ") : "";
   }, [showNoteNames, noteNameMode, noteNameSize, showDegrees, degreeSize, fingeringMode, fingeringValues, fingeringSize]);
 
-  const handleAddToBoard = () => {
-    if (isProg) return;
+  // One definition of "what the current editor state means as a card", used by
+  // both add and live-edit. Two copies is how `display` went missing before.
+  const cardFields = useMemo(() => {
     const withOctave = octaveShift === 0
       ? input
       : `${input} chord ${octaveShift > 0 ? "up" : "down"} ${Math.abs(octaveShift)} octave${Math.abs(octaveShift) > 1 ? "s" : ""}`;
-    board.addItem({
-      nl: withOctave + detailsModifiers,
+    const isGuitar = displayMode === "guitar";
+    return {
+      // The guitar panel renders the raw input — octave shifts and annotation
+      // modifiers are keyboard/staff concerns — so a guitar card stores the
+      // same string it was drawn from.
+      nl: isGuitar ? input : withOctave + detailsModifiers,
       title: title || undefined,
       subheading: subheading || undefined,
       footerText: footerText || undefined,
-    });
+      display: displayMode,
+      instrument: isGuitar ? guitarInstrument : undefined,
+      position: isGuitar ? guitarPosition : undefined,
+    };
+  }, [input, octaveShift, detailsModifiers, title, subheading, footerText,
+      displayMode, guitarInstrument, guitarPosition]);
+
+  const handleAddToBoard = () => {
+    if (isProg) return;
+    board.addItem(cardFields);
   };
 
   const handleEditBoardItem = (item: BoardItem) => {
@@ -464,6 +485,10 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     setShowDegrees(false);
     setFingeringMode("none");
     setOctaveShift(0);
+    // Come back to the view the card was made in, including its exact shape.
+    setDisplayMode(item.display ?? "keyboard");
+    setGuitarInstrument((item.instrument as InstrumentId | undefined) ?? "guitar");
+    setGuitarPosition(item.position ?? 0);
     setEditingItemId(item.id);
     setEditPulseKey((k) => k + 1);
     setInputPulsing(false);
@@ -475,19 +500,11 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
   // the card on the board updates as the user types/toggles annotations.
   useEffect(() => {
     if (!editingItemId) return;
-    const withOctave = octaveShift === 0
-      ? input
-      : `${input} chord ${octaveShift > 0 ? "up" : "down"} ${Math.abs(octaveShift)} octave${Math.abs(octaveShift) > 1 ? "s" : ""}`;
-    board.updateItem(editingItemId, {
-      nl: withOctave + detailsModifiers,
-      title: title || undefined,
-      subheading: subheading || undefined,
-      footerText: footerText || undefined,
-    });
+    board.updateItem(editingItemId, cardFields);
     // board.updateItem is stable (useCallback); board itself is a new object
     // each render — depending on it would loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingItemId, input, octaveShift, detailsModifiers, title, subheading, footerText]);
+  }, [editingItemId, cardFields]);
 
   let progressionResult = null;
   if (isProg) {
@@ -806,6 +823,10 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             <Suspense fallback={<div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "0.85rem", padding: "24px 0" }}>Loading guitar shapes…</div>}>
               <GuitarChordPanel
                 chord={input}
+                instrument={guitarInstrument}
+                onInstrumentChange={setGuitarInstrument}
+                position={guitarPosition}
+                onPositionChange={setGuitarPosition}
                 scale={scale}
                 uiTheme={uiTheme}
                 title={title || undefined}

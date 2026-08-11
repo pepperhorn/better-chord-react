@@ -28,7 +28,17 @@ export interface KeyboardProps {
   chordLabel?: string;
   /** Show chord/scale name as a heading above the keyboard. */
   showHeading?: boolean;
-  /** Explicit title above the keyboard. When set, overrides chordLabel/showHeading. */
+  /**
+   * Always render the resolved chord/scale name, regardless of `showHeading`.
+   * Chord cards set this — a card is identified by its chord, so the name is
+   * not optional there the way it is in a bare embedded diagram.
+   */
+  showChordName?: boolean;
+  /**
+   * User-supplied descriptive label ("bar 1 — turnaround"). It leads, and the
+   * chord name renders beneath it: `title` describes the card, it does not
+   * replace the chord's identity. With no title, the name leads on its own.
+   */
   title?: string;
   /** Subheading rendered directly below the title (smaller, muted). */
   subheading?: string;
@@ -76,6 +86,12 @@ export interface ChordProps {
   scale?: number;
   /** Display mode: keyboard (default), staff notation, or both side-by-side. */
   display?: DisplayMode;
+  /**
+   * Always render the resolved chord/scale name. Chord cards set this — a card
+   * is identified by its chord, so the name is not opt-in there the way it is
+   * in a bare embedded diagram (NL "with heading").
+   */
+  showChordName?: boolean;
   /** UI chrome theme: "light" (default) or "dark". */
   uiTheme?: UIThemeMode;
   /** Show the inline play/copy/download controls. Default true. Set false for static export. */

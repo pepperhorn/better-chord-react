@@ -1,12 +1,72 @@
 import { Component, useState, useEffect, useRef, useCallback } from "react";
 import type { CSSProperties, ReactNode, SVGProps } from "react";
-import { PianoChord } from "@pepperhorn/chordl-react";
-import type { UIThemeMode } from "@pepperhorn/chordl-react";
+import { PianoChord, GuitarChordPanel } from "@pepperhorn/chordl-react";
+import type { InstrumentId, UIThemeMode } from "@pepperhorn/chordl-react";
 import type { BoardItem, BoardMeta, BoardState, StorageAdapter } from "./types";
 import { localStorageAdapter } from "./storage";
 import { exportBoardJson, importBoardJson } from "./io";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+
+// Imported eagerly on purpose. A lazy() here bought nothing — chordl-react ships
+// as one bundle, so PianoChord already drags svguitar and chords-db in — while
+// its Suspense fallback could be what html2canvas captured during a PNG/PDF
+// export. Splitting the guitar renderer out has to happen in chordl-react's
+// build (a separate entry point) before a dynamic import here means anything.
+
+/** Compensates for GuitarChord's fixed 260*scale cap. See BoardCardChord. */
+const GUITAR_CARD_SCALE = 1.6;
+
+/**
+ * One card's chord graphic. `display` picks the renderer: the piano component
+ * already handles keyboard/staff/both via its own prop, and "guitar" routes to
+ * the fretboard panel with its toggles off — a board card shows the exact shape
+ * that was chosen in the editor, not a picker.
+ */
+function BoardCardChord({
+  item,
+  scale,
+  uiTheme,
+}: {
+  item: BoardItem;
+  scale?: number;
+  uiTheme?: UIThemeMode;
+}) {
+  if (item.display === "guitar") {
+    return (
+      <GuitarChordPanel
+        className="chordl-board-card-guitar"
+        chord={item.nl}
+        instrument={item.instrument as InstrumentId | undefined}
+        position={item.position}
+        showControls={false}
+        // A fretboard is a tall, narrow graphic and caps at 260*scale, so at the
+        // board's scale it floats small beside a keyboard that fills its card.
+        // Render it larger so the two land at comparable optical widths.
+        scale={(scale ?? 1) * GUITAR_CARD_SCALE}
+        uiTheme={uiTheme}
+        title={item.title}
+        subheading={item.subheading}
+        footerText={item.footerText}
+      />
+    );
+  }
+  return (
+    <PianoChord
+      chord={item.nl}
+      display={item.display}
+      title={item.title}
+      subheading={item.subheading}
+      footerText={item.footerText}
+      // A card is identified by its chord, so the name always shows — unlike a
+      // bare embedded diagram, where it is opt-in via the NL "with heading".
+      showChordName
+      scale={scale}
+      uiTheme={uiTheme}
+      showPlayback={false}
+    />
+  );
+}
 
 const DRAG_GLOW = "rgba(56, 189, 248, 0.55)";
 const DRAG_GLOW_SOFT = "rgba(56, 189, 248, 0.35)";
@@ -139,7 +199,9 @@ export function useChordBoard(opts?: {
   }, []);
 
   const addItem = useCallback((item: Omit<BoardItem, "id"> & { id?: string }) => {
-    const next: BoardItem = { id: item.id ?? newId(), nl: item.nl, title: item.title, subheading: item.subheading, footerText: item.footerText };
+    // Spread rather than field-by-field: a whitelist here silently drops any
+    // card property added later (this is how `display` used to go missing).
+    const next: BoardItem = { ...item, id: item.id ?? newId() };
     setItems((prev) => [...prev, next]);
     return next.id;
   }, []);
@@ -611,16 +673,8 @@ export function ChordBoard({
                   <DragHandleIcon style={{ transform: "rotate(90deg)" }} />
                 </div>
               )}
-              <CardErrorBoundary key={item.nl} label={item.nl}>
-                <PianoChord
-                  chord={item.nl}
-                  title={item.title}
-                  subheading={item.subheading}
-                  footerText={item.footerText}
-                  scale={scale}
-                  uiTheme={uiTheme}
-                  showPlayback={false}
-                />
+              <CardErrorBoundary key={`${item.nl}|${item.display ?? "keyboard"}`} label={item.nl}>
+                <BoardCardChord item={item} scale={scale} uiTheme={uiTheme} />
               </CardErrorBoundary>
               {!isExporting && (
                 <div

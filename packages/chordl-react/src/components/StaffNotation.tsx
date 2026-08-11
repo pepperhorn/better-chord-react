@@ -17,6 +17,13 @@ export interface StaffNotationProps {
    *  When provided, bypasses internal octave assignment for exact matching. */
   octaveQualifiedNotes?: string[];
   chordLabel?: string;
+  /**
+   * Draw `chordLabel` inside the SVG. Default true. Card renderers pass false
+   * and supply the name via the shared DOM heading instead, so a staff card's
+   * type matches the keyboard card beside it. `chordLabel` is still used for
+   * the accessible name and playback either way.
+   */
+  showLabel?: boolean;
   scale?: number;
   showPlayback?: boolean;
   /** Which SMuFL font to engrave with. `name` selects the Verovio font
@@ -53,6 +60,7 @@ export function StaffNotation({
   lhOctave,
   octaveQualifiedNotes,
   chordLabel,
+  showLabel = true,
   scale = 0.5,
   showPlayback = true,
   glyphs,
@@ -93,7 +101,8 @@ export function StaffNotation({
   }, [staffSvg]);
 
   const size = staffSvg ? parseSvgSize(staffSvg) : { width: 160, height: 120 };
-  const labelH = chordLabel ? LABEL_HEIGHT : 0;
+  const labelDrawn = Boolean(chordLabel && showLabel);
+  const labelH = labelDrawn ? LABEL_HEIGHT : 0;
   const controlsH = showPlayback && notes.length > 0 ? CONTROLS_HEIGHT : 0;
   const totalWidth = Math.max(size.width, controlsH ? CONTROLS_WIDTH : 0, 120);
   const totalHeight = size.height + labelH + controlsH;
@@ -126,7 +135,7 @@ export function StaffNotation({
         </g>
       )}
 
-      {chordLabel && (
+      {labelDrawn && (
         <text
           className="bc-staff__label"
           x={size.width / 2}
