@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lookupGuitarChord, hasGuitarChord, dbPositionToChord } from "../src";
+import { lookupGuitarChord, hasGuitarChord, dbPositionToChord, positionToMidi, INSTRUMENTS } from "../src";
 
 describe("lookupGuitarChord", () => {
   it("finds an open A minor with multiple positions", () => {
@@ -107,5 +107,111 @@ describe("bass lookup", () => {
     expect(lookupGuitarChord("C", "bass4")).toBeNull();
     expect(lookupGuitarChord("Am", "bass5")).toBeNull();
     expect(hasGuitarChord("C", "bass4")).toBe(false);
+  });
+});
+
+/**
+ * chords-db carries no "5" suffix, so power chords cannot be looked up — they
+ * are generated instead. Routing that through lookupGuitarChord keeps one entry
+ * point: a consumer asks for shapes and does not care where they came from.
+ */
+describe("power chords", () => {
+  it("returns generated shapes for a bare fifth", () => {
+    const res = lookupGuitarChord("D5");
+    expect(res).not.toBeNull();
+    expect(res!.shapes.length).toBeGreaterThan(0);
+    expect(res!.label).toBe("D5");
+  });
+
+  it("offers the E-string and A-string placements", () => {
+    const res = lookupGuitarChord("D5");
+    // Root on the 6th string and on the 5th string are different placements,
+    // which is exactly what the A/B/C position toggle is for.
+    expect(res!.positions.length).toBe(2);
+  });
+
+  it("sounds root and fifth only — no third", () => {
+    const res = lookupGuitarChord("A5");
+    expect(res).not.toBeNull();
+    const sounded = res!.positions[0].frets.filter((f) => f >= 0).length;
+    // root + fifth + octave doubling
+    expect(sounded).toBe(3);
+  });
+
+  it("generates a fifth for every root", () => {
+    for (const label of ["C5", "D5", "E5", "F5", "G5", "A5", "B5", "F#5", "Bb5"]) {
+      expect(lookupGuitarChord(label), label).not.toBeNull();
+    }
+  });
+
+  it("does not generate power chords for ukulele", () => {
+    // Reentrant high-G tuning makes root+fifth a different problem; out of scope.
+    expect(lookupGuitarChord("D5", "ukulele")).toBeNull();
+  });
+
+  it("leaves ordinary chords alone", () => {
+    const d = lookupGuitarChord("D");
+    expect(d!.positions[0].frets).not.toEqual(lookupGuitarChord("D5")!.positions[0].frets);
+  });
+});
+
+/**
+ * guitar-top3 is a hand-authored preset library, not a chords-db instrument.
+ * Without routing, every lookup against it returned null.
+ */
+describe("top-3 string voicings", () => {
+  it("returns a preset for a chord that has one", () => {
+    const res = lookupGuitarChord("D", "guitar-top3");
+    expect(res).not.toBeNull();
+    expect(res!.instrument).toBe("guitar-top3");
+  });
+
+  it("mutes the three low strings", () => {
+    const res = lookupGuitarChord("C", "guitar-top3");
+    expect(res).not.toBeNull();
+    // Strings 4, 5, 6 are muted in every top-3 voicing.
+    const muted = res!.positions[0].frets.slice(0, 3);
+    expect(muted).toEqual([-1, -1, -1]);
+  });
+
+  it("covers the suffixes the preset library uses", () => {
+    for (const label of ["C", "Am", "G7", "Dm7", "Fmaj7"]) {
+      expect(lookupGuitarChord(label, "guitar-top3"), label).not.toBeNull();
+    }
+  });
+
+  it("returns null rather than falling back to a six-string shape", () => {
+    // A six-string shape under a three-string label would be a lie.
+    expect(lookupGuitarChord("C#dim7", "guitar-top3")).toBeNull();
+  });
+});
+
+/**
+ * A generated shape is only useful if it sounds the chord it claims. These
+ * check pitch classes rather than fret patterns, the same way staticPresets
+ * checks the hand-authored table — a wrong shape is unrecoverable once printed.
+ */
+describe("power chords sound correct", () => {
+  const pcsOf = (label: string) =>
+    lookupGuitarChord(label)!.positions.map((pos) =>
+      new Set(positionToMidi(pos, INSTRUMENTS.guitar.openMidi).map((m) => m % 12)),
+    );
+
+  it("sounds exactly the root and the fifth", () => {
+    // D5 = D (2) + A (9). No third — that is the whole point of a fifth.
+    for (const pcs of pcsOf("D5")) {
+      expect([...pcs].sort((a, b) => a - b)).toEqual([2, 9]);
+    }
+  });
+
+  it("holds for every root", () => {
+    const fifthOf = (pc: number) => (pc + 7) % 12;
+    for (const [label, root] of [["C5", 0], ["E5", 4], ["G5", 7], ["Bb5", 10], ["F#5", 6]] as const) {
+      for (const pcs of pcsOf(label)) {
+        expect([...pcs].sort((a, b) => a - b), label).toEqual(
+          [root, fifthOf(root)].sort((a, b) => a - b),
+        );
+      }
+    }
   });
 });
