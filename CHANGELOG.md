@@ -35,6 +35,8 @@ to) rather than svguitar's highest-pitch-first numbering.
 
 - **Board cards keep the view they were created in.** A card added from the editor now renders as what you were looking at — guitar frame, notation, both, or keyboard — instead of always falling back to a piano diagram. `BoardItem` gains `display`, plus `instrument` and `position` for guitar cards, so a card remembers the instrument and the exact A/B/C fret placement you picked. One board can mix all four, and the fields survive JSON export/import, localStorage, and PNG/PDF export.
 
+- **Power chords, top-3-string voicings and a barre filter in the guitar view.** `D5` now renders — chords-db has no `5` suffix, so the shapes are generated (root + fifth + octave, on the 6th- and 5th-string sets, verified by pitch class rather than fret pattern). **Guitar (top 3)** joins the instrument switch, backed by the 20 hand-authored three-string voicings. A **Hide barre shapes** switch filters the alternate placements, appearing only when a chord has both kinds, and saying so rather than rendering nothing when every shape needs a barre (`F`, `Bm`). All three capabilities already existed in `chordl-guitar` and were simply never called: `lookupGuitarChord` is now the single entry point for "shapes for this chord on this instrument", whichever source answers.
+
 ### Changed
 
 - **Notation now engraved by Verovio.** The staff view renders through Verovio (MEI → SVG) instead of the hand-rolled SVG engraver, matching the notation stack used by the other apps. Chords keep their own spelling on the staff (a `Bb` chord shows flats, not sharps). Standard/Hand-drawn maps to Bravura/Petaluma.

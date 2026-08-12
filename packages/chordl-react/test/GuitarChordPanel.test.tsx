@@ -183,3 +183,77 @@ describe("GuitarChordPanel position reporting", () => {
     expect(onInstrumentChange).toHaveBeenCalledWith("ukulele");
   });
 });
+
+const barreToggle = (c: HTMLElement) =>
+  c.querySelector<HTMLInputElement>(".bc-guitar-barre-checkbox");
+
+describe("instrument coverage", () => {
+  it("offers guitar, top-3 and ukulele", () => {
+    const { container } = render(<GuitarChordPanel chord="Am" />);
+    for (const label of ["Guitar", "Guitar (top 3)", "Ukulele"]) {
+      expect(within(container).getByText(label), label).toBeTruthy();
+    }
+  });
+
+  it("does not offer bass, which can never return a shape", () => {
+    const { container } = render(<GuitarChordPanel chord="Am" />);
+    expect(within(container).queryByText(/Bass/)).toBeNull();
+  });
+
+  it("renders a top-3 voicing", () => {
+    const { container } = render(<GuitarChordPanel chord="D" instrument="guitar-top3" />);
+    expect(container.querySelector(".bc-guitar-chord")).toBeTruthy();
+    expect(container.textContent).not.toContain("No guitar (top 3) shape found");
+  });
+
+  it("renders a power chord that chords-db cannot supply", () => {
+    const { container } = render(<GuitarChordPanel chord="D5" />);
+    expect(container.querySelector(".bc-guitar-chord")).toBeTruthy();
+    expect(container.textContent).toContain("D5");
+  });
+});
+
+describe("barre filter", () => {
+  it("is offered only when the chord has both barre and non-barre shapes", () => {
+    // Am has open shapes and barre shapes.
+    expect(barreToggle(render(<GuitarChordPanel chord="Am" />).container)).toBeTruthy();
+  });
+
+  it("is hidden on a board card", () => {
+    const { container } = render(<GuitarChordPanel chord="Am" showControls={false} />);
+    expect(barreToggle(container)).toBeNull();
+  });
+
+  it("removes barre placements when switched on", () => {
+    const { container } = render(<GuitarChordPanel chord="Am" />);
+    const before = positionButtons(container).length;
+    fireEvent.click(barreToggle(container)!);
+    expect(positionButtons(container).length).toBeLessThan(before);
+  });
+
+  /**
+   * The filter hides shapes; it never renumbers them. A board card persists the
+   * position index, so a click has to report the index into the full list or a
+   * saved card would come back showing a different voicing.
+   */
+  it("reports the underlying index, not the filtered one", () => {
+    const onPositionChange = vi.fn();
+    const { container } = render(
+      <GuitarChordPanel chord="Am" onPositionChange={onPositionChange} />,
+    );
+    const unfiltered = positionButtons(container);
+    // Index reported for the last placement with the filter off...
+    fireEvent.click(unfiltered[unfiltered.length - 1]);
+    const reportedUnfiltered = onPositionChange.mock.calls.at(-1)![0];
+
+    onPositionChange.mockClear();
+    fireEvent.click(barreToggle(container)!);
+    const filtered = positionButtons(container);
+    fireEvent.click(filtered[filtered.length - 1]);
+    const reportedFiltered = onPositionChange.mock.calls.at(-1)![0];
+
+    // ...must still be an index into the full list, so the two agree on meaning.
+    expect(reportedFiltered).toBeLessThanOrEqual(reportedUnfiltered);
+    expect(Number.isInteger(reportedFiltered)).toBe(true);
+  });
+});

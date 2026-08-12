@@ -37,12 +37,19 @@ export interface GuitarChordPanelProps {
 }
 
 const POSITION_LABELS = "ABCDEFGH";
-const INSTRUMENT_ORDER: InstrumentId[] = ["guitar", "ukulele"];
 
 /**
- * Guitar view for a chord: resolves the chord label, looks up its shapes in
- * chords-db, and renders the selected fret position with an A/B/C toggle for
- * the alternate placements. Chord-only (scales / note lists fall back to a hint).
+ * Instruments that can actually return a shape, in the order a player is most
+ * likely to reach for them. `bass4`/`bass5` are deliberately absent: chords-db
+ * ships no bass library, so they can only ever answer "no shape found", and an
+ * instrument that only disappoints is worse than an absent one.
+ */
+const INSTRUMENT_ORDER: InstrumentId[] = ["guitar", "guitar-top3", "ukulele"];
+
+/**
+ * Guitar view for a chord: resolves the chord label, looks up its shapes, and
+ * renders the selected fret position with an A/B/C toggle for the alternate
+ * placements. Chord-only (scales / note lists fall back to a hint).
  */
 export function GuitarChordPanel({
   chord,
@@ -119,6 +126,12 @@ export function GuitarChordPanel({
   const selectPosition = (i: number) => { setActive(i); onPositionChange?.(i); };
   const selectInstrument = (id: InstrumentId) => { setInstrument(id); onInstrumentChange?.(id); };
 
+  // Barre filtering hides shapes; it never changes what was looked up. Indices
+  // stay indices into the full list, so a host that persists one (a board card
+  // stores `position`) is never handed a number that means something different
+  // once the filter changes.
+  const [hideBarres, setHideBarres] = useState(false);
+
   const notice = (msg: string) => (
     <UIThemeProvider value={uiCtx}>
       <div className={`bc-guitar-panel bc-guitar-notice ${className ?? ""}`.trim()}
@@ -171,7 +184,19 @@ export function GuitarChordPanel({
     );
   }
 
-  const idx = Math.max(0, Math.min(active, result.shapes.length - 1));
+  // Visible placements, each carrying its index into the full list so a click
+  // reports the same number whether or not the filter is on.
+  const allPlacements = result.shapes.map((_, i) => i);
+  const barreFree = allPlacements.filter((i) => result.positions[i].barres.length === 0);
+  // A chord whose every shape is a barre (F, Bm — exactly the chords a beginner
+  // wants this switch for) would otherwise render an empty frame. Show them and
+  // say why instead.
+  const onlyBarres = hideBarres && barreFree.length === 0;
+  const visible = hideBarres && !onlyBarres ? barreFree : allPlacements;
+
+  const idx = visible.includes(active)
+    ? active
+    : visible[0] ?? Math.max(0, Math.min(active, result.shapes.length - 1));
   // chordLookup bakes the chord name into the shape as svguitar's diagram title.
   // The panel renders the name itself (in the same type as the keyboard and
   // staff cards), so drop the SVG's copy rather than showing it twice in a font
@@ -198,6 +223,32 @@ export function GuitarChordPanel({
 
         {instrumentToggle}
 
+        {/* Only offered when it would change something — a chord with no barre
+            shapes doesn't need a switch that does nothing. */}
+        {showControls && barreFree.length < allPlacements.length && (
+          <label
+            className="bc-guitar-barre-toggle"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer",
+              fontFamily: "system-ui, sans-serif", fontSize: "0.8rem", color: muted,
+            }}
+          >
+            <input
+              type="checkbox"
+              className="bc-guitar-barre-checkbox"
+              checked={hideBarres}
+              onChange={(e) => setHideBarres(e.target.checked)}
+            />
+            Hide barre shapes
+          </label>
+        )}
+
+        {onlyBarres && (
+          <div className="bc-guitar-notice" style={{ textAlign: "center", color: muted, fontSize: "0.8rem" }}>
+            Every {label} shape needs a barre — showing them anyway.
+          </div>
+        )}
+
         <GuitarChord
           chord={diagram}
           scale={scale}
@@ -205,10 +256,12 @@ export function GuitarChordPanel({
           settings={guitarSettings}
         />
 
-        {/* Alternate placements */}
-        {showControls && result.shapes.length > 1 && (
+        {/* Alternate placements. Labelled by visible order so the row reads
+            A/B/C even when the barre filter has removed shapes between them,
+            while the click still reports the underlying index. */}
+        {showControls && visible.length > 1 && (
           <div className="bc-guitar-position-toggle" style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
-            {result.shapes.map((_, i) => {
+            {visible.map((i, shown) => {
               const baseFret = result.positions[i].baseFret;
               return (
                 <button
@@ -216,7 +269,7 @@ export function GuitarChordPanel({
                   className="bc-guitar-position-btn"
                   onClick={() => selectPosition(i)}
                   data-active={i === idx}
-                  title={`Position ${i + 1} (fret ${baseFret})`}
+                  title={`Position ${shown + 1} (fret ${baseFret})`}
                   style={{
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
                     padding: "6px 12px", borderRadius: 8, cursor: "pointer",
@@ -227,7 +280,7 @@ export function GuitarChordPanel({
                     minWidth: 40,
                   }}
                 >
-                  <span>{POSITION_LABELS[i] ?? i + 1}</span>
+                  <span>{POSITION_LABELS[shown] ?? shown + 1}</span>
                   <span style={{ fontSize: "0.65rem", fontWeight: 400 }}>fret {baseFret}</span>
                 </button>
               );
