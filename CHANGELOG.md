@@ -44,6 +44,7 @@ to) rather than svguitar's highest-pitch-first numbering.
 
 ### Fixed
 
+- **Board exports no longer carry editing chrome.** A selected card's blue ring was captured into PNG and PDF output, because `isExporting` hid the drag handle and action row but nothing else. Card styling now separates editing chrome (selection, edit ring, drag glow, pulse) — which never reaches an export — from the card's own border, which is a print decision and defaults to off: an exported chord sheet is a page of chords, not a page of boxes. Geometry is unchanged, so what you see still matches what you get, and selection survives the export.
 - **`c major scale` (and other scale requests) render through the batch pipeline** instead of failing with "Could not extract a chord name".
 - **Fingering boxes accept arbitrary strings** (e.g. violin `D1`, `A1`) instead of a single character, and a non-numeral no longer throws an unrecoverable render error — each board card is isolated by its own error boundary.
 - **`useChordBoard`'s `addItem` no longer drops card fields.** It copied a fixed list of properties, so anything added to `BoardItem` later was silently discarded on the way to the board; it now spreads the item.

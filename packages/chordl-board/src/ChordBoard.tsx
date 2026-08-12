@@ -90,6 +90,27 @@ const BOARD_STYLES = `
 .chordl-board-actions { transition: opacity 0.15s ease; opacity: 0; }
 .chordl-board-card:hover .chordl-board-actions,
 .chordl-board-card[data-selected="true"] .chordl-board-actions { opacity: 1; }
+
+/* ── Capture styling ──────────────────────────────────────────────────────
+   A card is styled for two different jobs. Editing chrome — the selection
+   ring, the edit ring, the drag glow, the pulse — exists to tell you what
+   you are working on, and must never reach a PNG or PDF. The card's own
+   border is a print decision, and defaults to off: an exported chord sheet
+   is a page of chords, not a page of boxes.
+
+   Neutralised rather than removed so geometry is identical to the screen:
+   a transparent border keeps its 1px width, so nothing reflows between what
+   you see and what you get. A per-card border option (weight, style, colour)
+   will opt back in here rather than removing this rule.                    */
+.chordl-board-export--capturing .chordl-board-card,
+.chordl-board-export--capturing .chordl-board-card--selected,
+.chordl-board-export--capturing .chordl-board-card--editing,
+.chordl-board-export--capturing .chordl-board-card--dragging {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  animation: none !important;
+  transition: none !important;
+}
 .chordl-board-title { margin: 0; font-size: 1.75rem; font-weight: 600; color: #111; font-family: Poppins, system-ui, sans-serif; line-height: 1.2; }
 .chordl-board-subtitle { margin: 4px 0 0 0; font-size: 1.05rem; font-weight: 400; color: #555; font-family: Poppins, system-ui, sans-serif; }
 `;
@@ -584,6 +605,7 @@ export function ChordBoard({
       {/* Exportable region: title + grid + footer */}
       <div
         ref={exportRef}
+        className={`chordl-board-export${isExporting ? " chordl-board-export--capturing" : ""}`}
         style={{ background: "#fff", padding: 16, borderRadius: 12 }}
         onClick={(e) => {
           // Clicks that don't land inside a card clear the selection.

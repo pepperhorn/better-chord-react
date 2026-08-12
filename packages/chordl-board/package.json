@@ -1,7 +1,7 @@
 {
   "name": "@pepperhorn/chordl-board",
   "version": "0.1.0",
-  "description": "Stateful chord board for chordl — reorderable list of chord cards with storage adapter",
+  "description": "Stateful chord board for chordl \u2014 reorderable list of chord cards with storage adapter",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -31,8 +31,12 @@
     "jspdf": "^4.2.1"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.1.0",
     "@types/react": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "jsdom": "^25.0.0",
     "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.1"
   },
