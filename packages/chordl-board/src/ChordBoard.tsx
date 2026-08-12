@@ -428,6 +428,13 @@ export function ChordBoard({
         orientation,
         unit: "px",
         format: [canvas.width, canvas.height],
+        // jsPDF defaults this to false, which embeds the decoded bitmap with no
+        // stream compression: a 12-card board measured 8.33MB without it and
+        // 0.05MB with it, from the identical PNG. The image was never the
+        // problem. Keep PNG rather than switching to JPEG — chord diagrams are
+        // flat line art, which Flate compresses better than JPEG (0.05MB vs
+        // 0.15MB measured) and without ringing around staff lines.
+        compress: true,
       });
       pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
       pdf.save(`${slugFilename()}.pdf`);

@@ -46,6 +46,7 @@ to) rather than svguitar's highest-pitch-first numbering.
 
 ### Fixed
 
+- **Board PDFs are ~150x smaller.** A 12-card board exported at 5.95MB and a 30-card board at roughly 15MB. jsPDF defaults `compress` to false, so it embedded the decoded bitmap with no stream compression — the same board is now 0.04MB and 0.08MB. The image resolution was never the cause: the PNG itself was 0.12MB before and after. PNG is kept rather than switching to JPEG, which measured three times larger (chord diagrams are flat line art, which Flate compresses better) and would ring around staff lines.
 - **Board exports no longer carry editing chrome.** A selected card's blue ring was captured into PNG and PDF output, because `isExporting` hid the drag handle and action row but nothing else. Card styling now separates editing chrome (selection, edit ring, drag glow, pulse) — which never reaches an export — from the card's own border, which is a print decision and defaults to off: an exported chord sheet is a page of chords, not a page of boxes. Geometry is unchanged, so what you see still matches what you get, and selection survives the export.
 - **`c major scale` (and other scale requests) render through the batch pipeline** instead of failing with "Could not extract a chord name".
 - **Fingering boxes accept arbitrary strings** (e.g. violin `D1`, `A1`) instead of a single character, and a non-numeral no longer throws an unrecoverable render error — each board card is isolated by its own error boundary.
