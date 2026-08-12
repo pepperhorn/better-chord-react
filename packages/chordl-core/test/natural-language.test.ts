@@ -505,3 +505,74 @@ describe("scale shorthand", () => {
     }
   });
 });
+
+/**
+ * FILLER_WORDS strips the English article "a". Because the note A is also a
+ * single letter, the two are indistinguishable to a `\b`-delimited match
+ * whenever what follows the A is a non-word character — `#`, `/`, or the end
+ * of the string. Every case below was silently wrong before the fix, and the
+ * A#/slash ones were worse than the bare-A error: they rendered a real but
+ * *different* chord with no complaint.
+ */
+describe("root note A vs. the article \"a\"", () => {
+  const nameOf = (input: string) => parseChordDescription(input).chordName;
+
+  it("keeps a bare A as a chord rather than eating it as an article", () => {
+    expect(nameOf("A")).toBe("A");
+  });
+
+  it("keeps A# and Ab roots", () => {
+    expect(nameOf("A#")).toBe("A#");
+    expect(nameOf("Ab")).toBe("Ab");
+  });
+
+  it("no longer resolves A#dim to D", () => {
+    expect(nameOf("A#dim")).toBe("A#dim");
+  });
+
+  it("no longer resolves A#maj7 to A", () => {
+    expect(nameOf("A#maj7")).toBe("A#maj7");
+  });
+
+  it("keeps qualities that already worked", () => {
+    expect(nameOf("Am")).toBe("Am");
+    expect(nameOf("Amaj7")).toBe("Amaj7");
+  });
+
+  it("still strips the article when it really is one", () => {
+    expect(nameOf("show me a C")).toBe("C");
+    expect(nameOf("please draw an E")).toBe("E");
+    expect(nameOf("show me a D minor")).toBe("Dm");
+  });
+});
+
+/**
+ * CHORD_RE folded the slash into the same character class as the flat symbol
+ * `b`, so a bass note only survived when it happened to be B or Bb.
+ */
+describe("slash-chord bass notes", () => {
+  const nameOf = (input: string) => parseChordDescription(input).chordName;
+
+  it("keeps a bass note of any letter", () => {
+    expect(nameOf("C/E")).toBe("C/E");
+    expect(nameOf("G/F")).toBe("G/F");
+    expect(nameOf("D/C")).toBe("D/C");
+    expect(nameOf("A/C#")).toBe("A/C#");
+  });
+
+  it("keeps the bass note that already worked", () => {
+    expect(nameOf("C/B")).toBe("C/B");
+    expect(nameOf("C/Bb")).toBe("C/Bb");
+  });
+
+  it("uppercases a lowercase bass note", () => {
+    expect(nameOf("C/e")).toBe("C/E");
+  });
+
+  // A slash followed by digits is a chord type (6/9), not a bass note. Giving
+  // the bass its own capture group stopped the quality group from consuming
+  // "/9" and truncated this to "C6", so the two rules have to stay in step.
+  it("treats a digit after the slash as quality, not a bass note", () => {
+    expect(nameOf("C6/9")).toBe("C6/9");
+  });
+});
