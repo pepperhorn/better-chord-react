@@ -97,13 +97,27 @@ const FIRST_POSITION_REACH = 7;
 /**
  * Violin first-position shape for a chord's pitch classes.
  *
- * For each string (G, D, A, E), take the chord tone with the smallest
- * semitone offset within first position. Every triad this library handles
- * has its largest pitch-class gap under the 8-semitone reach, so each string
- * always finds a tone — the null return is for an unknown pitch class, not a
- * missing placement. The result is one sounded chord tone per string, which
- * is how a chord is realised on a bowed instrument (as double-stop pairs in
- * practice, but the card teaches where the tones live).
+ * The placement is chosen across all four strings at once, not string by
+ * string. Picking each string's *nearest* chord tone independently is the
+ * obvious approach and it is wrong: on A major the G string's nearest tone is
+ * A, the D string's is E, and both open strings are already A and E, so the
+ * card sounds A-E-A-E and the third never appears. That greedy version
+ * silently dropped a chord tone in 32 of the 60 chords this library generates,
+ * including the root of C7, B7 and F#7. A chord card that omits the third is
+ * not teaching the chord.
+ *
+ * So: enumerate every assignment (each string plays one reachable chord tone
+ * or is silent) and rank them by
+ *   1. how many DISTINCT chord tones sound — the thing that was broken;
+ *   2. how many strings sound at all — prefer a fuller chord;
+ *   3. total semitone offset — prefer the lower, easier hand shape;
+ *   4. the offsets read low-string-first, purely so the result is stable.
+ * Four strings with at most five options each is 625 combinations at worst,
+ * so the exhaustive search costs nothing and removes the whole class of bug.
+ *
+ * A tone can still be unreachable — with only 0-7 semitones above four fixed
+ * open strings, not every chord fits — so criterion 1 maximises coverage
+ * rather than guaranteeing it. `violinCoverage` reports what was achieved.
  *
  * The diagram's "fret" axis is semitones above the open string; markers are
  * labelled with VIOLIN finger numbers via `violinFingerFor`, not guitar
@@ -112,6 +126,7 @@ const FIRST_POSITION_REACH = 7;
 export function violinShapeFor(pitchClasses: string[]): Chord | null {
   const tones = pitchClasses.map((p) => PC[p]);
   if (tones.some((t) => t === undefined) || tones.length === 0) return null;
+  const wanted = [...new Set(tones)];
 
   // Low to high: G D A E; svguitar numbering: 4=G, 3=D, 2=A, 1=E.
   const strings: Array<{ svguitarString: number; openPc: number }> = [
@@ -121,24 +136,85 @@ export function violinShapeFor(pitchClasses: string[]): Chord | null {
     { svguitarString: 1, openPc: PC.E },
   ];
 
-  const fingers: Chord["fingers"] = [];
-  for (const { svguitarString, openPc } of strings) {
-    let best: number | null = null;
-    for (const tone of tones) {
+  // Per string: every reachable chord tone, plus silence. Within a 0-7 window
+  // a pitch class occurs at most once, so one offset per tone per string.
+  const choices = strings.map(({ openPc }) => {
+    const opts: Array<{ offset: number; tone: number } | null> = [];
+    for (const tone of wanted) {
       const offset = (tone - openPc + 12) % 12;
-      if (offset <= FIRST_POSITION_REACH && (best === null || offset < best)) {
-        best = offset;
-      }
+      if (offset <= FIRST_POSITION_REACH) opts.push({ offset, tone });
     }
-    if (best === null) {
-      // No chord tone reachable on this string in first position; mark it
-      // silent rather than inventing a placement outside the position.
-      fingers.push([svguitarString, "x"]);
-      continue;
-    }
-    const label = violinFingerFor(best);
-    fingers.push(label ? [svguitarString, best, label] : [svguitarString, best]);
+    opts.push(null); // silent — better than inventing a placement out of position
+    return opts;
+  });
+
+  type Pick = { offset: number; tone: number } | null;
+
+  // Cartesian product of the per-string options. Four strings, at most five
+  // options each — 625 combinations at the absolute worst.
+  let combos: Pick[][] = [[]];
+  for (const opts of choices) {
+    const next: Pick[][] = [];
+    for (const combo of combos) for (const opt of opts) next.push([...combo, opt]);
+    combos = next;
   }
 
+  let best: { picks: Pick[]; score: number[] } | null = null;
+  for (const picks of combos) {
+    const sounded = picks.filter((p): p is NonNullable<Pick> => p !== null);
+    const covered = new Set(sounded.map((p) => p.tone)).size;
+    const total = sounded.reduce((n, p) => n + p.offset, 0);
+    // Negated where higher is better, so the whole score compares smallest-first.
+    const score = [
+      -covered,
+      -sounded.length,
+      total,
+      ...picks.map((p) => (p === null ? 99 : p.offset)),
+    ];
+    if (best === null || lessThan(score, best.score)) best = { picks, score };
+  }
+  if (best === null) return null;
+
+  const fingers: Chord["fingers"] = best.picks.map((pick, i) => {
+    const s = strings[i].svguitarString;
+    if (pick === null) return [s, "x"];
+    const label = violinFingerFor(pick.offset);
+    return label ? [s, pick.offset, label] : [s, pick.offset];
+  });
+
   return { fingers, barres: [] };
+}
+
+/**
+ * Which of a chord's pitch classes the first-position shape actually sounds.
+ *
+ * Exists so callers and tests can assert coverage instead of trusting it —
+ * the bug this replaced was invisible precisely because nothing measured it.
+ */
+export function violinCoverage(
+  pitchClasses: string[],
+): { sounded: number[]; missing: number[] } | null {
+  const shape = violinShapeFor(pitchClasses);
+  if (shape === null) return null;
+  const wanted = [...new Set(pitchClasses.map((p) => PC[p]))];
+  const openPcs = [PC.E, PC.A, PC.D, PC.G]; // svguitar string 1..4
+  const sounded = new Set<number>();
+  for (const f of shape.fingers) {
+    if (f[1] === "x") continue;
+    sounded.add((openPcs[Number(f[0]) - 1] + Number(f[1])) % 12);
+  }
+  return {
+    sounded: [...sounded].sort((a, b) => a - b),
+    missing: wanted.filter((t) => !sounded.has(t)).sort((a, b) => a - b),
+  };
+}
+
+/** Lexicographic compare for the ranking tuple above. */
+function lessThan(a: number[], b: number[]): boolean {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    if (x !== y) return x < y;
+  }
+  return false;
 }

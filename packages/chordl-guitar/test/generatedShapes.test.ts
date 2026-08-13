@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bassShapeFor, violinShapeFor } from "../src/generatedShapes";
+import { bassShapeFor, violinShapeFor, violinCoverage } from "../src/generatedShapes";
 import { INSTRUMENTS } from "../src/instruments";
 
 const PC: Record<string, number> = {
@@ -81,12 +81,19 @@ describe("violinShapeFor", () => {
   for (const [suffix, intervals] of TRIADS) {
     for (const root of NAMES) {
       const pcs = intervals.map((i) => NAMES[(PC[root] + i) % 12]);
-      it(`${root}${suffix}: one chord tone per string, all in first position`, () => {
+      it(`${root}${suffix}: sounds every chord tone, one per string, first position`, () => {
         const shape = violinShapeFor(pcs)!;
         expect(shape).not.toBeNull();
 
         const allowed = new Set(intervals.map((i) => (PC[root] + i) % 12));
         const sounded = soundedPcs(shape, "violin");
+
+        // THE assertion. Membership alone (every sounded note is a chord tone)
+        // passes happily on a shape that never plays the third — A major came
+        // out A-E-A-E, and 32 of these 60 chords dropped a tone, because each
+        // string used to pick its own nearest tone with nothing checking the
+        // chord as a whole. Coverage is the property that actually matters.
+        expect(violinCoverage(pcs)!.missing, `${root}${suffix} drops a chord tone`).toEqual([]);
 
         // Every triad's largest pitch-class gap is under the 8-semitone
         // first-position reach, so all four strings sound a chord tone.

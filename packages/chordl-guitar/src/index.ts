@@ -41,4 +41,4 @@ export type {
 export { powerChordPosition, powerChordShape } from "./powerChords";
 export type { PowerChordStringSet, PowerChordOptions } from "./powerChords";
 
-export { bassShapeFor, violinShapeFor } from "./generatedShapes";
+export { bassShapeFor, violinShapeFor, violinCoverage } from "./generatedShapes";
