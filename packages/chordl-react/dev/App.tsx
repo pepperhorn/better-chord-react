@@ -9,7 +9,17 @@ const GuitarChordPanel = lazy(() =>
 );
 import { parseChordDescription, resolveChord } from "@pepperhorn/chordl-core";
 import type { TextSize, NoteNameMode } from "@pepperhorn/chordl-core";
-import { ChordBoard, useChordBoard } from "@pepperhorn/chordl-board";
+import {
+  ChordBoard,
+  useChordBoard,
+  localStorageAdapter,
+  isTextCard,
+  BoardIcon,
+  BOARD_ICONS,
+  fileToCardImage,
+  imageBytesUsed,
+  IMAGE_BUDGET_CHARS,
+} from "@pepperhorn/chordl-board";
 import type { BoardDisplayMode, BoardItem } from "@pepperhorn/chordl-board";
 import type { StaffGlyphSet, ChordSheetData } from "../src";
 import type { InstrumentId, UIThemeMode } from "../src";
@@ -196,15 +206,34 @@ interface ChordDetailsPanelProps {
   fingeringValues: string[]; onFingeringValuesChange: (v: string[]) => void;
   fingeringSize: TextSize; onFingeringSizeChange: (v: TextSize) => void;
   noteCount: number;
+  /** Editing a text card: the annotation toggles below describe a chord diagram
+   *  this card does not have, so they give way to the icon/picture controls. */
+  textCardMode: boolean;
+  icon: string; onIconChange: (v: string) => void;
+  image: string; onImageChange: (file: File | null) => void;
+  onImageClear: () => void;
+  /** Last upload failure, already worded for a reader — shown verbatim. */
+  imageError: string | null;
 }
 
 function ChordDetailsPanel(p: ChordDetailsPanelProps) {
-  const setCount = [
-    p.title, p.subheading, p.footerText,
-    p.showNoteNames ? "x" : "",
-    p.showDegrees ? "x" : "",
-    p.fingeringMode !== "none" ? "x" : "",
-  ].filter((v) => v).length;
+  const setCount = p.textCardMode
+    ? [p.title, p.subheading, p.footerText, p.icon, p.image].filter((v) => v).length
+    : [
+      p.title, p.subheading, p.footerText,
+      p.showNoteNames ? "x" : "",
+      p.showDegrees ? "x" : "",
+      p.fingeringMode !== "none" ? "x" : "",
+    ].filter((v) => v).length;
+
+  // A text card's only editor is inside this panel, and the panel ships
+  // collapsed — so opening it once on entry is the difference between "the
+  // icon picker is hidden" and "there is no icon picker". Imperative rather
+  // than a controlled `open` prop so the user can still close it afterwards.
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (p.textCardMode && detailsRef.current) detailsRef.current.open = true;
+  }, [p.textCardMode]);
 
   const rowStyle: React.CSSProperties = {
     display: "flex", alignItems: "center", gap: 12,
@@ -233,7 +262,7 @@ function ChordDetailsPanel(p: ChordDetailsPanelProps) {
   );
 
   return (
-    <details className="chord-details-panel" style={{
+    <details ref={detailsRef} className={`chord-details-panel${p.textCardMode ? " chord-details-panel--text-card" : ""}`} style={{
       width: "100%", maxWidth: 640,
       border: "1px solid var(--btn-border)", borderRadius: 12,
       // Theme-aware surface: light grey in light mode, dark box in dark mode
@@ -247,7 +276,7 @@ function ChordDetailsPanel(p: ChordDetailsPanelProps) {
         fontSize: "0.85rem", fontWeight: 500, color: "var(--text)",
         display: "flex", alignItems: "center", gap: 8,
       }}>
-        Choose more chord details
+        {p.textCardMode ? "Text card — heading, icon or picture" : "Choose more chord details"}
         {setCount > 0 && (
           <span style={{
             fontSize: "0.7rem", padding: "1px 7px", borderRadius: 10,
@@ -276,6 +305,15 @@ function ChordDetailsPanel(p: ChordDetailsPanelProps) {
 
         <hr style={{ border: "none", borderTop: "1px solid var(--btn-border)", margin: "10px 0" }} />
 
+        {p.textCardMode ? (
+          <TextCardArtControls
+            icon={p.icon} onIconChange={p.onIconChange}
+            image={p.image} onImageChange={p.onImageChange} onImageClear={p.onImageClear}
+            imageError={p.imageError}
+            rowStyle={rowStyle} labelStyle={labelStyle}
+          />
+        ) : (
+        <>
         <div style={rowStyle}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 110, fontSize: "0.85rem", cursor: "pointer" }}>
             <input type="checkbox" checked={p.showNoteNames}
@@ -357,8 +395,151 @@ function ChordDetailsPanel(p: ChordDetailsPanelProps) {
             </>
           )}
         </div>
+        </>
+        )}
       </div>
     </details>
+  );
+}
+
+const ICON_GROUP_LABELS: Record<"music" | "obj", string> = {
+  music: "Notation",
+  obj: "Objects",
+};
+
+/**
+ * Icon grid + picture upload for a text card.
+ *
+ * An icon and an image are mutually exclusive by design but not by schema, so
+ * this is the only place the rule is enforced: every path that sets one clears
+ * the other, and neither control can be reached except through here.
+ */
+function TextCardArtControls({
+  icon, onIconChange, image, onImageChange, onImageClear, imageError, rowStyle, labelStyle,
+}: {
+  icon: string; onIconChange: (v: string) => void;
+  image: string; onImageChange: (file: File | null) => void;
+  onImageClear: () => void;
+  imageError: string | null;
+  rowStyle: React.CSSProperties;
+  labelStyle: React.CSSProperties;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const iconBtnStyle = (selected: boolean): React.CSSProperties => ({
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    width: 36, height: 36, padding: 0,
+    border: `1px solid ${selected ? "var(--accent, #38bdf8)" : "var(--btn-border)"}`,
+    borderRadius: 8,
+    background: selected ? "var(--pill-active-bg)" : "var(--pill-bg)",
+    color: selected ? "var(--pill-active-text)" : "var(--text)",
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+  });
+
+  return (
+    <>
+      <div className="icon-picker-row" style={{ ...rowStyle, alignItems: "flex-start" }}>
+        <span className="icon-picker-label" style={labelStyle}>Icon</span>
+        <div className="icon-picker" style={{ display: "flex", flexDirection: "column", gap: 10, flex: "1 1 200px" }}>
+          {(["music", "obj"] as const).map((category) => (
+            <div className={`icon-picker-group icon-picker-group--${category}`} key={category}>
+              <div className="icon-picker-group-label" style={{
+                fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em",
+                textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 5,
+              }}>
+                {ICON_GROUP_LABELS[category]}
+              </div>
+              <div className="icon-picker-grid" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {BOARD_ICONS.filter((def) => def.category === category).map((def) => {
+                  const selected = icon === def.id;
+                  return (
+                    <button
+                      key={def.id}
+                      type="button"
+                      className={`icon-picker-btn${selected ? " icon-picker-btn--selected" : ""}`}
+                      data-icon-id={def.id}
+                      aria-pressed={selected}
+                      title={selected ? `${def.label} (click to clear)` : def.label}
+                      // Clicking the selected icon clears it — the only way back
+                      // to a card with neither an icon nor a picture.
+                      onClick={() => onIconChange(selected ? "" : def.id)}
+                      style={iconBtnStyle(selected)}
+                    >
+                      <BoardIcon id={def.id} size={22} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card-image-row" style={{ ...rowStyle, alignItems: "flex-start" }}>
+        <span className="card-image-label" style={labelStyle}>Picture</span>
+        <div className="card-image-controls" style={{ display: "flex", flexDirection: "column", gap: 8, flex: "1 1 200px" }}>
+          <input
+            ref={fileRef}
+            className="card-image-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              onImageChange(e.target.files?.[0] ?? null);
+              // Same file twice in a row fires no change event otherwise, so a
+              // failed upload could not be retried without picking something else.
+              e.target.value = "";
+            }}
+          />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn-card-image-choose"
+              onClick={() => fileRef.current?.click()}
+              style={{
+                padding: "6px 14px", fontSize: "0.8rem", fontWeight: 500, fontFamily: "inherit",
+                border: "1px solid var(--btn-border)", borderRadius: 8,
+                background: "var(--pill-bg)", color: "var(--text)", cursor: "pointer",
+              }}
+            >
+              {image ? "Replace picture…" : "Choose a picture…"}
+            </button>
+            {image && (
+              <button
+                type="button"
+                className="btn-card-image-remove"
+                onClick={onImageClear}
+                style={{
+                  padding: "6px 14px", fontSize: "0.8rem", fontWeight: 500, fontFamily: "inherit",
+                  border: "1px solid var(--btn-border)", borderRadius: 8,
+                  background: "var(--pill-bg)", color: "var(--text-muted)", cursor: "pointer",
+                }}
+              >
+                Remove
+              </button>
+            )}
+            {image && (
+              <img
+                className="card-image-preview"
+                src={image}
+                alt="Card picture"
+                style={{ height: 40, width: "auto", borderRadius: 6, border: "1px solid var(--btn-border)" }}
+              />
+            )}
+          </div>
+          {imageError && (
+            // Verbatim: these messages are written for the person picking the
+            // file, and rewording them here is how they become jargon.
+            <p className="card-image-error" style={{
+              margin: 0, fontSize: "0.8rem", color: "var(--error)", lineHeight: 1.4,
+            }}>
+              {imageError}
+            </p>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -417,9 +598,27 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     });
   }, [noteCount, fingeringMode]);
 
-  // Board state — items, clipboard, mutators, storage. Default localStorage.
-  const board = useChordBoard();
+  // Board state — items, clipboard, mutators, storage.
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
+  // Built once: `useChordBoard` re-runs an effect on adapter identity, so a
+  // fresh adapter per render would churn. The key is the hook's own default —
+  // change it and every board already saved is orphaned rather than migrated.
+  const boardStorage = useMemo(() => localStorageAdapter("chordl-board", {
+    onError: () => setStorageWarning(
+      "This board is no longer being saved — your browser's storage is full. "
+      + "Everything on screen still works, but it will be gone if you reload. "
+      + "Use the board's JSON button to export a copy, then remove a picture or two.",
+    ),
+  }), []);
+  const board = useChordBoard({ storage: boardStorage });
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  // What the editor is currently editing. The chord fields and the text fields
+  // are different shapes written through the same form, so this decides which.
+  const [editingKind, setEditingKind] = useState<"chord" | "text">("chord");
+  const [cardIcon, setCardIcon] = useState("");
+  const [cardImage, setCardImage] = useState("");
+  const [imageError, setImageError] = useState<string | null>(null);
+  const isEditingTextCard = editingKind === "text";
   const [editPulseKey, setEditPulseKey] = useState(0);
   const [inputPulsing, setInputPulsing] = useState(false);
   const [listenOpen, setListenOpen] = useState(false);
@@ -451,7 +650,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
 
   // One definition of "what the current editor state means as a card", used by
   // both add and live-edit. Two copies is how `display` went missing before.
-  const cardFields = useMemo(() => {
+  const chordCardFields = useMemo(() => {
     const withOctave = octaveShift === 0
       ? input
       : `${input} chord ${octaveShift > 0 ? "up" : "down"} ${Math.abs(octaveShift)} octave${Math.abs(octaveShift) > 1 ? "s" : ""}`;
@@ -471,16 +670,120 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
   }, [input, octaveShift, detailsModifiers, title, subheading, footerText,
       displayMode, guitarInstrument, guitarPosition]);
 
+  // A text card is text, and deliberately nothing else: no `nl`, no `display`,
+  // no instrument. `updateItem` merges a patch, so a chord key that appeared
+  // here would stick to the card and send it through the chord renderer.
+  const textCardFields = useMemo(() => ({
+    kind: "text" as const,
+    title: title || undefined,
+    subheading: subheading || undefined,
+    footerText: footerText || undefined,
+    // Explicit `undefined` rather than an omitted key: the patch has to be able
+    // to *clear* an icon, and a key that is absent leaves the old value alone.
+    icon: cardIcon || undefined,
+    image: cardImage || undefined,
+  }), [title, subheading, footerText, cardIcon, cardImage]);
+
+  // The editor is shared, so what its state means depends on what is being
+  // edited — hence one switch here rather than a `kind` check at each writer.
+  const cardFields = isEditingTextCard ? textCardFields : chordCardFields;
+
+  /** Leaves text-card editing without touching the card, which is already saved. */
+  const stopEditingTextCard = () => {
+    setEditingItemId(null);
+    setEditingKind("chord");
+    setTitle("");
+    setSubheading("");
+    setFooterText("");
+    setCardIcon("");
+    setCardImage("");
+    setImageError(null);
+  };
+
   const handleAddToBoard = () => {
     if (isProg) return;
-    board.addItem(cardFields);
+    // Always a chord card. "+ Text" on the board toolbar is the only route to a
+    // text card, so a text edit in progress must not leak into this button.
+    board.addItem(chordCardFields);
+    if (isEditingTextCard) stopEditingTextCard();
+  };
+
+  /** Appends a text card and drops the user straight into editing it. */
+  const handleAddTextCard = () => {
+    // A placeholder title, not an empty card: a text card with no text renders
+    // as an invisible box, and the user cannot click what they cannot see.
+    const id = board.addItem({ kind: "text", title: "Section" });
+    setTitle("Section");
+    setSubheading("");
+    setFooterText("");
+    setCardIcon("");
+    setCardImage("");
+    setImageError(null);
+    setEditingKind("text");
+    setEditingItemId(id);
+    board.selectItem(id);
+    setEditPulseKey((k) => k + 1);
+  };
+
+  /**
+   * Removing the card being edited strands the text-card editor: it has no card
+   * to write to and no chord input to fall back on. Chord edits are left alone —
+   * their form is still usable and clearing it would throw away typing.
+   */
+  const handleRemoveBoardItem = (remove: (id: string) => void) => (id: string) => {
+    remove(id);
+    if (id === editingItemId && isEditingTextCard) stopEditingTextCard();
+  };
+
+  const handleToggleBreak = (id: string) => {
+    const current = board.items.find((it) => it.id === id);
+    if (!current) return;
+    board.updateItem(id, { breakAfter: !current.breakAfter });
+  };
+
+  const handlePickIcon = (id: string) => {
+    setCardIcon(id);
+    // Mutually exclusive by spec, and nothing downstream enforces it.
+    if (id) setCardImage("");
+    setImageError(null);
+  };
+
+  const handlePickImage = async (file: File | null) => {
+    if (!file) return;
+    setImageError(null);
+    let dataUri: string;
+    try {
+      dataUri = await fileToCardImage(file);
+    } catch (err) {
+      // These messages are already written for a non-technical reader.
+      setImageError(err instanceof Error ? err.message : String(err));
+      return;
+    }
+    // Budget is board-wide, so the card being edited must not be charged twice
+    // when its existing picture is about to be replaced.
+    const used = imageBytesUsed(board.items.filter((it) => it.id !== editingItemId));
+    if (used + dataUri.length > IMAGE_BUDGET_CHARS) {
+      setImageError(
+        "There is not enough room left on this board for another picture. "
+        + "Remove a picture from one of the other cards, or start a new board, and try again.",
+      );
+      return;
+    }
+    setCardImage(dataUri);
+    setCardIcon("");
   };
 
   const handleEditBoardItem = (item: BoardItem) => {
-    setInput(item.nl);
+    // A text card carries no chord — editing one must clear the input rather
+    // than push `undefined` through the parser.
+    setInput(item.nl ?? "");
     setTitle(item.title ?? "");
     setSubheading(item.subheading ?? "");
     setFooterText(item.footerText ?? "");
+    setEditingKind(isTextCard(item) ? "text" : "chord");
+    setCardIcon(item.icon ?? "");
+    setCardImage(item.image ?? "");
+    setImageError(null);
     setShowNoteNames(false);
     setShowDegrees(false);
     setFingeringMode("none");
@@ -530,8 +833,38 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
         </div>
       )}
 
-      {/* Hero input */}
-      <div style={{ width: "100%", maxWidth: 640, position: "relative" }}>
+      {/* A text card has no chord, so the chord input and everything that
+          annotates a chord diagram would only be lying about what is editable.
+          The banner replaces them so the input row does not just vanish. */}
+      {isEditingTextCard ? (
+        <div className="text-card-banner" style={{
+          width: "100%", maxWidth: 640,
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+          padding: "0.85rem 1.25rem",
+          background: "var(--input-floating-bg)",
+          border: "1px solid var(--input-floating-border)",
+          borderRadius: 24,
+          boxShadow: "var(--input-floating-shadow)",
+        }}>
+          <span className="text-card-banner-label" style={{
+            fontSize: "0.9rem", fontFamily: "'DM Sans', system-ui, sans-serif", color: "var(--text)",
+          }}>
+            Editing a text card — set its heading below.
+          </span>
+          <button
+            className="btn-text-card-done"
+            onClick={stopEditingTextCard}
+            style={{
+              padding: "6px 16px", fontSize: "0.8rem", fontWeight: 500, fontFamily: "inherit",
+              border: "1px solid var(--btn-border)", borderRadius: 20,
+              background: "var(--pill-active-bg)", color: "var(--pill-active-text)", cursor: "pointer",
+            }}
+          >
+            Done
+          </button>
+        </div>
+      ) : (
+      <div className="chord-input-row" style={{ width: "100%", maxWidth: 640, position: "relative" }}>
         <input
           type="text"
           value={input}
@@ -611,6 +944,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
           </svg>
         </button>
       </div>
+      )}
 
       <ListenOverlay
         open={listenOpen}
@@ -624,7 +958,11 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
         open={followOpen}
         onClose={() => setFollowOpen(false)}
         uiTheme={uiTheme}
-        chords={board.items.map((it) => it.nl)}
+        // Index-aligned with `board.items` — `onActiveChange` looks the card up
+        // by position, so a text card maps to "" rather than being filtered
+        // out. "" is already the sentinel that never matches a detection, so
+        // the cursor passes over it via the lookahead window.
+        chords={board.items.map((it) => it.nl ?? "")}
         onActiveChange={(i) => { const it = board.items[i]; if (it) board.selectItem(it.id); }}
       />
 
@@ -643,11 +981,17 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
           fingeringValues={fingeringValues} onFingeringValuesChange={setFingeringValues}
           fingeringSize={fingeringSize} onFingeringSizeChange={setFingeringSize}
           noteCount={noteCount}
+          textCardMode={isEditingTextCard}
+          icon={cardIcon} onIconChange={handlePickIcon}
+          image={cardImage} onImageChange={handlePickImage}
+          onImageClear={() => { setCardImage(""); setImageError(null); }}
+          imageError={imageError}
         />
       )}
 
-      {/* Controls row — muted, secondary */}
-      {showOptions && <div className="interactive-controls-row" style={{
+      {/* Controls row — muted, secondary. Every control in it describes a chord
+          diagram, so it goes away wholesale while a text card is being edited. */}
+      {showOptions && !isEditingTextCard && <div className="interactive-controls-row" style={{
         display: "flex",
         gap: "0.75rem",
         alignItems: "stretch",
@@ -802,7 +1146,9 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
         </p>
       )}
 
-      {/* Chord output */}
+      {/* Chord output. Suppressed while editing a text card: with no chord in
+          the box it would only ever say "Type something ...". */}
+      {!isEditingTextCard && (
       <div className="chord-output" style={{ width: "100%" }}>
         {!input.trim() ? (
           /* Nothing typed yet — a prompt, not an "Unknown chord" error. */
@@ -848,12 +1194,15 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
         </ErrorBoundary>
         )}
       </div>
+      )}
 
       {/* Add to board + board itself */}
       {!isProg && (
         <div style={{ width: "100%", maxWidth: 1100, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+            {!isEditingTextCard && (
             <button
+              className="btn-add-to-board"
               onClick={handleAddToBoard}
               style={{
                 padding: "8px 18px",
@@ -870,8 +1219,10 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             >
               + Add to board
             </button>
+            )}
             {board.items.length >= 2 && (
               <button
+                className="btn-follow-along"
                 onClick={() => setFollowOpen(true)}
                 style={{
                   padding: "8px 18px",
@@ -890,6 +1241,33 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
               </button>
             )}
           </div>
+          {storageWarning && (
+            // Non-blocking on purpose: the board still works, it just is not
+            // being written down any more, and the user needs to know before
+            // they reload rather than after.
+            <div className="board-storage-warning" role="status" style={{
+              width: "100%",
+              display: "flex", alignItems: "flex-start", gap: 12,
+              padding: "10px 14px",
+              fontSize: "0.82rem", lineHeight: 1.45,
+              border: "1px solid var(--btn-border)", borderRadius: 10,
+              background: "var(--panel-bg)", color: "var(--text)",
+            }}>
+              <span className="board-storage-warning-text" style={{ flex: 1 }}>{storageWarning}</span>
+              <button
+                className="btn-storage-warning-dismiss"
+                onClick={() => setStorageWarning(null)}
+                aria-label="Dismiss"
+                style={{
+                  padding: "2px 8px", fontSize: "0.9rem", fontFamily: "inherit",
+                  border: "none", borderRadius: 6,
+                  background: "transparent", color: "var(--text-muted)", cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
           <ChordBoard
             items={board.items}
             meta={board.meta}
@@ -897,16 +1275,23 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             clipboard={board.clipboard}
             onEdit={handleEditBoardItem}
             onCopy={board.copyItem}
-            onCut={board.cutItem}
-            onDelete={board.removeItem}
+            onCut={handleRemoveBoardItem(board.cutItem)}
+            onDelete={handleRemoveBoardItem(board.removeItem)}
             onPaste={board.pasteItem}
             onClearClipboard={board.clearClipboard}
             onReorder={board.reorder}
             onDuplicate={board.duplicateItem}
+            onAddTextCard={handleAddTextCard}
+            onToggleBreak={handleToggleBreak}
             selectedId={board.selectedId}
             onSelect={board.selectItem}
             onClearSelection={board.clearSelection}
-            onImport={board.replaceState}
+            onImport={(state) => {
+              // An import replaces every id on the board, so the text-card
+              // editor would otherwise be writing into a card that is gone.
+              board.replaceState(state);
+              if (isEditingTextCard) stopEditingTextCard();
+            }}
             uiTheme={uiTheme}
             scale={0.5}
             editingId={editingItemId}

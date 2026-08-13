@@ -1,8 +1,10 @@
-import { Component, useState, useEffect, useRef, useCallback } from "react";
+import { Component, Fragment, useState, useEffect, useRef, useCallback } from "react";
 import type { CSSProperties, ReactNode, SVGProps } from "react";
-import { PianoChord, GuitarChordPanel } from "@pepperhorn/chordl-react";
+import { PianoChord, GuitarChordPanel, CardHeading, CardFooter, resolveUITheme } from "@pepperhorn/chordl-react";
 import type { InstrumentId, UIThemeMode } from "@pepperhorn/chordl-react";
 import type { BoardItem, BoardMeta, BoardState, StorageAdapter } from "./types";
+import { isTextCard } from "./types";
+import { BoardIcon } from "./icons";
 import { localStorageAdapter } from "./storage";
 import { exportBoardJson, importBoardJson } from "./io";
 import html2canvas from "html2canvas";
@@ -14,16 +16,88 @@ import jsPDF from "jspdf";
 // export. Splitting the guitar renderer out has to happen in chordl-react's
 // build (a separate entry point) before a dynamic import here means anything.
 
-/** Compensates for GuitarChord's fixed 260*scale cap. See BoardCardChord. */
+/** Compensates for GuitarChord's fixed 260*scale cap. See BoardCardContent. */
 const GUITAR_CARD_SCALE = 1.6;
 
 /**
- * One card's chord graphic. `display` picks the renderer: the piano component
- * already handles keyboard/staff/both via its own prop, and "guitar" routes to
- * the fretboard panel with its toggles off — a board card shows the exact shape
- * that was chosen in the editor, not a picker.
+ * A text card's contents: an optional icon or image, then the same title /
+ * subheading / footer stack a chord card draws. Deliberately not a new layout —
+ * a text card is a card with the text and no diagram, so it has to agree on
+ * type with the chord card sitting next to it.
+ *
+ * That agreement is the shared `CardHeading`/`CardFooter`, not a copy of their
+ * numbers: a restated type scale drifts the moment either side is touched, and
+ * the drift shows up as two cards on one board disagreeing about what a title
+ * looks like. `chordName` stays unset — a text card has no chord to be.
  */
-function BoardCardChord({
+function BoardCardText({ item, uiTheme }: { item: BoardItem; uiTheme?: UIThemeMode }) {
+  const { tokens } = resolveUITheme(uiTheme);
+  const media = item.image ? (
+    // SECURITY: `image` is a data URI off an untrusted imported board, and
+    // io.ts admits `data:image/svg+xml`. An <img> renders SVG inert — scripts,
+    // event handlers and external fetches inside it never run. The same bytes
+    // in <object>, <iframe> or <embed>, or injected as inline markup, execute.
+    // This must stay an <img>; there is no "better" element for it.
+    <img
+      className="chordl-board-card-image"
+      src={item.image}
+      alt={item.title ?? ""}
+      style={{ maxWidth: "100%", maxHeight: 140, objectFit: "contain", marginBottom: 6 }}
+    />
+  ) : item.icon ? (
+    <BoardIcon
+      className="chordl-board-card-icon"
+      id={item.icon}
+      size={40}
+      color={tokens.text}
+      // Decorative when the card has its own title — the title already names it.
+      title={item.title ? undefined : item.subheading}
+    />
+  ) : null;
+
+  return (
+    <div
+      className="chordl-board-card-text"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        // A chord card's diagram gives it height; a text card has only its text,
+        // so it needs padding to sit at a comparable size beside one.
+        padding: "12px 4px",
+      }}
+    >
+      {media}
+      <CardHeading
+        title={item.title}
+        subheading={item.subheading}
+        tokens={tokens}
+        variant="board-text"
+        classNames={{
+          heading: "chordl-board-card-text-title",
+          subheading: "chordl-board-card-text-subheading",
+        }}
+      />
+      <CardFooter
+        text={item.footerText}
+        tokens={tokens}
+        variant="board-text"
+        className="chordl-board-card-text-footer"
+      />
+    </div>
+  );
+}
+
+/**
+ * One card's contents. `kind` picks what a card even is, and is checked first:
+ * a text card has no `nl` and must never reach a chord renderer. For a chord,
+ * `display` picks the renderer — the piano component already handles
+ * keyboard/staff/both via its own prop, and "guitar" routes to the fretboard
+ * panel with its toggles off, so a board card shows the exact shape that was
+ * chosen in the editor, not a picker.
+ */
+function BoardCardContent({
   item,
   scale,
   uiTheme,
@@ -32,6 +106,30 @@ function BoardCardChord({
   scale?: number;
   uiTheme?: UIThemeMode;
 }) {
+  if (isTextCard(item)) {
+    return <BoardCardText item={item} uiTheme={uiTheme} />;
+  }
+  if (!item.nl) {
+    // `nl` is optional on the type only so a text card is constructible, so a
+    // chord card without one is malformed — importBoardJson rejects it, but a
+    // hand-built item still gets here. Say so, rather than handing "" to a
+    // renderer and failing somewhere less legible.
+    return (
+      <div
+        className="chordl-board-card-missing-chord"
+        style={{
+          padding: "16px 10px",
+          fontSize: "0.75rem",
+          color: "var(--text-muted, #888)",
+          fontFamily: "system-ui, sans-serif",
+          textAlign: "center",
+          fontStyle: "italic",
+        }}
+      >
+        no chord
+      </div>
+    );
+  }
   if (item.display === "guitar") {
     return (
       <GuitarChordPanel
@@ -114,6 +212,16 @@ const BOARD_STYLES = `
 .chordl-board-title { margin: 0; font-size: 1.75rem; font-weight: 600; color: #111; font-family: Poppins, system-ui, sans-serif; line-height: 1.2; }
 .chordl-board-subtitle { margin: 4px 0 0 0; font-size: 1.05rem; font-weight: 400; color: #555; font-family: Poppins, system-ui, sans-serif; }
 `;
+
+/**
+ * How to name a card in chrome that talks about it — an error message, the
+ * clipboard strip. A chord card is its chord; a text card has no `nl` at all,
+ * so its title is the next best handle and "text card" the last resort. Never
+ * empty: these strings exist so a user can tell one card from another.
+ */
+function cardLabel(item: BoardItem): string {
+  return item.nl ?? item.title ?? (isTextCard(item) ? "text card" : "card");
+}
 
 /**
  * Per-card error boundary — a card whose chord string fails to render shows
@@ -324,6 +432,15 @@ export interface ChordBoardProps {
   onPaste?: () => void;
   onClearClipboard?: () => void;
   onReorder?: (fromId: string, toId: string) => void;
+  /**
+   * Appends a text card. The toolbar's "+ Text" button appears only when this
+   * is wired — it is the only way to create a text card, so a visible one that
+   * does nothing is a broken promise, unlike the per-card row where a missing
+   * handler just makes an existing card's button inert.
+   */
+  onAddTextCard?: () => void;
+  /** Toggles `breakAfter` on one card — the per-card "break" toggle. */
+  onToggleBreak?: (id: string) => void;
   /** Currently selected card — gets a sticky ring and visible chrome. */
   selectedId?: string | null;
   onSelect?: (id: string) => void;
@@ -354,6 +471,8 @@ export function ChordBoard({
   onPaste,
   onClearClipboard,
   onReorder,
+  onAddTextCard,
+  onToggleBreak,
   selectedId,
   onSelect,
   onClearSelection,
@@ -463,7 +582,7 @@ export function ChordBoard({
     try {
       const text = await file.text();
       const state = importBoardJson(text);
-      if (items.length > 0 && !window.confirm(`Replace current board with ${state.items.length} chord(s) from ${file.name}?`)) {
+      if (items.length > 0 && !window.confirm(`Replace current board with ${state.items.length} card(s) from ${file.name}?`)) {
         return;
       }
       onImport?.(state);
@@ -484,13 +603,21 @@ export function ChordBoard({
 
   const isExporting = exporting !== null;
 
+  const columns = safeMeta.columns;
+  const useGrid = typeof columns === "number" && columns > 0;
+
   const cardStyle: CSSProperties = {
     position: "relative",
     border: "1px solid var(--btn-border, #ddd)",
     borderRadius: 12,
     padding: 12,
     background: "#fff",
-    minWidth: 240,
+    // Only the wrapping layout needs a floor: there, a card with nothing to
+    // push against would collapse to its content. In a grid the track already
+    // sets the width, and a floor wider than the track makes every card spill
+    // into its neighbour — visible as overlapping cards once a board is asked
+    // for more columns than it has room for.
+    minWidth: useGrid ? 0 : 240,
     display: "flex",
     flexDirection: "column",
     gap: 6,
@@ -509,11 +636,30 @@ export function ChordBoard({
     borderRadius: 4,
   };
 
-  const columns = safeMeta.columns;
-  const useGrid = typeof columns === "number" && columns > 0;
+  /** Pressed state for an action-row toggle — the same tint the column picker
+   *  uses for its active choice, so "on" reads the same way board-wide. */
+  const activeIconBtnStyle: CSSProperties = {
+    ...iconBtnStyle,
+    background: "rgba(56,189,248,0.12)",
+    color: "inherit",
+    fontWeight: 600,
+  };
+
   const gridStyle: CSSProperties = useGrid
     ? { display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 12, alignItems: "flex-start" }
     : { display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-start", justifyContent: "center" };
+
+  /**
+   * A `breakAfter` card is followed by this: a rendered sibling that fills the
+   * rest of the row, so the next card starts a fresh one. A sibling rather than
+   * a layout mode is what makes a break on the *last* card harmless — it is
+   * just an empty element with nothing after it.
+   *
+   * Zero height and no paint, so an export sees nothing where it sits.
+   */
+  const breakStyle: CSSProperties = useGrid
+    ? { gridColumn: "1 / -1", height: 0 }
+    : { flexBasis: "100%", height: 0 };
 
   const inputStyle: CSSProperties = {
     width: "100%",
@@ -586,20 +732,33 @@ export function ChordBoard({
           </div>
         </details>
 
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button type="button" style={actionBtnStyle} onClick={handleDownloadPng} disabled={!!exporting} title="Download as PNG">
+        <div className="chordl-board-toolbar" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {onAddTextCard && (
+            <button
+              type="button"
+              className="chordl-board-add-text"
+              style={actionBtnStyle}
+              onClick={onAddTextCard}
+              disabled={!!exporting}
+              title="Add a text card"
+            >
+              + Text
+            </button>
+          )}
+          <button type="button" className="chordl-board-export-png" style={actionBtnStyle} onClick={handleDownloadPng} disabled={!!exporting} title="Download as PNG">
             {exporting === "png" ? "…" : "PNG"}
           </button>
-          <button type="button" style={actionBtnStyle} onClick={handleDownloadPdf} disabled={!!exporting} title="Download as PDF">
+          <button type="button" className="chordl-board-export-pdf" style={actionBtnStyle} onClick={handleDownloadPdf} disabled={!!exporting} title="Download as PDF">
             {exporting === "pdf" ? "…" : "PDF"}
           </button>
-          <button type="button" style={actionBtnStyle} onClick={handleExportJson} disabled={!!exporting} title="Export board as JSON">
+          <button type="button" className="chordl-board-export-json" style={actionBtnStyle} onClick={handleExportJson} disabled={!!exporting} title="Export board as JSON">
             JSON
           </button>
-          <button type="button" style={actionBtnStyle} onClick={handleImportClick} disabled={!!exporting} title="Import board from JSON">
+          <button type="button" className="chordl-board-import" style={actionBtnStyle} onClick={handleImportClick} disabled={!!exporting} title="Import board from JSON">
             Import
           </button>
           <input
+            className="chordl-board-import-input"
             ref={fileInputRef}
             type="file"
             accept="application/json,.json"
@@ -635,7 +794,11 @@ export function ChordBoard({
             fontSize: "0.85rem",
             fontStyle: "italic",
           }}>
-            No chords yet — click the add button to capture the current chord.
+            {/* Only name the text card where there is a button for it — the
+                "+ Text" control renders only when the host wires it up. */}
+            {onAddTextCard
+              ? "No cards yet — add the current chord, or start a section with a text card."
+              : "No cards yet — click the add button to capture the current chord."}
           </div>
         )}
         {items.map((item) => {
@@ -651,81 +814,103 @@ export function ChordBoard({
             isPulsing && "chordl-board-card--pulse",
           ].filter(Boolean).join(" ");
           return (
-            <div
-              key={item.id}
-              data-board-id={item.id}
-              data-selected={isSelected ? "true" : "false"}
-              className={cardClass}
-              style={{ ...cardStyle, opacity: isDragging ? 0.7 : 1 }}
-              draggable={armedDragId === item.id}
-              onClick={() => onSelect?.(item.id)}
-              onDragStart={(e) => {
-                if (armedDragId !== item.id) {
+            <Fragment key={item.id}>
+              <div
+                data-board-id={item.id}
+                data-selected={isSelected ? "true" : "false"}
+                className={cardClass}
+                style={{ ...cardStyle, opacity: isDragging ? 0.7 : 1 }}
+                draggable={armedDragId === item.id}
+                onClick={() => onSelect?.(item.id)}
+                onDragStart={(e) => {
+                  if (armedDragId !== item.id) {
+                    e.preventDefault();
+                    return;
+                  }
+                  setDragId(item.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", item.id);
+                }}
+                onDragEnd={() => { setDragId(null); setArmedDragId(null); }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                onDrop={(e) => {
                   e.preventDefault();
-                  return;
-                }
-                setDragId(item.id);
-                e.dataTransfer.effectAllowed = "move";
-                e.dataTransfer.setData("text/plain", item.id);
-              }}
-              onDragEnd={() => { setDragId(null); setArmedDragId(null); }}
-              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const fromId = e.dataTransfer.getData("text/plain");
-                if (fromId && onReorder) onReorder(fromId, item.id);
-                setDragId(null);
-                setArmedDragId(null);
-              }}
-            >
-              {!isExporting && (
-                <div
-                  className="chordl-board-handle"
-                  title="Drag to reorder"
-                  aria-label="Drag handle"
-                  onMouseDown={() => setArmedDragId(item.id)}
-                  onMouseUp={() => {
-                    // Only clear if a drag never actually started (e.g. plain click).
-                    // onDragEnd handles the post-drag cleanup.
-                    if (dragId === null) setArmedDragId(null);
-                  }}
-                  style={{
-                    // A dedicated strip above the chord (flex row, not absolute)
-                    // so the handle never overlaps the diagram or its label.
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: 14,
-                    marginBottom: 2,
-                  }}
+                  const fromId = e.dataTransfer.getData("text/plain");
+                  if (fromId && onReorder) onReorder(fromId, item.id);
+                  setDragId(null);
+                  setArmedDragId(null);
+                }}
+              >
+                {!isExporting && (
+                  <div
+                    className="chordl-board-handle"
+                    title="Drag to reorder"
+                    aria-label="Drag handle"
+                    onMouseDown={() => setArmedDragId(item.id)}
+                    onMouseUp={() => {
+                      // Only clear if a drag never actually started (e.g. plain click).
+                      // onDragEnd handles the post-drag cleanup.
+                      if (dragId === null) setArmedDragId(null);
+                    }}
+                    style={{
+                      // A dedicated strip above the chord (flex row, not absolute)
+                      // so the handle never overlaps the diagram or its label.
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: 14,
+                      marginBottom: 2,
+                    }}
+                  >
+                    <DragHandleIcon style={{ transform: "rotate(90deg)" }} />
+                  </div>
+                )}
+                {/* Remounts when what is rendered changes, so an edit re-attempts
+                    a render that previously threw. `kind` is in the key because a
+                    card can change what it is, not just what it says. */}
+                <CardErrorBoundary
+                  key={`${item.kind ?? "chord"}|${item.nl ?? item.title ?? ""}|${item.display ?? "keyboard"}`}
+                  label={cardLabel(item)}
                 >
-                  <DragHandleIcon style={{ transform: "rotate(90deg)" }} />
-                </div>
+                  <BoardCardContent item={item} scale={scale} uiTheme={uiTheme} />
+                </CardErrorBoundary>
+                {!isExporting && (
+                  <div
+                    className="chordl-board-actions"
+                    style={{
+                      display: "flex",
+                      gap: 4,
+                      justifyContent: "flex-end",
+                      marginTop: 2,
+                      borderTop: "1px solid var(--btn-border, #eee)",
+                      paddingTop: 6,
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button className="chordl-board-action-edit" style={iconBtnStyle} onClick={() => onEdit?.(item)} title="Edit">edit</button>
+                    <button className="chordl-board-action-copy" style={iconBtnStyle} onClick={() => onCopy?.(item.id)} title="Copy">copy</button>
+                    <button className="chordl-board-action-cut" style={iconBtnStyle} onClick={() => onCut?.(item.id)} title="Cut">cut</button>
+                    <button className="chordl-board-action-repeat" style={iconBtnStyle} onClick={() => onDuplicate?.(item.id)} title="Repeat (duplicate)">repeat</button>
+                    {/* The only card state in this row with a value to read back,
+                        so it has to look different when on — a break is invisible
+                        otherwise, and an invisible toggle gets pressed twice. */}
+                    <button
+                      className={`chordl-board-action-break${item.breakAfter ? " chordl-board-action-break--on" : ""}`}
+                      style={item.breakAfter ? activeIconBtnStyle : iconBtnStyle}
+                      aria-pressed={item.breakAfter ? "true" : "false"}
+                      onClick={() => onToggleBreak?.(item.id)}
+                      title={item.breakAfter ? "Break after this card (on)" : "Break after this card"}
+                    >
+                      break
+                    </button>
+                    <button className="chordl-board-action-delete" style={iconBtnStyle} onClick={() => onDelete?.(item.id)} title="Delete">delete</button>
+                  </div>
+                )}
+              </div>
+              {item.breakAfter && (
+                <div className="chordl-board-break" data-break-after={item.id} aria-hidden="true" style={breakStyle} />
               )}
-              <CardErrorBoundary key={`${item.nl}|${item.display ?? "keyboard"}`} label={item.nl}>
-                <BoardCardChord item={item} scale={scale} uiTheme={uiTheme} />
-              </CardErrorBoundary>
-              {!isExporting && (
-                <div
-                  className="chordl-board-actions"
-                  style={{
-                    display: "flex",
-                    gap: 4,
-                    justifyContent: "flex-end",
-                    marginTop: 2,
-                    borderTop: "1px solid var(--btn-border, #eee)",
-                    paddingTop: 6,
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button style={iconBtnStyle} onClick={() => onEdit?.(item)} title="Edit">edit</button>
-                  <button style={iconBtnStyle} onClick={() => onCopy?.(item.id)} title="Copy">copy</button>
-                  <button style={iconBtnStyle} onClick={() => onCut?.(item.id)} title="Cut">cut</button>
-                  <button style={iconBtnStyle} onClick={() => onDuplicate?.(item.id)} title="Repeat (duplicate)">repeat</button>
-                  <button style={iconBtnStyle} onClick={() => onDelete?.(item.id)} title="Delete">delete</button>
-                </div>
-              )}
-            </div>
+            </Fragment>
           );
         })}
       </div>
@@ -746,7 +931,7 @@ export function ChordBoard({
       </div>
 
       {clipboard && (
-        <div style={{
+        <div className="chordl-board-clipboard" style={{
           marginTop: 12,
           padding: "6px 12px",
           fontSize: "0.78rem",
@@ -755,9 +940,9 @@ export function ChordBoard({
           alignItems: "center",
           gap: 10,
         }}>
-          clipboard: <code>{clipboard.nl}</code>
-          <button style={iconBtnStyle} onClick={() => onPaste?.()}>paste</button>
-          <button style={iconBtnStyle} onClick={() => onClearClipboard?.()}>clear</button>
+          clipboard: <code className="chordl-board-clipboard-label">{cardLabel(clipboard)}</code>
+          <button className="chordl-board-clipboard-paste" style={iconBtnStyle} onClick={() => onPaste?.()}>paste</button>
+          <button className="chordl-board-clipboard-clear" style={iconBtnStyle} onClick={() => onClearClipboard?.()}>clear</button>
         </div>
       )}
     </div>

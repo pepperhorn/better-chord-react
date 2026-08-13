@@ -6,6 +6,9 @@ export { ChordGroup } from "./components/ChordGroup";
 export { ProgressionView } from "./components/ProgressionView";
 export { StaffNotation } from "./components/StaffNotation";
 export { ChordSheet } from "./components/ChordSheet";
+/** Public so a consumer rendering its own card agrees on type with these ones. */
+export { CardHeading, CardFooter } from "./components/CardHeading";
+export type { CardHeadingProps, CardFooterProps } from "./components/CardHeading";
 export type { StaffNotationProps } from "./components/StaffNotation";
 export { ListenOverlay } from "./components/ListenOverlay";
 export type { ListenOverlayProps } from "./components/ListenOverlay";

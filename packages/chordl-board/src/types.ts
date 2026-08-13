@@ -12,12 +12,34 @@ export const BOARD_DISPLAY_MODES: readonly BoardDisplayMode[] = [
   "guitar",
 ];
 
-/** A single chord card on the board. */
+/**
+ * What a card is. Absent means `"chord"` — every card saved before text cards
+ * existed, so the discriminator needs no migration pass over stored boards.
+ */
+export type BoardItemKind = "chord" | "text";
+
+export const BOARD_ITEM_KINDS: readonly BoardItemKind[] = ["chord", "text"];
+
+/**
+ * Prefixes an `icon` id may carry: `music:` for notation glyphs, `obj:` for
+ * object icons. Shared with the icon module so the registry and the import
+ * validator cannot drift apart.
+ */
+export const BOARD_ICON_PREFIXES: readonly string[] = ["music:", "obj:"];
+
+/** A single card on the board — a chord diagram, or text with an icon/image. */
 export interface BoardItem {
   /** Stable identifier for keys and drag-drop. */
   id: string;
-  /** NL chord string — the only field required to render. */
-  nl: string;
+  /** What this card is. Absent means `"chord"`. */
+  kind?: BoardItemKind;
+  /**
+   * NL chord string — required to render a chord card, and absent on a text
+   * card, which has no chord at all. Optional in the type only so a text card
+   * is constructible: consumers branch on `kind` first and never reach the
+   * chord path for a text card, rather than null-checking `nl` everywhere.
+   */
+  nl?: string;
   /** Optional title override (defaults to the resolved chord name). */
   title?: string;
   /** Optional muted subheading below the title. */
@@ -38,6 +60,23 @@ export interface BoardItem {
    * shorter (e.g. after a chords-db update).
    */
   position?: number;
+  /** Icon id (e.g. `"music:trebleClef"`) shown above the text. Text cards only. */
+  icon?: string;
+  /**
+   * Uploaded image as a data URI, so a JSON export stays a complete backup.
+   * Text cards only, and mutually exclusive with `icon`.
+   */
+  image?: string;
+  /**
+   * Start a new row after this card. Layout only — it stays out of the render
+   * cache key, since a break changes nothing about the card's image.
+   */
+  breakAfter?: boolean;
+}
+
+/** A card is a chord unless it explicitly says otherwise. */
+export function isTextCard(item: BoardItem): boolean {
+  return item.kind === "text";
 }
 
 /** Board-level metadata — title/subtitle/footer rendered around the chord grid. */
@@ -61,6 +100,11 @@ export interface BoardState {
  *
  * `load` may return either the new envelope shape or a bare items array
  * (legacy schema); the hook normalizes both.
+ *
+ * `save` never throws: a board that cannot be persisted must keep working in
+ * memory. An adapter that drops a write is expected to surface it some other
+ * way (see `localStorageAdapter`'s `onError`) — losing work silently is worse
+ * than an editing session that carries on.
  */
 export interface StorageAdapter {
   load(): Promise<BoardState | BoardItem[]> | BoardState | BoardItem[];
