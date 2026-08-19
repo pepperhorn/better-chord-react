@@ -355,7 +355,16 @@ export function PianoKeyboard({
   const nameShown = (showChordName || showHeading) && chordLabel ? chordLabel : undefined;
 
   const content = (
-    <div className="bc-keyboard-container" ref={containerRef} style={{ width: "100%", maxWidth: vbW * scale * 2 }}>
+    <div
+      className="bc-keyboard-container"
+      ref={containerRef}
+      // `maxWidth` caps the keyboard at its natural size, so in any parent
+      // wider than that (a board card, which sizes to the widest card on the
+      // board) a block-level box would sit flush left with all the slack on
+      // the right. `margin: 0 auto` centres it; it is a no-op when the parent
+      // is the same width. The heading rides inside, so both stay aligned.
+      style={{ width: "100%", maxWidth: vbW * scale * 2, margin: "0 auto" }}
+    >
       <CardHeading
         title={title}
         chordName={nameShown}

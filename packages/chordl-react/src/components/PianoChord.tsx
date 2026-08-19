@@ -15,6 +15,7 @@ import { findVoicing, voicingPitchClasses, mapToVoicingQuality, realizeVoicingFu
 import type { Hand as VoicingHand } from "@pepperhorn/chordl-voicings";
 import { ChordGroup } from "./ChordGroup";
 import { CardHeading, CardFooter } from "./CardHeading";
+import { ascendingOctaves, diatonicStep } from "../diatonic-step";
 import { resolveUITheme, UIThemeProvider } from "../ui-theme";
 
 /**
@@ -499,8 +500,12 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     }
   }
   if (startingNote) {
+    // Both sides must be normalised. `notes` keeps the chord's own spelling —
+    // Bbm is ["Bb", "Db", "F"] — so normalising only the input turned
+    // "Bbm starting on Db" into a search for "C#" and reported Db missing from
+    // a chord whose own error message listed it as the 3rd.
     const norm = FLAT_TO_SHARP[startingNote] ?? startingNote;
-    const idx = notes.indexOf(norm);
+    const idx = notes.findIndex((n) => (FLAT_TO_SHARP[n] ?? n) === norm);
     if (idx < 0) {
       const available = describeAvailableDegrees(resolved.root, notes);
       throw new Error(
@@ -587,38 +592,34 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
   // within a playable hand span (max ~19 semitones = octave + fifth).
   const MAX_SPAN_SEMITONES = 28;
 
+  /**
+   * Assign ascending octaves *without* touching spelling — this feeds the staff,
+   * which engraves the accidental it is handed. Normalising to sharps here is
+   * what made Bbm engrave as A#/C#/F.
+   *
+   * The ascent test reads the note's **letter**, because that is the diatonic
+   * step: Bb and B are both step B. It cannot reuse the keyboard's
+   * `norm.replace("#", "")` trick, which only strips sharps — "Bb" survives it
+   * intact, is not a white note, and would index -1 on every flat.
+   */
   const computeOctaveQualified = (pitchClasses: string[], baseOctave: number): string[] => {
-    let octave = baseOctave;
-    const firstNorm = normalizeNote(pitchClasses[0]);
-    const firstWhiteIdx = WHITE_NOTE_ORDER.indexOf(
-      firstNorm.replace("#", "") as WhiteNote,
-    );
-    let prevWhiteIdx = firstWhiteIdx;
-
     // Step 1: naive ascending octave assignment
-    const assigned = pitchClasses.map((n, i) => {
-      const norm = normalizeNote(n);
-      const whiteKey = norm.replace("#", "") as WhiteNote;
-      const whiteIdx = WHITE_NOTE_ORDER.indexOf(whiteKey);
-      if (i > 0 && whiteIdx <= prevWhiteIdx) {
-        octave++;
-      }
-      prevWhiteIdx = whiteIdx;
-      return { norm, octave };
-    });
+    const octaves = ascendingOctaves(pitchClasses, baseOctave);
+    const assigned = pitchClasses.map((n, i) => ({ name: n, octave: octaves[i] }));
 
-    // Step 2: compact — fold notes down an octave if span exceeds playable range
-    const baseMidi = Note.midi(`${assigned[0].norm}${assigned[0].octave}`);
+    // Step 2: compact — fold notes down an octave if span exceeds playable
+    // range. `Note.midi` reads flats directly, so the original names work here.
+    const baseMidi = Note.midi(`${assigned[0].name}${assigned[0].octave}`);
     if (baseMidi != null) {
       for (let i = 1; i < assigned.length; i++) {
-        const midi = Note.midi(`${assigned[i].norm}${assigned[i].octave}`);
+        const midi = Note.midi(`${assigned[i].name}${assigned[i].octave}`);
         if (midi != null && midi - baseMidi > MAX_SPAN_SEMITONES && assigned[i].octave > assigned[0].octave) {
           assigned[i].octave--;
         }
       }
     }
 
-    return assigned.map((a) => `${a.norm}:${a.octave}`);
+    return assigned.map((a) => `${a.name}:${a.octave}`);
   };
 
   // Single continuous keyboard with LH + RH brackets
@@ -682,15 +683,21 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     // Keyboard octaves are relative (0, 1, 2); staff needs real MIDI octaves
     const realLhOctave = 3 + (parsed.bassOctaveShift ?? 0);
     const realRhBaseOctave = realLhOctave + Math.max(octaveGap, 0);
+    // The staff engraves the spelling it is handed, so emit the chord's own
+    // names — the sharpened ones are the keyboard's business. The octave
+    // arithmetic deliberately still runs on the normalised names, so no note
+    // moves: Bb and A# are the same pitch in the same octave, and the resolver
+    // does not produce the Cb/B# spellings where letter and pitch octave part.
+    const lhStaffName = parsed.bassNote ?? lhBassNote;
     const staffOctaveNotesBass = [
-      `${lhNorm}:${realLhOctave}`,
+      `${lhStaffName}:${realLhOctave}`,
       ...notes.map((n) => {
         const norm = normalizeNote(n);
         const whiteKey = norm.replace("#", "") as WhiteNote;
         const whiteIdx = WHITE_NOTE_ORDER.indexOf(whiteKey);
         const isAboveLhBeforeC = whiteIdx > lhWhiteIdx;
         const noteOctave = isAboveLhBeforeC ? realRhBaseOctave : realRhBaseOctave + 1;
-        return `${norm}:${noteOctave}`;
+        return `${n}:${noteOctave}`;
       }),
     ];
 
@@ -838,25 +845,19 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
   // Detect wrapping: any note whose white-key index is at or below the previous.
   let highlightKeys: string[] = keyboardNotes;
   {
-    const whiteIndices = keyboardNotes.map((n) => {
-      return WHITE_NOTE_ORDER.indexOf(n.replace("#", "") as WhiteNote);
-    });
+    // Stepped by the *original* spelling, not the normalised one: the highlight
+    // names stay sharp for key matching, but the octaves have to be the same
+    // ones the staff assigns or "Both" draws two different voicings.
+    const whiteIndices = notes.map(diatonicStep);
+
     const needsOctaveQual = layout.chordOctave > 0 || chordShift !== 0 ||
       whiteIndices.some((idx, i) => i > 0 && idx <= whiteIndices[i - 1]);
 
     if (needsOctaveQual) {
-      let octave = Math.max(layout.chordOctave + chordShift, 0);
-      let prevWhiteIdx = whiteIndices[0];
-
-      // Step 1: naive ascending octave assignment
-      const assigned = keyboardNotes.map((n, i) => {
-        const whiteIdx = whiteIndices[i];
-        if (i > 0 && whiteIdx <= prevWhiteIdx) {
-          octave++;
-        }
-        prevWhiteIdx = whiteIdx;
-        return { note: n, octave };
-      });
+      // Step 1: naive ascending octave assignment — the same walk the staff
+      // runs, over the same spellings, so the two views cannot disagree.
+      const octaves = ascendingOctaves(notes, Math.max(layout.chordOctave + chordShift, 0));
+      const assigned = keyboardNotes.map((n, i) => ({ note: n, octave: octaves[i] }));
 
       // Step 2: compact — fold notes down if span exceeds playable range
       const baseMidi = Note.midi(`${assigned[0].note}${assigned[0].octave + 4}`);

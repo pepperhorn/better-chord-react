@@ -210,16 +210,24 @@ export function GuitarChordPanel({
         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, ...style }}
       >
         {/* Shared with the keyboard and staff renderers so a mixed board agrees
-            on type: the descriptive title leads, the chord name sits beneath. */}
-        <div className="bc-guitar-titles" style={{ width: "100%" }}>
-          <CardHeading
-            title={title}
-            chordName={label}
-            subheading={subheading}
-            tokens={uiCtx.tokens}
-            variant="guitar"
-          />
-        </div>
+            on type: the descriptive title leads, the chord name sits beneath.
+            The wrapper is conditional: CardHeading returns null when it has
+            nothing to say, but an empty div is still a flex item and was
+            spending a `gap: 10` above the diagram on nothing. The condition
+            mirrors CardHeading's own `title ?? chordName` — with `||` an empty
+            string title would fall through to the label here while CardHeading
+            still returned null, leaving the very gap this removes. */}
+        {((title ?? label) || subheading) && (
+          <div className="bc-guitar-titles" style={{ width: "100%" }}>
+            <CardHeading
+              title={title}
+              chordName={label}
+              subheading={subheading}
+              tokens={uiCtx.tokens}
+              variant="guitar"
+            />
+          </div>
+        )}
 
         {instrumentToggle}
 

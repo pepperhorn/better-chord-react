@@ -100,3 +100,23 @@ describe("PianoKeyboard", () => {
     });
   });
 });
+
+describe("keyboard centring", () => {
+  // A board card sizes to the widest card on the board, so a narrower keyboard
+  // has slack. Without `margin: 0 auto` the block sat flush left and the chord
+  // title, which centres on the card, no longer sat over the keyboard.
+  it("centres itself when its parent is wider than the keyboard", () => {
+    const { container } = render(<PianoKeyboard highlightKeys={["C", "E", "G"]} />);
+    const box = container.querySelector(".bc-keyboard-container") as HTMLElement;
+    expect(box).toBeTruthy();
+    expect(box.style.marginLeft).toBe("auto");
+    expect(box.style.marginRight).toBe("auto");
+  });
+
+  it("still caps at the keyboard's natural width", () => {
+    const { container } = render(<PianoKeyboard highlightKeys={["C", "E", "G"]} />);
+    const box = container.querySelector(".bc-keyboard-container") as HTMLElement;
+    expect(box.style.width).toBe("100%");
+    expect(box.style.maxWidth).not.toBe("");
+  });
+});

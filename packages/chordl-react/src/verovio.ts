@@ -70,7 +70,7 @@ export async function renderMeiToSvg(
     breaks: "none",
     header: "none",
     footer: "none",
-    pageMarginTop: 8,
+    pageMarginTop: 2,
     pageMarginBottom: 8,
     pageMarginLeft: 4,
     pageMarginRight: 4,

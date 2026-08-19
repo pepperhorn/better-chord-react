@@ -9,8 +9,11 @@ const rendered: string[] = [];
 vi.mock("../src/verovio", () => ({
   renderMeiToSvg: (mei: string) => {
     rendered.push(mei);
+    // Verovio runs with `svgViewBox: true`, so its root carries a viewBox and
+    // NO width/height. The mock has to match, or the component's sizing path
+    // is never the one production takes.
     return Promise.resolve(
-      `<svg width="140px" height="120px" viewBox="0 0 140 120"><g class="staff"></g></svg>`,
+      `<svg viewBox="0 0 140 120" overflow="visible"><g class="staff"></g></svg>`,
     );
   },
 }));
@@ -88,5 +91,38 @@ describe("buildMei", () => {
     const { mei, staffMode } = buildMei(["C", "E", "G"], { rhOctave: 2 });
     expect(staffMode).toBe("bass");
     expect(mei).toContain('clef.shape="F"');
+  });
+});
+
+describe("engraving box matches the engraving", () => {
+  it("pins the injected SVG's size instead of letting it fill the outer viewport", async () => {
+    const { container } = render(<StaffNotation notes={["C", "E", "G"]} chordLabel="C" />);
+    await waitFor(() => {
+      expect(container.querySelector(".bc-staff__engraving svg")).toBeTruthy();
+    });
+    const inner = container.querySelector(".bc-staff__engraving svg")!;
+    // Without explicit width/height a nested <svg> resolves to 100% of the
+    // OUTER viewport and `xMidYMid meet` pads the surplus above the clef.
+    expect(inner.getAttribute("width")).toBeTruthy();
+    expect(inner.getAttribute("height")).toBeTruthy();
+  });
+
+  it("reserves height for the engraving at the width it is actually drawn", async () => {
+    const { container } = render(<StaffNotation notes={["C", "E", "G"]} chordLabel="C" />);
+    await waitFor(() => {
+      expect(container.querySelector(".bc-staff__engraving svg")).toBeTruthy();
+    });
+    const outer = container.querySelector("svg.bc-staff")!;
+    const inner = container.querySelector(".bc-staff__engraving svg")!;
+    const [, , vbW, vbH] = outer.getAttribute("viewBox")!.split(" ").map(Number);
+    const w = Number(inner.getAttribute("width"));
+    const h = Number(inner.getAttribute("height"));
+    // The engraving spans the full width, and its height keeps 140:120.
+    expect(w).toBe(vbW);
+    expect(h).toBeCloseTo((w * 120) / 140, 3);
+    // Everything left over is exactly the label and controls bands, with no
+    // spare vertical room for `meet` to centre into.
+    expect(vbH - h).toBeGreaterThanOrEqual(0);
+    expect(vbH - h).toBeLessThanOrEqual(48 + 0.001);
   });
 });
