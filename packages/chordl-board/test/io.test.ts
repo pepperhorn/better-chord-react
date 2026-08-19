@@ -1,8 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { computeCacheKey, exportBoardJson, importBoardJson } from "../src/io";
+import {
+  BOARD_SCHEMA,
+  computeCacheKey,
+  exportBoardJson,
+  importBoardJson,
+} from "../src/io";
+import { isTextCard } from "../src/types";
 import type { BoardState } from "../src/types";
 
 const board = (items: BoardState["items"]): BoardState => ({ items, meta: {} });
+
+/** Hand-rolled JSON standing in for an untrusted file the user picked. */
+const rawBoard = (items: unknown[], schema = "chordl.board/v1"): string =>
+  JSON.stringify({
+    schema,
+    exportedAt: "2026-08-12T00:00:00.000Z",
+    meta: {},
+    items,
+  });
 
 describe("board JSON round-trip", () => {
   it("preserves the four original card fields", async () => {
@@ -89,6 +104,131 @@ describe("board JSON round-trip", () => {
   });
 });
 
+describe("text cards", () => {
+  it("round-trips kind, icon and breakAfter", async () => {
+    const state = board([
+      {
+        id: "t",
+        kind: "text",
+        title: "Verse",
+        subheading: "x2",
+        footerText: "capo 2",
+        icon: "music:trebleClef",
+        breakAfter: true,
+      },
+    ]);
+    const back = importBoardJson(await exportBoardJson(state));
+    expect(back.items[0]).toMatchObject(state.items[0]);
+    expect(isTextCard(back.items[0])).toBe(true);
+  });
+
+  it("round-trips an uploaded image", async () => {
+    const image = "data:image/png;base64,iVBORw0KGgo=";
+    const state = board([{ id: "t", kind: "text", title: "Chorus", image }]);
+    const back = importBoardJson(await exportBoardJson(state));
+    expect(back.items[0].image).toBe(image);
+  });
+
+  it("contributes no cache key and no render config", async () => {
+    const json = JSON.parse(
+      await exportBoardJson(board([{ id: "t", kind: "text", title: "Verse", breakAfter: true }])),
+    );
+    expect(json.items[0]).not.toHaveProperty("cacheKey");
+    expect(json.items[0]).not.toHaveProperty("renderConfig");
+  });
+
+  it("accepts a text card with no chord but still rejects a chord card without one", () => {
+    expect(() => importBoardJson(rawBoard([{ id: "t", kind: "text", title: "Verse" }]))).not.toThrow();
+    expect(() => importBoardJson(rawBoard([{ id: "c", title: "no chord here" }]))).toThrow(/nl/);
+    expect(() => importBoardJson(rawBoard([{ id: "c", kind: "chord", title: "x" }]))).toThrow(/nl/);
+  });
+
+  it("reads every card on a legacy board as a chord card", () => {
+    const back = importBoardJson(rawBoard([{ id: "a", nl: "Cmaj7" }, { id: "b", nl: "Dm7" }]));
+    expect(back.items.map(isTextCard)).toEqual([false, false]);
+    expect(back.items.map((i) => i.kind)).toEqual([undefined, undefined]);
+  });
+});
+
+describe("import degradation for text-card fields", () => {
+  it("drops an unrecognised kind rather than trusting it", () => {
+    const back = importBoardJson(rawBoard([{ id: "a", nl: "Cmaj7", kind: "sticker" }]));
+    expect(back.items[0].kind).toBeUndefined();
+    expect(isTextCard(back.items[0])).toBe(false);
+  });
+
+  it("drops a breakAfter that is not a boolean", () => {
+    const back = importBoardJson(
+      rawBoard([
+        { id: "a", nl: "C", breakAfter: "true" },
+        { id: "b", nl: "D", breakAfter: 1 },
+        { id: "c", nl: "E", breakAfter: null },
+        { id: "d", nl: "F", breakAfter: false },
+        { id: "e", nl: "G", breakAfter: true },
+      ]),
+    );
+    expect(back.items.map((i) => i.breakAfter)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      false,
+      true,
+    ]);
+  });
+
+  it("drops an icon with an unknown prefix", () => {
+    const back = importBoardJson(
+      rawBoard([
+        { id: "a", kind: "text", icon: "sprite:../../etc/passwd" },
+        { id: "b", kind: "text", icon: "trebleClef" },
+        { id: "c", kind: "text", icon: 7 },
+        { id: "d", kind: "text", icon: "music:trebleClef" },
+        { id: "e", kind: "text", icon: "obj:guitar" },
+      ]),
+    );
+    expect(back.items.map((i) => i.icon)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      "music:trebleClef",
+      "obj:guitar",
+    ]);
+  });
+
+  // `image` lands in a src attribute, so an imported board is a script-injection
+  // vector unless everything but an inline image is refused.
+  it("drops an image that is not an inline image data URI", () => {
+    const back = importBoardJson(
+      rawBoard([
+        { id: "a", kind: "text", image: "javascript:alert(1)" },
+        { id: "b", kind: "text", image: "data:text/html,<script>alert(1)</script>" },
+        { id: "c", kind: "text", image: "https://example.com/x.png" },
+        { id: "d", kind: "text", image: " data:image/png;base64,AAAA" },
+        { id: "e", kind: "text", image: 42 },
+        { id: "f", kind: "text", image: "data:image/png;base64,AAAA" },
+      ]),
+    );
+    expect(back.items.map((i) => i.image)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      "data:image/png;base64,AAAA",
+    ]);
+  });
+
+  it("does not throw on any of the bogus optional fields", () => {
+    expect(() =>
+      importBoardJson(
+        rawBoard([
+          { id: "a", nl: "C", kind: 3, breakAfter: {}, icon: [], image: null },
+        ]),
+      ),
+    ).not.toThrow();
+  });
+});
+
 describe("render cache key", () => {
   const keys = async (items: BoardState["items"]) => {
     const json = JSON.parse(await exportBoardJson(board(items)));
@@ -118,5 +258,68 @@ describe("render cache key", () => {
     expect(json.items[0].cacheKey).toBe(
       await computeCacheKey({ user_string: "Cmaj7", render_config: {} }),
     );
+  });
+
+  // Layout, not image content: two identical cards must share a cached render
+  // whether or not a break follows one of them.
+  it("keeps the text-card fields out of a chord card's render config", async () => {
+    const json = JSON.parse(
+      await exportBoardJson(
+        board([
+          { id: "a", nl: "Cmaj7", title: "One", breakAfter: true, kind: "chord" },
+          { id: "b", nl: "Cmaj7", title: "One" },
+        ]),
+      ),
+    );
+    expect(json.items[0].renderConfig).toEqual({ title: "One" });
+    expect(json.items[0].cacheKey).toBe(
+      await computeCacheKey({ user_string: "Cmaj7", render_config: { title: "One" } }),
+    );
+    expect(json.items[0].cacheKey).toBe(json.items[1].cacheKey);
+  });
+});
+
+describe("schema versioning", () => {
+  it("writes v2 — the first version that can carry a text card", async () => {
+    const json = JSON.parse(await exportBoardJson(board([{ id: "a", nl: "Cmaj7" }])));
+    expect(json.schema).toBe("chordl.board/v2");
+    expect(BOARD_SCHEMA).toBe("chordl.board/v2");
+  });
+
+  it("still reads a v1 board written before text cards existed", () => {
+    const back = importBoardJson(
+      rawBoard([{ id: "a", nl: "Cmaj7", title: "One", display: "staff" }]),
+    );
+    expect(back.items).toHaveLength(1);
+    expect(back.items[0]).toMatchObject({ id: "a", nl: "Cmaj7", title: "One", display: "staff" });
+  });
+
+  it("reads a v2 board carrying a text card", () => {
+    const back = importBoardJson(
+      rawBoard(
+        [
+          { id: "a", nl: "Cmaj7" },
+          { id: "b", kind: "text", title: "Chorus", icon: "music:trebleClef" },
+        ],
+        "chordl.board/v2",
+      ),
+    );
+    expect(back.items).toHaveLength(2);
+    expect(isTextCard(back.items[1])).toBe(true);
+    expect(back.items[1]).toMatchObject({ title: "Chorus", icon: "music:trebleClef" });
+  });
+
+  it("rejects a newer schema by saying a newer chordl is needed", () => {
+    expect(() => importBoardJson(rawBoard([], "chordl.board/v3"))).toThrow(/newer chordl/);
+  });
+
+  it("round-trips its own export", async () => {
+    const state = board([
+      { id: "a", nl: "Cmaj7" },
+      { id: "b", kind: "text", title: "Verse", breakAfter: true },
+    ]);
+    const back = importBoardJson(await exportBoardJson(state));
+    expect(back.items).toHaveLength(2);
+    expect(back.items[1]).toMatchObject({ kind: "text", title: "Verse", breakAfter: true });
   });
 });

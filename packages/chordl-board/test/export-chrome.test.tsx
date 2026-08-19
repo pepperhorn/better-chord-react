@@ -51,4 +51,33 @@ describe("export chrome", () => {
     expect(selector).toContain(".chordl-board-card--selected");
     expect(selector).toContain(".chordl-board-card--editing");
   });
+
+  /** A text card is a card, so it has to inherit the capture rules above
+   *  rather than need its own — same wrapper class, same neutralisation. */
+  it("gives a text card the same card class the capture rules target", () => {
+    const { container } = render(
+      <ChordBoard items={[{ id: "t", kind: "text", title: "Verse" }]} />,
+    );
+    const card = container.querySelector('[data-board-id="t"]')!;
+    expect(card.classList.contains("chordl-board-card")).toBe(true);
+  });
+
+  /**
+   * A break is layout, so unlike the editing chrome it stays in the capture —
+   * which is only safe because it paints nothing. Anything with a colour here
+   * would print as a stray line across an exported sheet.
+   */
+  it("keeps the break element invisible, so it costs nothing in an export", () => {
+    const { container } = render(
+      <ChordBoard items={[{ id: "a", nl: "C", breakAfter: true }, { id: "b", nl: "G" }]} />,
+    );
+    const brk = container.querySelector(".chordl-board-break") as HTMLElement;
+    expect(brk).toBeTruthy();
+    expect(brk.textContent).toBe("");
+    expect(brk.style.height).toBe("0px");
+    expect(brk.style.background).toBe("");
+    expect(brk.style.border).toBe("");
+    // Decorative: it is spacing, and a screen reader has no use for it.
+    expect(brk.getAttribute("aria-hidden")).toBe("true");
+  });
 });

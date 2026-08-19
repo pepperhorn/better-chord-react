@@ -1,5 +1,11 @@
-import { BOARD_DISPLAY_MODES } from "./types";
-import type { BoardDisplayMode, BoardItem, BoardMeta, BoardState } from "./types";
+import { BOARD_DISPLAY_MODES, BOARD_ICON_PREFIXES, BOARD_ITEM_KINDS, isTextCard } from "./types";
+import type {
+  BoardDisplayMode,
+  BoardItem,
+  BoardItemKind,
+  BoardMeta,
+  BoardState,
+} from "./types";
 
 export interface BoardItemJsonV1 extends BoardItem {
   /** sha256 cache key from ph-chordl computeCacheKey; carried for future lookup. */
@@ -8,8 +14,20 @@ export interface BoardItemJsonV1 extends BoardItem {
   renderConfig?: Record<string, unknown>;
 }
 
+/**
+ * Schema `exportBoardJson` writes. v2 is the first version that can carry text
+ * cards (`kind`, `icon`, `image`, `breakAfter`); a v1 reader rejects those
+ * items one by one with no way to explain why, so the version says so up front.
+ */
+export const BOARD_SCHEMA = "chordl.board/v2";
+
+/** Schemas `importBoardJson` accepts. v1 boards are chord-only and still read. */
+export const READABLE_BOARD_SCHEMAS = ["chordl.board/v1", "chordl.board/v2"] as const;
+
+export type BoardSchema = (typeof READABLE_BOARD_SCHEMAS)[number];
+
 export interface BoardJsonV1 {
-  schema: "chordl.board/v1";
+  schema: BoardSchema;
   exportedAt: string;
   meta: BoardMeta;
   items: BoardItemJsonV1[];
@@ -46,6 +64,10 @@ export async function computeCacheKey(input: {
 export async function exportBoardJson(state: BoardState): Promise<string> {
   const items: BoardItemJsonV1[] = await Promise.all(
     state.items.map(async (it) => {
+      // A text card draws no chord, so there is nothing to cache and nothing a
+      // renderer could be configured with — emitting an empty key/config would
+      // invite a consumer to look one up.
+      if (isTextCard(it)) return { ...it };
       const renderConfig: Record<string, unknown> = {};
       if (it.title !== undefined) renderConfig.title = it.title;
       if (it.subheading !== undefined) renderConfig.subheading = it.subheading;
@@ -58,7 +80,11 @@ export async function exportBoardJson(state: BoardState): Promise<string> {
       if (it.position !== undefined) renderConfig.position = it.position;
       let cacheKey: string | undefined;
       try {
-        cacheKey = await computeCacheKey({ user_string: it.nl, render_config: renderConfig });
+        // `nl` is optional on the type so a text card is constructible; a chord
+        // card that somehow lost it is malformed, not cacheable.
+        if (it.nl !== undefined) {
+          cacheKey = await computeCacheKey({ user_string: it.nl, render_config: renderConfig });
+        }
       } catch {
         // crypto.subtle unavailable (non-secure context) — skip the hash.
       }
@@ -66,7 +92,7 @@ export async function exportBoardJson(state: BoardState): Promise<string> {
     }),
   );
   const payload: BoardJsonV1 = {
-    schema: "chordl.board/v1",
+    schema: BOARD_SCHEMA,
     exportedAt: new Date().toISOString(),
     meta: state.meta,
     items,
@@ -85,27 +111,62 @@ function parsePosition(value: unknown): number | undefined {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
 
+function parseKind(value: unknown): BoardItemKind | undefined {
+  return BOARD_ITEM_KINDS.includes(value as BoardItemKind) ? (value as BoardItemKind) : undefined;
+}
+
+/** Only a real boolean: truthy-coercing `"false"` or `0` invents a layout. */
+function parseBreakAfter(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+/** An id, not a path or a glyph — anything outside the known namespaces is junk. */
+function parseIcon(value: unknown): string | undefined {
+  return typeof value === "string" && BOARD_ICON_PREFIXES.some((p) => value.startsWith(p))
+    ? value
+    : undefined;
+}
+
+/**
+ * Security boundary: an imported board is untrusted and `image` ends up in a
+ * `src`. Only an inline image passes — `data:text/html`, `javascript:` and
+ * remote URLs are all ways to make a card fetch or execute something.
+ */
+function parseImage(value: unknown): string | undefined {
+  return typeof value === "string" && value.startsWith("data:image/") ? value : undefined;
+}
+
 export function importBoardJson(text: string): BoardState {
   const parsed = JSON.parse(text) as Partial<BoardJsonV1>;
-  if (!parsed || parsed.schema !== "chordl.board/v1") {
-    throw new Error("Unsupported board JSON: expected schema 'chordl.board/v1'");
+  if (!parsed || !READABLE_BOARD_SCHEMAS.includes(parsed.schema as BoardSchema)) {
+    throw new Error(
+      `Unsupported board JSON: expected one of ${READABLE_BOARD_SCHEMAS.join(", ")}, got ` +
+        `'${parsed?.schema}'. A board saved by a newer chordl needs a newer chordl to open it.`,
+    );
   }
   if (!Array.isArray(parsed.items)) {
     throw new Error("Invalid board JSON: 'items' must be an array");
   }
   const items: BoardItem[] = parsed.items.map((raw) => {
-    if (!raw || typeof raw.nl !== "string") {
+    const kind = raw ? parseKind(raw.kind) : undefined;
+    // A chord card is unrenderable without `nl`, so that stays fatal — but a
+    // text card has no chord to require.
+    if (!raw || (kind !== "text" && typeof raw.nl !== "string")) {
       throw new Error("Invalid board JSON: each item requires an 'nl' string");
     }
     return {
       id: typeof raw.id === "string" && raw.id ? raw.id : `chord-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-      nl: raw.nl,
+      kind,
+      nl: typeof raw.nl === "string" ? raw.nl : undefined,
       title: raw.title,
       subheading: raw.subheading,
       footerText: raw.footerText,
       display: parseDisplayMode(raw.display),
       instrument: typeof raw.instrument === "string" && raw.instrument ? raw.instrument : undefined,
       position: parsePosition(raw.position),
+      icon: parseIcon(raw.icon),
+      image: parseImage(raw.image),
+      breakAfter: parseBreakAfter(raw.breakAfter),
     };
   });
   return { items, meta: parsed.meta ?? {} };
