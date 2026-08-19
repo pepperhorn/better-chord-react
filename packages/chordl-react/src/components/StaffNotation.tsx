@@ -94,18 +94,35 @@ export function StaffNotation({
     return () => { cancelled = true; };
   }, [mei, font, verovioScale]);
 
-  // Inject the raw Verovio SVG into the nested <g> (imperatively, so React
-  // doesn't try to reconcile Verovio's markup).
-  useEffect(() => {
-    if (nestRef.current) nestRef.current.innerHTML = staffSvg ?? "";
-  }, [staffSvg]);
-
   const size = staffSvg ? parseSvgSize(staffSvg) : { width: 160, height: 120 };
   const labelDrawn = Boolean(chordLabel && showLabel);
   const labelH = labelDrawn ? LABEL_HEIGHT : 0;
   const controlsH = showPlayback && notes.length > 0 ? CONTROLS_HEIGHT : 0;
   const totalWidth = Math.max(size.width, controlsH ? CONTROLS_WIDTH : 0, 120);
-  const totalHeight = size.height + labelH + controlsH;
+  // The playback controls force a minimum width, so the engraving is usually
+  // stretched wider than Verovio drew it. Its height has to follow that scale:
+  // reserving only `size.height` leaves a box taller than the engraving's own
+  // aspect ratio, and a nested <svg> answers that with `xMidYMid meet` — it
+  // centres itself in the surplus and pads the difference above the clef.
+  const engScale = totalWidth / size.width;
+  const engHeight = size.height * engScale;
+  const totalHeight = engHeight + labelH + controlsH;
+
+  // Inject the raw Verovio SVG into the nested <g> (imperatively, so React
+  // doesn't try to reconcile Verovio's markup).
+  useEffect(() => {
+    const g = nestRef.current;
+    if (!g) return;
+    g.innerHTML = staffSvg ?? "";
+    // Verovio runs with `svgViewBox: true`, so its root <svg> carries no
+    // width/height and would otherwise resolve to 100% of the *outer* viewport
+    // rather than the strip left for it below the label and controls.
+    const inner = g.querySelector("svg");
+    if (inner) {
+      inner.setAttribute("width", String(totalWidth));
+      inner.setAttribute("height", String(engHeight));
+    }
+  }, [staffSvg, totalWidth, engHeight]);
 
   const staffColor = ui.text ?? "#333";
   const controlsX = totalWidth - CONTROLS_WIDTH + 4;
