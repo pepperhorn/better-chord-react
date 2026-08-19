@@ -591,38 +591,46 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
   // within a playable hand span (max ~19 semitones = octave + fifth).
   const MAX_SPAN_SEMITONES = 28;
 
+  /**
+   * Assign ascending octaves *without* touching spelling — this feeds the staff,
+   * which engraves the accidental it is handed. Normalising to sharps here is
+   * what made Bbm engrave as A#/C#/F.
+   *
+   * The ascent test reads the note's **letter**, because that is the diatonic
+   * step: Bb and B are both step B. It cannot reuse the keyboard's
+   * `norm.replace("#", "")` trick, which only strips sharps — "Bb" survives it
+   * intact, is not a white note, and would index -1 on every flat.
+   */
   const computeOctaveQualified = (pitchClasses: string[], baseOctave: number): string[] => {
+    const stepOf = (n: string) =>
+      WHITE_NOTE_ORDER.indexOf(n.charAt(0).toUpperCase() as WhiteNote);
+
     let octave = baseOctave;
-    const firstNorm = normalizeNote(pitchClasses[0]);
-    const firstWhiteIdx = WHITE_NOTE_ORDER.indexOf(
-      firstNorm.replace("#", "") as WhiteNote,
-    );
-    let prevWhiteIdx = firstWhiteIdx;
+    let prevWhiteIdx = stepOf(pitchClasses[0]);
 
     // Step 1: naive ascending octave assignment
     const assigned = pitchClasses.map((n, i) => {
-      const norm = normalizeNote(n);
-      const whiteKey = norm.replace("#", "") as WhiteNote;
-      const whiteIdx = WHITE_NOTE_ORDER.indexOf(whiteKey);
+      const whiteIdx = stepOf(n);
       if (i > 0 && whiteIdx <= prevWhiteIdx) {
         octave++;
       }
       prevWhiteIdx = whiteIdx;
-      return { norm, octave };
+      return { name: n, octave };
     });
 
-    // Step 2: compact — fold notes down an octave if span exceeds playable range
-    const baseMidi = Note.midi(`${assigned[0].norm}${assigned[0].octave}`);
+    // Step 2: compact — fold notes down an octave if span exceeds playable
+    // range. `Note.midi` reads flats directly, so the original names work here.
+    const baseMidi = Note.midi(`${assigned[0].name}${assigned[0].octave}`);
     if (baseMidi != null) {
       for (let i = 1; i < assigned.length; i++) {
-        const midi = Note.midi(`${assigned[i].norm}${assigned[i].octave}`);
+        const midi = Note.midi(`${assigned[i].name}${assigned[i].octave}`);
         if (midi != null && midi - baseMidi > MAX_SPAN_SEMITONES && assigned[i].octave > assigned[0].octave) {
           assigned[i].octave--;
         }
       }
     }
 
-    return assigned.map((a) => `${a.norm}:${a.octave}`);
+    return assigned.map((a) => `${a.name}:${a.octave}`);
   };
 
   // Single continuous keyboard with LH + RH brackets
