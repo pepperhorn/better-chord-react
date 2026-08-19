@@ -110,6 +110,9 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // is a different chord (1 b3 b5 b7 against this one's 1 3 b5 7).
   if (/^M(7|9|11|13)b5/.test(chordType)) return "maj7b5";
 
+  // Root and fifth, no third — the guitar power chord. tonal names it "fifth".
+  if (t === "5" || t === "fifth" || t === "no3" || t === "no 3") return "5";
+
   if (t.includes("alt")) return "alt";
   // "o7" and "°7" are the same chord as "dim7" and carry none of its letters,
   // so they used to fall all the way to the digit catchall and be answered as
@@ -134,6 +137,10 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // like the major and minor triads — "diminished seventh" and the
   // half-diminished spellings are both already answered above.
   if (t.includes("dim") || /^(o|°)$/.test(chordType)) return undefined;
+  // "sus2" is a different chord from sus4: 1 2 5, not 1 4 5. The sus4 voicings
+  // are quartal stacks on a P4 and a m7, neither of which a sus2 contains.
+  // Anchored so "sus24" (which really does have a P4) still reads as sus4.
+  if (/(^|[^0-9])sus2($|[^0-9])/.test(t) || t === "suspended second") return "sus2";
   // A sus chord whose seventh is major (M7sus4, M9sus4) is not what the sus4
   // voicings describe: those are quartal stacks built on a *minor* seventh
   // (`[0, 5, 10]`), so answering one would sound a b7 against the chord's
@@ -164,7 +171,7 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // "[Mm]aj" so the prefixed forms ("mMaj7") are caught; "M" against a digit
   // stays case-sensitive, or plain "m7" would read as a major seventh.
   const hasMajorSeventhMarker = /(?:[Mm]aj|ma\d|M\d|Δ|\^)/.test(chordType);
-  if (startsMinor && hasMajorSeventhMarker) return "min7";
+  if (startsMinor && hasMajorSeventhMarker) return "mMaj7";
   // The same markers with no minor prefix are simply a major seventh. Without
   // this, "^7", "^9", "Δ9" and "ma7" carry no "maj" for the major branch to
   // find and fall through to the digit catchall — so the most common jazz
@@ -247,6 +254,33 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
     if (namesASixthChord) return "maj6";
     return "maj7";
   }
+  // A triad with an added tone and no seventh: add9/add2/2, madd9, add11/add4,
+  // madd4. These carry a 9, 4 or 11 with no seventh anywhere, so the digit
+  // catchall below used to claim them and answer dom7 — putting a b7 into a
+  // chord defined by not having one.
+  //
+  // Whether the triad is major or minor comes from the original string, not the
+  // lowercased one: "Madd9" and "madd9" are different chords and differ only by
+  // that capital.
+  // Only when there is no seventh: "7add6" and "7add13" are dominant chords
+  // that happen to name an added tone, and they belong to the catchall below.
+  if ((/add/.test(t) || t === "2") && !t.includes("7")) {
+    // An altered added tone (addb9, add#9) or a raised fifth (+add9, M#5add9)
+    // is a different chord again, and the plain add voicings would contradict
+    // it. No quality fits, so none is returned.
+    if (/[b#]\d/.test(t) || t.includes("+") || t.includes("#5")) return undefined;
+    // A sixth *and* a ninth is the 6/9 chord, which has its own quality — this
+    // has to be asked before the plain sixth test or "6add9" answers maj6.
+    if (/(69|6\/9|6add9|sixth added ninth)/.test(t)) {
+      return startsMinor ? "m6/9" : "6/9";
+    }
+    // add6/add13 are the sixth chord, which already has a quality.
+    if (/6|13/.test(t)) return startsMinor ? "min6" : "maj6";
+    if (/11|4/.test(t)) return startsMinor ? "madd11" : "add11";
+    if (/9|2/.test(t)) return startsMinor ? "madd9" : "add9";
+    return undefined;
+  }
+
   // Bare extension/6-chord shorthand with no "dom"/"min"/"maj" qualifier
   // word (e.g. "7", "9", "11", "13", "6", "6/9", "6add9", or Tonal's bare
   // "sixth" / "sixth added ninth" / "eleventh" names). The 6-family checks

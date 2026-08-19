@@ -588,6 +588,142 @@ const sixthsAndDiminished: VoicingEntry[] = [
   },
 ];
 
+
+// ============================================================
+// CATEGORY J: TRIADS WITH AN ADDED TONE, POWER AND SUS2
+// A chord with no seventh. The added tone is the whole identity, so these
+// voicings carry the triad and that tone and nothing else — in particular no
+// seventh, which is what an "add" chord is defined by not having.
+// ============================================================
+
+const addedToneAndPower: VoicingEntry[] = [
+  // --- add9 / add2 (1 3 5 9) ---
+  {
+    id: "4close-add9",
+    name: "Closed add9",
+    quality: "add9",
+    intervals: [0, 4, 7, 14], // Root, M3, P5, M9
+    tags: { era: "Cool", style: "4-Note Closed", source: "Added-Tone Voicings" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "spread-add9",
+    name: "Spread add9",
+    quality: "add9",
+    intervals: [0, 7, 14, 16], // Root, P5, M9, M3+8va — the 9 below the 3
+    tags: { era: "Modern", style: "Spread", source: "Added-Tone Voicings" },
+    range: { min: 36, max: 60 },
+  },
+
+  // --- madd9 (1 b3 5 9) ---
+  {
+    id: "4close-madd9",
+    name: "Closed m(add9)",
+    quality: "madd9",
+    intervals: [0, 3, 7, 14], // Root, m3, P5, M9
+    tags: { era: "Cool", style: "4-Note Closed", source: "Added-Tone Voicings" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "spread-madd9",
+    name: "Spread m(add9)",
+    quality: "madd9",
+    intervals: [0, 7, 14, 15], // Root, P5, M9, m3+8va
+    tags: { era: "Modern", style: "Spread", source: "Added-Tone Voicings" },
+    range: { min: 36, max: 60 },
+  },
+
+  // --- add11 / add4 (1 3 5 11) ---
+  {
+    id: "4close-add11",
+    name: "Closed add11",
+    quality: "add11",
+    intervals: [0, 4, 7, 17], // Root, M3, P5, P11 — the 11 sits above the 3
+    tags: { era: "Modal", style: "4-Note Closed", source: "Added-Tone Voicings" },
+    range: { min: 48, max: 72 },
+  },
+
+  // --- madd11 / madd4 (1 b3 5 11) ---
+  {
+    id: "4close-madd11",
+    name: "Closed m(add11)",
+    quality: "madd11",
+    intervals: [0, 3, 7, 17], // Root, m3, P5, P11
+    tags: { era: "Modal", style: "4-Note Closed", source: "Added-Tone Voicings" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "close-madd4",
+    name: "Closed m(add4)",
+    quality: "madd11",
+    intervals: [0, 3, 5, 7], // Root, m3, P4, P5 — the 4 voiced in the triad
+    tags: { era: "Modal", style: "4-Note Closed", source: "Added-Tone Voicings" },
+    range: { min: 48, max: 72 },
+  },
+
+  // --- 5 / no3 (1 5) ---
+  {
+    id: "power-5",
+    name: "Power Chord (5)",
+    quality: "5",
+    intervals: [0, 7, 12], // Root, P5, octave — the guitar shape
+    tags: { era: "Modern", style: "Shell", source: "Power Chords" },
+    range: { min: 36, max: 60 },
+  },
+  {
+    id: "power-5-open",
+    name: "Power Chord (open)",
+    quality: "5",
+    intervals: [0, 7, 12, 19], // Root, P5, octave, P5+8va
+    tags: { era: "Modern", style: "Spread", source: "Power Chords" },
+    range: { min: 36, max: 55 },
+  },
+
+  // --- mMaj7 (1 b3 5 7) ---
+  {
+    id: "shell-mmaj7-r7",
+    name: "Shell m(Maj7)",
+    quality: "mMaj7",
+    intervals: [0, 11], // Root, M7 — the seventh is the whole point of the chord
+    tags: { era: "Post-Bop", style: "Shell", source: "Minor/Major Voicings" },
+    range: { min: 36, max: 60 },
+  },
+  {
+    id: "4close-mmaj7",
+    name: "Closed m(Maj7)",
+    quality: "mMaj7",
+    intervals: [0, 3, 7, 11], // Root, m3, P5, M7
+    tags: { era: "Post-Bop", style: "4-Note Closed", source: "Minor/Major Voicings" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "rootless-mmaj7",
+    name: "Rootless m(Maj7)",
+    quality: "mMaj7",
+    intervals: [3, 7, 11, 14], // m3, P5, M7, M9
+    tags: { era: "Post-Bop", style: "Rootless Type A", source: "Minor/Major Voicings" },
+    range: { min: 52, max: 72 },
+  },
+
+  // --- sus2 (1 2 5) ---
+  {
+    id: "close-sus2",
+    name: "Closed sus2",
+    quality: "sus2",
+    intervals: [0, 2, 7], // Root, M2, P5
+    tags: { era: "Modal", style: "4-Note Closed", source: "Suspended Voicings" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "spread-sus2",
+    name: "Spread sus2",
+    quality: "sus2",
+    intervals: [0, 7, 14], // Root, P5, M9 — the 2 an octave up
+    tags: { era: "Modal", style: "Spread", source: "Suspended Voicings" },
+    range: { min: 36, max: 60 },
+  },
+];
+
 // ============================================================
 // FULL LIBRARY
 // ============================================================
@@ -602,4 +738,5 @@ export const VOICING_LIBRARY: VoicingEntry[] = [
   ...spread,
   ...fourNoteClosed,
   ...sixthsAndDiminished,
+  ...addedToneAndPower,
 ];

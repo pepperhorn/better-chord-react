@@ -376,8 +376,11 @@ describe("mapToVoicingQuality", () => {
       expect(mapToVoicingQuality("9sus4")).toBe("sus4");
     });
 
-    it('maps "sus2" to sus4', () => {
-      expect(mapToVoicingQuality("sus2")).toBe("sus4");
+    // sus2 is 1 2 5 and sus4 is 1 4 5 — different chords, and the sus4
+    // voicings are quartal stacks on a P4 and a m7 that a sus2 has neither of.
+    it('maps "sus2" to its own quality, not sus4', () => {
+      expect(mapToVoicingQuality("sus2")).toBe("sus2");
+      expect(mapToVoicingQuality("sus24")).toBe("sus4");
     });
 
     it('maps "sus" to sus4', () => {
@@ -474,7 +477,7 @@ describe("mapToVoicingQuality — an altered degree is not a chord quality", () 
   it("reads a flattened sixth as an alteration, not a sixth chord", () => {
     expect(mapToVoicingQuality("major seventh flat sixth")).toBe("maj7");
     // mMaj7b6 is a *minor* chord — see the minor/major seventh group below.
-    expect(mapToVoicingQuality("mMaj7b6")).toBe("min7");
+    expect(mapToVoicingQuality("mMaj7b6")).toBe("mMaj7");
     expect(mapToVoicingQuality("M7b6")).toBe("maj7");
   });
 
@@ -527,15 +530,11 @@ describe("mapToVoicingQuality — property over tonal's whole vocabulary", () =>
   const SEVENTH_QUALITIES = new Set(["dom7", "min7", "maj7", "m7b5", "dim7"]);
 
   /**
-   * Known gap, deliberately not fixed here: a triad with an added tone and no
-   * seventh ("add9", "Madd9", "+add9", "add13") is claimed by the digit
-   * catchall and gets a dom7 voicing. Answering them properly is a design
-   * question about what an add chord should voice as, not a substring trap, so
-   * it is named here rather than silently passing.
+   * The add family now has its own qualities. What remains is `mb6b9`
+   * (1 b3 b6 b9) — a minor triad with two altered tones and no seventh, still
+   * claimed by the digit catchall. Named rather than silently passing.
    */
-  const ADD_FAMILY = new Set([
-    "add13", "+add#9", "M#5add9", "+add9", "Madd9", "add9", "madd9", "Maddb9", "mb6b9",
-  ]);
+  const ADD_FAMILY = new Set(["mb6b9"]);
 
   it("never answers a chord with a quality its intervals cannot support", () => {
     const wrong: string[] = [];
@@ -567,16 +566,16 @@ describe("mapToVoicingQuality — the seventh must not contradict the chord", ()
   // different answers depending on how it was written.
   it("classifies every minor/major seventh alias as minor", () => {
     for (const alias of ["mMaj7", "mM7", "-Δ7", "-^7", "-maj7", "mMaj9", "mM9", "-^9"]) {
-      expect(mapToVoicingQuality(alias)).toBe("min7");
+      expect(mapToVoicingQuality(alias)).toBe("mMaj7");
     }
-    expect(mapToVoicingQuality("minor/major seventh")).toBe("min7");
+    expect(mapToVoicingQuality("minor/major seventh")).toBe("mMaj7");
   });
 
   it("keeps the b6 spellings of that chord minor too", () => {
     // mMaj7b6 is 1 b3 5 b6 7 — a minor chord however the sixth is read, and
     // the raised-fifth reading (1 b3 #5 7) is minor as well.
-    expect(mapToVoicingQuality("mMaj7b6")).toBe("min7");
-    expect(mapToVoicingQuality("mMaj9b6")).toBe("min7");
+    expect(mapToVoicingQuality("mMaj7b6")).toBe("mMaj7");
+    expect(mapToVoicingQuality("mMaj9b6")).toBe("mMaj7");
   });
 
   // The sus4 voicings are quartal stacks on a minor seventh ([0, 5, 10]), so
@@ -609,16 +608,11 @@ describe("mapToVoicingQuality — the seventh must not contradict the chord", ()
     const wrong: string[] = [];
     for (const ct of ChordType.all()) {
       if (!ct.intervals.includes("7M")) continue;
-      // A minor chord with a major seventh — the minor/major seventh and its
-      // b6 spellings — is answered with min7 on purpose: it is a minor chord,
-      // min7 is the nearest quality the library carries, and the alternative
-      // is no voicing at all. The exception is stated as "answered min7", not
-      // "is a minor chord", so a *different* wrong answer still fails here.
-      const isMinorMajor = ct.intervals.includes("3m");
+      // No exception left: the minor/major family has its own quality now, so
+      // nothing carrying a major seventh may be answered with a minor one.
       for (const name of [ct.name, ...ct.aliases].filter(Boolean)) {
         if (NEEDS_A_QUALITY_THAT_DOES_NOT_EXIST.has(name)) continue;
         const q = mapToVoicingQuality(name);
-        if (isMinorMajor && q === "min7") continue;
         if (q && MINOR_SEVENTH_QUALITIES.has(q)) {
           wrong.push(`${name} -> ${q} (${ct.intervals.join(" ")})`);
         }
@@ -635,6 +629,7 @@ describe("VOICING_LIBRARY covers every quality it can be asked for", () => {
   const ALL_QUALITIES: VoicingQuality[] = [
     "maj7", "min7", "dom7", "m7b5", "dim7", "min6",
     "maj6", "sus4", "alt", "6/9", "m6/9", "maj7b5",
+    "add9", "madd9", "add11", "madd11", "5", "sus2", "mMaj7",
   ];
 
   it("has at least one entry for every quality", () => {
@@ -665,6 +660,16 @@ describe("VOICING_LIBRARY covers every quality it can be asked for", () => {
       "m6/9": [4, 10, 11],
       maj7b5: [3, 7, 10],   // no perfect 5th — the flat five is the point
       alt: [11],
+      // An add chord is a triad plus one tone: no seventh of any kind, and the
+      // third is whichever the name says.
+      add9: [3, 10, 11],
+      madd9: [4, 10, 11],
+      add11: [3, 10, 11],
+      madd11: [4, 10, 11],
+      // No third at all, and no seventh.
+      "5": [3, 4, 10, 11],
+      sus2: [3, 4, 10, 11],
+      mMaj7: [4, 10],       // minor third, major seventh
     };
     const bad: string[] = [];
     for (const entry of VOICING_LIBRARY) {
@@ -696,8 +701,8 @@ describe("mapToVoicingQuality — the diminished and flat-five symbols", () => {
   // A diminished triad carrying a major seventh is the minor/major shape with
   // a lowered fifth — a minor chord.
   it("reads oM7 and o7M7 as minor/major sevenths", () => {
-    expect(mapToVoicingQuality("oM7")).toBe("min7");
-    expect(mapToVoicingQuality("o7M7")).toBe("min7");
+    expect(mapToVoicingQuality("oM7")).toBe("mMaj7");
+    expect(mapToVoicingQuality("o7M7")).toBe("mMaj7");
   });
 
   it("reads the half-diminished symbols", () => {
@@ -711,5 +716,68 @@ describe("mapToVoicingQuality — the diminished and flat-five symbols", () => {
     expect(mapToVoicingQuality("major seventh")).toBe("maj7");
     expect(mapToVoicingQuality("eleventh")).toBe("dom7");
     expect(mapToVoicingQuality("half-diminished")).toBe("m7b5");
+  });
+});
+
+describe("mapToVoicingQuality — triads with an added tone", () => {
+  // An add chord is a triad plus one tone and no seventh. The digit catchall
+  // used to claim them for dom7, putting a b7 into a chord defined by not
+  // having one.
+  it("keeps an added ninth on a major triad", () => {
+    for (const alias of ["add9", "Madd9", "add2", "2"]) {
+      expect(mapToVoicingQuality(alias)).toBe("add9");
+    }
+  });
+
+  // "Madd9" and "madd9" differ only by that capital, so the major/minor test
+  // has to read the original string.
+  it("keeps an added ninth on a minor triad minor", () => {
+    expect(mapToVoicingQuality("madd9")).toBe("madd9");
+  });
+
+  it("handles the added fourth and eleventh", () => {
+    expect(mapToVoicingQuality("add11")).toBe("add11");
+    expect(mapToVoicingQuality("add4")).toBe("add11");
+    expect(mapToVoicingQuality("madd4")).toBe("madd11");
+    expect(mapToVoicingQuality("madd11")).toBe("madd11");
+  });
+
+  it("still reads an added sixth as the sixth chord it is", () => {
+    expect(mapToVoicingQuality("add6")).toBe("maj6");
+    expect(mapToVoicingQuality("add13")).toBe("maj6");
+  });
+
+  it("still reads a sixth with a ninth as 6/9", () => {
+    expect(mapToVoicingQuality("6add9")).toBe("6/9");
+    expect(mapToVoicingQuality("69")).toBe("6/9");
+    expect(mapToVoicingQuality("m69")).toBe("m6/9");
+  });
+
+  // An altered added tone, or a raised fifth, is a different chord again and
+  // the plain add voicings would contradict it.
+  it("returns nothing for an altered add", () => {
+    for (const alias of ["Maddb9", "+add9", "M#5add9", "+add#9"]) {
+      expect(mapToVoicingQuality(alias)).toBeUndefined();
+    }
+  });
+
+  it("leaves the seventh chords that merely mention add alone", () => {
+    expect(mapToVoicingQuality("M7add13")).toBe("maj7");
+    expect(mapToVoicingQuality("m7add11")).toBe("min7");
+    expect(mapToVoicingQuality("7add6")).toBe("dom7");
+  });
+});
+
+describe("mapToVoicingQuality — root and fifth", () => {
+  it("reads the power chord, however it is written", () => {
+    expect(mapToVoicingQuality("5")).toBe("5");
+    expect(mapToVoicingQuality("fifth")).toBe("5");
+    expect(mapToVoicingQuality("no3")).toBe("5");
+  });
+
+  it("voices it as root, fifth and octave", () => {
+    const v = findVoicing("5");
+    expect(v).toBeTruthy();
+    expect(v!.intervals).toEqual([0, 7, 12]);
   });
 });

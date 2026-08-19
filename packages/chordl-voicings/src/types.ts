@@ -30,7 +30,21 @@ export type VoicingQuality =
   | "6/9"
   | "m6/9"
   /** Major seventh flat five (1 3 b5 7) — its own chord, not a half-diminished. */
-  | "maj7b5";
+  | "maj7b5"
+  /** Major triad plus the 9th (1 3 5 9). Also written add2 / 2. */
+  | "add9"
+  /** Minor triad plus the 9th (1 b3 5 9). */
+  | "madd9"
+  /** Major triad plus the 11th (1 3 5 11). Also written add4. */
+  | "add11"
+  /** Minor triad plus the 11th (1 b3 5 11). Also written madd4. */
+  | "madd11"
+  /** Root and fifth, no third (1 5). The guitar power chord; also written no3. */
+  | "5"
+  /** Suspended second (1 2 5) — a different chord from sus4. */
+  | "sus2"
+  /** Minor triad with a major seventh (1 b3 5 7). Also written mMaj7, -Δ7. */
+  | "mMaj7";
 
 export type Hand = "LH" | "RH";
 
