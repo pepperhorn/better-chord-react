@@ -694,15 +694,21 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     // Keyboard octaves are relative (0, 1, 2); staff needs real MIDI octaves
     const realLhOctave = 3 + (parsed.bassOctaveShift ?? 0);
     const realRhBaseOctave = realLhOctave + Math.max(octaveGap, 0);
+    // The staff engraves the spelling it is handed, so emit the chord's own
+    // names — the sharpened ones are the keyboard's business. The octave
+    // arithmetic deliberately still runs on the normalised names, so no note
+    // moves: Bb and A# are the same pitch in the same octave, and the resolver
+    // does not produce the Cb/B# spellings where letter and pitch octave part.
+    const lhStaffName = parsed.bassNote ?? lhBassNote;
     const staffOctaveNotesBass = [
-      `${lhNorm}:${realLhOctave}`,
+      `${lhStaffName}:${realLhOctave}`,
       ...notes.map((n) => {
         const norm = normalizeNote(n);
         const whiteKey = norm.replace("#", "") as WhiteNote;
         const whiteIdx = WHITE_NOTE_ORDER.indexOf(whiteKey);
         const isAboveLhBeforeC = whiteIdx > lhWhiteIdx;
         const noteOctave = isAboveLhBeforeC ? realRhBaseOctave : realRhBaseOctave + 1;
-        return `${norm}:${noteOctave}`;
+        return `${n}:${noteOctave}`;
       }),
     ];
 

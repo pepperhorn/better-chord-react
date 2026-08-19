@@ -58,3 +58,13 @@ describe("staff spelling follows the chord, not the keyboard", () => {
     expect(octs).toEqual(["4", "5", "5"]);
   });
 });
+
+describe("slash-chord staff spelling", () => {
+  it("engraves a flat bass with a flat, not its sharp twin", async () => {
+    render(<PianoChord chord="Bbm over Db" display="staff" />);
+    await waitFor(() => expect(rendered.length).toBeGreaterThan(0));
+    const mei = rendered[rendered.length - 1];
+    expect(mei).not.toMatch(/accid="s"/);
+    expect(pitches(mei)).toContain("db");
+  });
+});
