@@ -471,7 +471,8 @@ describe("mapToVoicingQuality — an altered degree is not a chord quality", () 
   // drops the 7th and adds a 6th the chord does not contain.
   it("reads a flattened sixth as an alteration, not a sixth chord", () => {
     expect(mapToVoicingQuality("major seventh flat sixth")).toBe("maj7");
-    expect(mapToVoicingQuality("mMaj7b6")).toBe("maj7");
+    // mMaj7b6 is a *minor* chord — see the minor/major seventh group below.
+    expect(mapToVoicingQuality("mMaj7b6")).toBe("min7");
     expect(mapToVoicingQuality("M7b6")).toBe("maj7");
   });
 
@@ -492,9 +493,11 @@ describe("mapToVoicingQuality — an altered degree is not a chord quality", () 
   // Uppercase-M shorthand is major, but a suspended or half-diminished
   // spelling outranks the family — it has no third to make major.
   it("does not make a suspended chord major", () => {
-    expect(mapToVoicingQuality("M7sus4")).toBe("sus4");
-    expect(mapToVoicingQuality("M9sus4")).toBe("sus4");
-    expect(mapToVoicingQuality("M7#5sus4")).toBe("sus4");
+    // Nor does it hand them the sus4 voicings, which carry a b7 — see the
+    // seventh-agreement group below.
+    expect(mapToVoicingQuality("M7sus4")).toBeUndefined();
+    expect(mapToVoicingQuality("M9sus4")).toBeUndefined();
+    expect(mapToVoicingQuality("M7#5sus4")).toBeUndefined();
     expect(mapToVoicingQuality("M7b5")).toBe("m7b5");
   });
 
@@ -547,6 +550,83 @@ describe("mapToVoicingQuality — property over tonal's whole vocabulary", () =>
         }
         if (SEVENTH_QUALITIES.has(q) && !hasSeventh) {
           wrong.push(`${name} -> ${q} but has no 7th (${ct.intervals.join(" ")})`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+});
+
+describe("mapToVoicingQuality — the seventh must not contradict the chord", () => {
+  // A minor/major seventh is a minor chord: 1 b3 5 7. Its canonical name
+  // contains "minor" and resolved correctly, but every shorthand alias for it
+  // scattered — mMaj7 and -maj7 contain "maj" and landed in the major branch,
+  // mM7 and -Δ7 fell through to the dominant catchall. One chord, three
+  // different answers depending on how it was written.
+  it("classifies every minor/major seventh alias as minor", () => {
+    for (const alias of ["mMaj7", "mM7", "-Δ7", "-^7", "-maj7", "mMaj9", "mM9", "-^9"]) {
+      expect(mapToVoicingQuality(alias)).toBe("min7");
+    }
+    expect(mapToVoicingQuality("minor/major seventh")).toBe("min7");
+  });
+
+  it("keeps the b6 spellings of that chord minor too", () => {
+    // mMaj7b6 is 1 b3 5 b6 7 — a minor chord however the sixth is read, and
+    // the raised-fifth reading (1 b3 #5 7) is minor as well.
+    expect(mapToVoicingQuality("mMaj7b6")).toBe("min7");
+    expect(mapToVoicingQuality("mMaj9b6")).toBe("min7");
+  });
+
+  // The sus4 voicings are quartal stacks on a minor seventh ([0, 5, 10]), so
+  // they cannot speak for a sus chord whose seventh is major.
+  it("gives a major-seventh sus chord no voicing rather than a b7", () => {
+    for (const alias of ["M7sus4", "M9sus4", "M7#5sus4", "M9#5sus4"]) {
+      expect(mapToVoicingQuality(alias)).toBeUndefined();
+    }
+  });
+
+  it("leaves the ordinary sus chords alone", () => {
+    expect(mapToVoicingQuality("sus4")).toBe("sus4");
+    expect(mapToVoicingQuality("7sus4")).toBe("sus4");
+    expect(mapToVoicingQuality("9sus4")).toBe("sus4");
+    expect(mapToVoicingQuality("suspended fourth")).toBe("sus4");
+  });
+
+  it("does not mistake a plain major seventh for the minor/major family", () => {
+    expect(mapToVoicingQuality("maj7")).toBe("maj7");
+    expect(mapToVoicingQuality("major seventh")).toBe("maj7");
+    expect(mapToVoicingQuality("M7")).toBe("maj7");
+  });
+
+  // No chord in this vocabulary may be answered with a quality whose defining
+  // seventh is the other kind. This is the invariant the aliases above broke.
+  it("never answers a major-seventh chord with a minor-seventh quality", () => {
+    const MINOR_SEVENTH_QUALITIES = new Set(["dom7", "min7", "m7b5", "dim7", "sus4"]);
+    /**
+     * Still unresolved, and named rather than hidden: these need a quality the
+     * library does not have.
+     *  - `oM7` / `o7M7` are diminished major sevenths (1 b3 b5 7). Neither dim7
+     *    nor m7b5 fits — both carry a diminished or minor seventh.
+     *  - `M7b5` is tonal's major seventh flat five (1 3 b5 7), a different
+     *    chord from the half-diminished it currently answers with. Changing it
+     *    means deciding what a b5 major seventh should voice as.
+     */
+    const NEEDS_A_QUALITY_THAT_DOES_NOT_EXIST = new Set(["oM7", "o7M7", "M7b5"]);
+    const wrong: string[] = [];
+    for (const ct of ChordType.all()) {
+      if (!ct.intervals.includes("7M")) continue;
+      // A minor chord with a major seventh — the minor/major seventh and its
+      // b6 spellings — is answered with min7 on purpose: it is a minor chord,
+      // min7 is the nearest quality the library carries, and the alternative
+      // is no voicing at all. The exception is stated as "answered min7", not
+      // "is a minor chord", so a *different* wrong answer still fails here.
+      const isMinorMajor = ct.intervals.includes("3m");
+      for (const name of [ct.name, ...ct.aliases].filter(Boolean)) {
+        if (NEEDS_A_QUALITY_THAT_DOES_NOT_EXIST.has(name)) continue;
+        const q = mapToVoicingQuality(name);
+        if (isMinorMajor && q === "min7") continue;
+        if (q && MINOR_SEVENTH_QUALITIES.has(q)) {
+          wrong.push(`${name} -> ${q} (${ct.intervals.join(" ")})`);
         }
       }
     }

@@ -92,6 +92,12 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // use the same word for an *altered degree inside a seventh chord*, and
   // answering those with a maj6 voicing drops the 7th and adds a 6th the chord
   // does not contain.
+  // Note on "major seventh flat sixth" (tonal's `M7b6`, 1P 3M 6m 7M): there is
+  // no b6 in that chord. With no perfect fifth present the Ab is a raised
+  // fifth, making it an augmented major seventh — maj7#5, which tonal itself
+  // spells that way under "augmented seventh". VoicingQuality has no maj7#5,
+  // so it answers maj7: the seventh agrees, though a voicing carrying a
+  // natural fifth will contradict the raised one.
   const namesASixthChord =
     (t.includes("sixth") && !t.includes("flat sixth") && !t.includes("sharp sixth")) ||
     // The digit form has the same trap: the "6" in "mMaj7b6" is a flattened
@@ -108,7 +114,45 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // like the major and minor triads — "diminished seventh" and the
   // half-diminished spellings are both already answered above.
   if (t.includes("dim")) return undefined;
-  if (t.includes("sus")) return "sus4";
+  // A sus chord whose seventh is major (M7sus4, M9sus4) is not what the sus4
+  // voicings describe: those are quartal stacks built on a *minor* seventh
+  // (`[0, 5, 10]`), so answering one would sound a b7 against the chord's
+  // natural 7. There is no maj7sus4 quality to return, so return none — the
+  // caller falls back to the chord's own tones rather than a contradiction.
+  if (t.includes("sus")) {
+    return /^M\d/.test(chordType) || t.includes("maj") ? undefined : "sus4";
+  }
+  // The minor/major seventh family. The canonical name "minor/major seventh"
+  // contains "minor" and resolves below, but every shorthand alias for it
+  // scattered: mMaj7 and -maj7 landed in the *major* branch (they contain
+  // "maj"), while mM7 and -Δ7 fell through to the dominant catchall. A minor
+  // chord was being answered with major and dominant voicings.
+  //
+  // Matched on the original string, since the lowercase m / uppercase M
+  // distinction is the whole signal. "maj7" itself does not match: after the
+  // leading "m" the rest is "aj7", not another major marker.
+  //
+  // A leading lowercase m (not the "m" of "maj"/"ma7") or "-", plus a major
+  // seventh marker anywhere after it, is this family: mMaj7, mM7, -Δ7, -^7,
+  // -maj7, mMaj7b6, mb6M7.
+  const startsMinor = /^(m(?!aj|a\d)|-)/.test(chordType);
+  // The markers jazz lead sheets use for a major seventh. "M" only counts
+  // against a digit, or "M7"/"M9" would be indistinguishable from a bare "M".
+  // "[Mm]aj" so the prefixed forms ("mMaj7") are caught; "M" against a digit
+  // stays case-sensitive, or plain "m7" would read as a major seventh.
+  const hasMajorSeventhMarker = /(?:[Mm]aj|ma\d|M\d|Δ|\^)/.test(chordType);
+  if (startsMinor && hasMajorSeventhMarker) return "min7";
+  // The same markers with no minor prefix are simply a major seventh. Without
+  // this, "^7", "^9", "Δ9" and "ma7" carry no "maj" for the major branch to
+  // find and fall through to the digit catchall — so the most common jazz
+  // spelling of a major seventh was answered with a *dominant* voicing, a b7
+  // against the chord's natural 7.
+  // The marker must carry a digit: a bare "^" (and "^#5") is tonal's major
+  // *triad*, which has no seventh to voice.
+  if (!startsMinor && /(ma\d|Δ\d|\^\d)/.test(chordType) && !t.includes("dim")) {
+    if (/(69|6\/9|6add9)/.test(chordType)) return "6/9";
+    return "maj7";
+  }
   // Uppercase M is major, lowercase m is minor, and lowercasing destroys the
   // difference — so this reads the original string. It sits *here*, not at the
   // top: `M7sus4` and `M9sus4` are suspended chords, and `M7b5` is the standard
