@@ -363,7 +363,9 @@ const drop24: VoicingEntry[] = [
     id: "drop24-m7b5",
     name: "Drop 2+4 m7b5",
     quality: "m7b5",
-    intervals: [-8, -2, 3, 6], // b5-8va below, m7 below, m3, dim5
+    // -8 was a major third, in a half-diminished chord. The comment always
+    // said b5 an octave down, which is -6.
+    intervals: [-6, -2, 3, 6], // b5-8va below, m7 below, m3, dim5
     tags: { era: "Hard Bop", style: "Drop 2+4", source: "Drop 2+4 Voicings" },
     range: { min: 48, max: 72 },
   },
@@ -469,6 +471,123 @@ const fourNoteClosed: VoicingEntry[] = [
   },
 ];
 
+
+// ============================================================
+// CATEGORY I: SIXTH, DIMINISHED AND FLAT-FIVE QUALITIES
+// These qualities were reachable from `mapToVoicingQuality` but had no
+// entries, so a correctly-identified sixth or diminished chord resolved to
+// nothing. Intervals are the chord's own tones — no seventh is added to a
+// sixth chord, and no perfect fifth to a flat-five one.
+// ============================================================
+
+const sixthsAndDiminished: VoicingEntry[] = [
+  // --- min6 (1 b3 5 6) ---
+  {
+    id: "4close-min6",
+    name: "Closed m6",
+    quality: "min6",
+    intervals: [0, 3, 7, 9], // Root, m3, P5, M6
+    tags: { era: "Bebop", style: "4-Note Closed", source: "Sixth Chords" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "drop2-min6",
+    name: "Drop 2 m6",
+    quality: "min6",
+    intervals: [-5, 0, 3, 9], // P5 below, Root, m3, M6
+    tags: { era: "Cool", style: "Drop 2", source: "Sixth Chords" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "drop2-min6-inv2",
+    name: "Drop 2 m6 (2nd inv)",
+    quality: "min6",
+    intervals: [-3, 3, 7, 12], // M6 below, m3, P5, Root+8va
+    tags: { era: "Cool", style: "Drop 2", source: "Sixth Chords" },
+    range: { min: 48, max: 72 },
+  },
+
+  // --- 6/9 (1 3 5 6 9) ---
+  {
+    id: "rootless-69",
+    name: "Rootless 6/9",
+    quality: "6/9",
+    intervals: [4, 7, 9, 14], // M3, P5, M6, M9
+    tags: { era: "Cool", style: "Rootless Type A", source: "6/9 Voicings" },
+    range: { min: 52, max: 72 },
+  },
+  {
+    id: "spread-69",
+    name: "Spread 6/9",
+    quality: "6/9",
+    intervals: [0, 7, 14, 16, 21], // Root, P5, M9, M3+8va, M6+8va
+    tags: { era: "Cool", style: "Spread", source: "6/9 Voicings" },
+    range: { min: 36, max: 60 },
+  },
+  {
+    id: "4close-69",
+    name: "Closed 6/9",
+    quality: "6/9",
+    intervals: [0, 4, 9, 14], // Root, M3, M6, M9 — the 5th is left out
+    tags: { era: "Cool", style: "4-Note Closed", source: "6/9 Voicings" },
+    range: { min: 48, max: 72 },
+  },
+
+  // --- m6/9 (1 b3 5 6 9) ---
+  {
+    id: "rootless-m69",
+    name: "Rootless m6/9",
+    quality: "m6/9",
+    intervals: [3, 7, 9, 14], // m3, P5, M6, M9
+    tags: { era: "Modal", style: "Rootless Type A", source: "6/9 Voicings" },
+    range: { min: 52, max: 72 },
+  },
+  {
+    id: "4close-m69",
+    name: "Closed m6/9",
+    quality: "m6/9",
+    intervals: [0, 3, 9, 14], // Root, m3, M6, M9 — the 5th is left out
+    tags: { era: "Modal", style: "4-Note Closed", source: "6/9 Voicings" },
+    range: { min: 48, max: 72 },
+  },
+
+  // --- dim7 (1 b3 b5 bb7) ---
+  {
+    id: "4close-dim7",
+    name: "Closed dim7",
+    quality: "dim7",
+    intervals: [0, 3, 6, 9], // Root, m3, d5, d7 (M6 enharmonically)
+    tags: { era: "Bebop", style: "4-Note Closed", source: "Diminished Voicings" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "drop2-dim7",
+    name: "Drop 2 dim7",
+    quality: "dim7",
+    intervals: [-6, 0, 3, 9], // d5 below, Root, m3, d7
+    tags: { era: "Bebop", style: "Drop 2", source: "Diminished Voicings" },
+    range: { min: 48, max: 72 },
+  },
+
+  // --- maj7b5 (1 3 b5 7) ---
+  {
+    id: "4close-maj7b5",
+    name: "Closed Maj7b5",
+    quality: "maj7b5",
+    intervals: [0, 4, 6, 11], // Root, M3, d5, M7
+    tags: { era: "Post-Bop", style: "4-Note Closed", source: "Lydian Voicings" },
+    range: { min: 48, max: 72 },
+  },
+  {
+    id: "rootless-maj7b5",
+    name: "Rootless Maj7b5",
+    quality: "maj7b5",
+    intervals: [4, 6, 11, 14], // M3, d5, M7, M9
+    tags: { era: "Post-Bop", style: "Rootless Type A", source: "Lydian Voicings" },
+    range: { min: 52, max: 72 },
+  },
+];
+
 // ============================================================
 // FULL LIBRARY
 // ============================================================
@@ -482,4 +601,5 @@ export const VOICING_LIBRARY: VoicingEntry[] = [
   ...drop24,
   ...spread,
   ...fourNoteClosed,
+  ...sixthsAndDiminished,
 ];

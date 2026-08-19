@@ -105,15 +105,35 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
     // not being altered counts.
     /(^|[^#b])6/.test(t);
 
+  // Case-sensitive, and ahead of the half-diminished test below: lowercasing
+  // "M7b5" produces "m7b5" and it would be answered as a half-diminished, which
+  // is a different chord (1 b3 b5 b7 against this one's 1 3 b5 7).
+  if (/^M(7|9|11|13)b5/.test(chordType)) return "maj7b5";
+
   if (t.includes("alt")) return "alt";
+  // "o7" and "°7" are the same chord as "dim7" and carry none of its letters,
+  // so they used to fall all the way to the digit catchall and be answered as
+  // dominants. The bare "o"/"°" is the diminished *triad*, which has no seventh
+  // — handled with the other triads below.
   if (t.includes("dim7") || t.includes("diminished seventh")) return "dim7";
-  if (t.includes("m7b5") || t.includes("-7b5") || t.includes("half")) return "m7b5";
+  if (/^(o|°)7$/.test(chordType)) return "dim7";
+  // "ø", "h" and "h7" are the other half-diminished symbols. Anchored, because
+  // a bare `includes("h")` would match "seventh", "eleventh", "half" and most
+  // of the spelled-out vocabulary.
+  if (
+    t.includes("m7b5") ||
+    t.includes("-7b5") ||
+    t.includes("half") ||
+    /^(ø7?|h7?)$/.test(chordType)
+  ) {
+    return "m7b5";
+  }
   // Trap #1 again, one chord along: "diminished" contains "min" (di-MIN-ished),
   // so a bare diminished triad reached the minor branch and rendered min7
   // voicings. It has no seventh-chord voicing of its own, so it is undefined
   // like the major and minor triads — "diminished seventh" and the
   // half-diminished spellings are both already answered above.
-  if (t.includes("dim")) return undefined;
+  if (t.includes("dim") || /^(o|°)$/.test(chordType)) return undefined;
   // A sus chord whose seventh is major (M7sus4, M9sus4) is not what the sus4
   // voicings describe: those are quartal stacks built on a *minor* seventh
   // (`[0, 5, 10]`), so answering one would sound a b7 against the chord's
@@ -135,7 +155,10 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // A leading lowercase m (not the "m" of "maj"/"ma7") or "-", plus a major
   // seventh marker anywhere after it, is this family: mMaj7, mM7, -Δ7, -^7,
   // -maj7, mMaj7b6, mb6M7.
-  const startsMinor = /^(m(?!aj|a\d)|-)/.test(chordType);
+  // "o"/"°" join this: oM7 and o7M7 are diminished triads carrying a *major*
+  // seventh, which is the minor/major shape with a lowered fifth. They are
+  // minor chords, and min7 is the nearest quality the library holds for one.
+  const startsMinor = /^([mo°](?!aj|a\d)|-)/.test(chordType);
   // The markers jazz lead sheets use for a major seventh. "M" only counts
   // against a digit, or "M7"/"M9" would be indistinguishable from a bare "M".
   // "[Mm]aj" so the prefixed forms ("mMaj7") are caught; "M" against a digit
