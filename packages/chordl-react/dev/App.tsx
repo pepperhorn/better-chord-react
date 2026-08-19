@@ -707,6 +707,9 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     setCardIcon("");
     setCardImage("");
     setImageError(null);
+    // The input too, or "go back to creating a new chord" leaves the finished
+    // card's chord in the box and "+ Add to board" quietly duplicates it.
+    setInput("");
     board.clearSelection();
   };
 
@@ -715,7 +718,10 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     // Always a chord card. "+ Text" on the board toolbar is the only route to a
     // text card, so a text edit in progress must not leak into this button.
     board.addItem(chordCardFields);
-    if (isEditingTextCard) stopEditing();
+    // Any edit in progress ends here, not just a text one: the new card is what
+    // the form now describes, and staying bound to the old one would silently
+    // rewrite it on the next keystroke.
+    if (editingItemId) stopEditing();
   };
 
   /** Appends a text card and drops the user straight into editing it. */
@@ -742,7 +748,10 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
    */
   const handleRemoveBoardItem = (remove: (id: string) => void) => (id: string) => {
     remove(id);
-    if (id === editingItemId && isEditingTextCard) stopEditing();
+    // Whatever kind it was: leaving `editingItemId` pointing at a deleted card
+    // keeps the toolbar claiming to edit it, and the mirror effect then writes
+    // to a dead id on every keystroke.
+    if (id === editingItemId) stopEditing();
   };
 
   const handleToggleBreak = (id: string) => {
@@ -1003,7 +1012,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
           you are looking at, so hiding them behind a toggle hid the display
           switch too. Every control in it describes a chord diagram, so it still
           goes away wholesale while a text card is being edited. */}
-      {!isEditingTextCard && <div className="interactive-controls-row" style={{
+      {!isEditingTextCard && !isProg && <div className="interactive-controls-row" style={{
         display: "flex",
         gap: "0.75rem",
         alignItems: "stretch",
@@ -1320,10 +1329,11 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             onSelect={board.selectItem}
             onClearSelection={board.clearSelection}
             onImport={(state) => {
-              // An import replaces every id on the board, so the text-card
-              // editor would otherwise be writing into a card that is gone.
+              // An import replaces every id on the board, so any editor —
+              // chord or text — would otherwise be writing into a card that is
+              // gone.
               board.replaceState(state);
-              if (isEditingTextCard) stopEditing();
+              if (editingItemId) stopEditing();
             }}
             uiTheme={uiTheme}
             scale={0.5}
