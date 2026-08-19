@@ -251,6 +251,72 @@ describe("parseChordDescription", () => {
     expect(result.notesGroups).toBeUndefined();
   });
 
+  it("keeps both hands in 'Rh c d e LH c e'", () => {
+    const result = parseChordDescription("Rh c d e LH c e");
+    expect(result.notesGroups).toEqual([
+      { notes: ["C", "D", "E"], hand: "rh" },
+      { notes: ["C", "E"], hand: "lh" },
+    ]);
+  });
+
+  it("keeps both hands whichever hand comes first", () => {
+    const result = parseChordDescription("LH c e Rh c d e");
+    expect(result.notesGroups).toEqual([
+      { notes: ["C", "E"], hand: "lh" },
+      { notes: ["C", "D", "E"], hand: "rh" },
+    ]);
+  });
+
+  it("parses a chord symbol after a hand — 'rh Cmaj7 lh Dm7'", () => {
+    const result = parseChordDescription("rh Cmaj7 lh Dm7");
+    expect(result.notesGroups).toEqual([
+      { notes: ["C", "E", "G", "B"], hand: "rh", chord: "Cmaj7" },
+      { notes: ["D", "F", "A", "C"], hand: "lh", chord: "Dm7" },
+    ]);
+    expect(result.chordName).toBe("");
+  });
+
+  it("takes the first chord when two follow a hand — 'rh Cmaj7 Dm7 lh C'", () => {
+    const result = parseChordDescription("rh Cmaj7 Dm7 lh C");
+    expect(result.notesGroups).toEqual([
+      { notes: ["C"], hand: "lh" },
+      { notes: ["C", "E", "G", "B"], hand: "rh", chord: "Cmaj7" },
+    ]);
+    expect(result.chordName).toBe("");
+  });
+
+  it("mixes a hand chord with a hand note list — 'rh c d e lh Am'", () => {
+    const result = parseChordDescription("rh c d e lh Am");
+    expect(result.notesGroups).toEqual([
+      { notes: ["C", "D", "E"], hand: "rh" },
+      { notes: ["A", "C", "E"], hand: "lh", chord: "Am" },
+    ]);
+  });
+
+  it("reads a digit-bearing hand chord as a chord — 'lh G7'", () => {
+    const result = parseChordDescription("lh G7");
+    expect(result.notesGroups).toEqual([
+      { notes: ["G", "B", "D", "F"], hand: "lh", chord: "G7" },
+    ]);
+  });
+
+  it("still treats 'lh Bb' as a single note, not a Bb chord", () => {
+    const result = parseChordDescription("lh Bb");
+    expect(result.notesGroups).toEqual([{ notes: ["Bb"], hand: "lh" }]);
+  });
+
+  it("leaves a non-chord after a hand alone — 'rh Cq'", () => {
+    const result = parseChordDescription("rh Cq");
+    expect(result.notesGroups).toBeUndefined();
+  });
+
+  it("parses a chord after a clef — 'bass clef G7'", () => {
+    const result = parseChordDescription("bass clef G7");
+    expect(result.notesGroups).toEqual([
+      { notes: ["G", "B", "D", "F"], hand: "lh", clef: "bass", chord: "G7" },
+    ]);
+  });
+
   it("parses prefix form with bass clef 'notes in bass clef C E G'", () => {
     const result = parseChordDescription("notes in bass clef C E G");
     expect(result.notesGroups).toEqual([
