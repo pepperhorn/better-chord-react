@@ -278,6 +278,36 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
       });
     });
 
+    // Keep the hands an octave apart. Base octaves alone don't guarantee it:
+    // a group's ascending wrap can climb into the other hand's keys — "lh Dm7"
+    // resolves D3 F3 A3 C4, and "rh Cmaj7" starts on that same C4. Lift the RH
+    // by whole octaves (so its own shape is untouched) until its lowest note is
+    // both an octave above the LH's lowest and clear of the LH's highest.
+    // Skipped when the request pins octaves itself ("notes C3 E3 in lh and
+    // notes C4 E4 in rh") — those are exact and stay where they were put.
+    const groupHand = (gIdx: number) => {
+      const g = parsed.notesGroups![gIdx];
+      return g.hand ?? (g.clef === "bass" ? "lh" : g.clef === "treble" ? "rh" : undefined);
+    };
+    const hasExplicitOctaves = parsed.notesGroups.some((g) =>
+      g.notes.some((n) => /\d/.test(n)),
+    );
+    if (!hasExplicitOctaves) {
+      const pitchOf = (t: Resolved) => t.octave * 12 + (PC_SEMITONES[t.norm] ?? 0);
+      const lhNotes = allResolved.filter((t) => groupHand(t.groupIdx) === "lh");
+      const rhNotes = allResolved.filter((t) => groupHand(t.groupIdx) === "rh");
+      if (lhNotes.length > 0 && rhNotes.length > 0) {
+        const lhPitches = lhNotes.map(pitchOf);
+        const rhLowest = Math.min(...rhNotes.map(pitchOf));
+        const needed = Math.max(
+          Math.min(...lhPitches) + 12 - rhLowest, // at least an octave above the LH
+          Math.max(...lhPitches) + 1 - rhLowest,  // and never on or below its top note
+        );
+        const octavesUp = Math.max(0, Math.ceil(needed / 12));
+        if (octavesUp > 0) rhNotes.forEach((t) => { t.octave += octavesUp; });
+      }
+    }
+
     // Keyboard range: from lowest note (minus padding) to highest note (plus padding).
     const minOctave = Math.min(...allResolved.map((t) => t.octave));
     const maxOctave = Math.max(...allResolved.map((t) => t.octave));
@@ -312,7 +342,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     const groupKeyIndices: Array<{ hand: "lh" | "rh"; keys: number[] }> = [];
 
     parsed.notesGroups.forEach((group, gIdx) => {
-      const hand = group.hand ?? (group.clef === "bass" ? "lh" : group.clef === "treble" ? "rh" : undefined);
+      const hand = groupHand(gIdx);
       if (!hand) return;
       const indicesForGroup: number[] = [];
       const matched = new Set<number>();
