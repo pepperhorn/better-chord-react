@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { ChordType } from "tonal";
 import {
   VOICING_LIBRARY,
   queryVoicings,
@@ -6,6 +7,7 @@ import {
   realizeVoicing,
   voicingPitchClasses,
   inferStyle,
+  mapToVoicingQuality,
 } from "../src/index";
 
 describe("VOICING_LIBRARY", () => {
@@ -175,5 +177,379 @@ describe("voicingPitchClasses", () => {
     expect(pcs).toContain("G");
     expect(pcs).toContain("A#");
     expect(pcs).toContain("D");
+  });
+});
+
+describe("mapToVoicingQuality", () => {
+  // Regression guard: "dominant" contains the substring "min" (do-MIN-ant),
+  // so the "dom" check must be tested before the "min" check. Reordering
+  // these two branches back to a bare min-before-dom test will silently
+  // route every dominant chord to min7 again. Do not "simplify" this away.
+  describe("dominant types resolve to dom7", () => {
+    it.each([
+      "dominant seventh",
+      "dominant ninth",
+      "dominant thirteenth",
+    ])('maps "%s" to dom7', (type) => {
+      expect(mapToVoicingQuality(type)).toBe("dom7");
+    });
+
+    it('maps "altered dominant" to alt, not dom7 (alt must still win)', () => {
+      expect(mapToVoicingQuality("altered dominant")).toBe("alt");
+    });
+  });
+
+  describe("minor and major types are unaffected by the dom/min reorder", () => {
+    it('maps "minor seventh" to min7', () => {
+      expect(mapToVoicingQuality("minor seventh")).toBe("min7");
+    });
+
+    it('maps "major seventh" to maj7', () => {
+      expect(mapToVoicingQuality("major seventh")).toBe("maj7");
+    });
+
+    it('maps bare "minor" triad to undefined', () => {
+      expect(mapToVoicingQuality("minor")).toBeUndefined();
+    });
+
+    it('maps bare "major" triad to undefined', () => {
+      expect(mapToVoicingQuality("major")).toBeUndefined();
+    });
+
+    it('maps "min7" shorthand to min7', () => {
+      expect(mapToVoicingQuality("min7")).toBe("min7");
+    });
+  });
+
+  describe("other specific qualities still win over the general checks", () => {
+    it('maps "m7b5" to m7b5', () => {
+      expect(mapToVoicingQuality("m7b5")).toBe("m7b5");
+    });
+
+    it('maps "half-diminished" to m7b5', () => {
+      expect(mapToVoicingQuality("half-diminished")).toBe("m7b5");
+    });
+
+    it('maps "diminished seventh" to dim7', () => {
+      expect(mapToVoicingQuality("diminished seventh")).toBe("dim7");
+    });
+
+    it('maps "dim7" shorthand to dim7', () => {
+      expect(mapToVoicingQuality("dim7")).toBe("dim7");
+    });
+
+    it('maps "suspended fourth" to sus4', () => {
+      expect(mapToVoicingQuality("suspended fourth")).toBe("sus4");
+    });
+
+    it('maps "sus4" shorthand to sus4', () => {
+      expect(mapToVoicingQuality("sus4")).toBe("sus4");
+    });
+
+    it('maps "altered" to alt', () => {
+      expect(mapToVoicingQuality("altered")).toBe("alt");
+    });
+  });
+
+  // Trap #2 (in addition to the "dominant"/"min" collision above): minor
+  // shorthand like "m7"/"m9"/"m11"/"m13"/"m6" contains neither "min" nor
+  // "minor". Without an explicit "m" + digit check it falls all the way
+  // through to the trailing dominant/6 catchall and gets misclassified
+  // (e.g. "m7" -> dom7, "m6" -> maj6). A naive `t.startsWith("m")` fix would
+  // be just as wrong the other way: it would also swallow "maj7" and
+  // "major seventh". Do not re-simplify this to either of those.
+  describe("minor shorthand is distinguished from major shorthand", () => {
+    it.each(["m7", "m9", "m11", "m13"])('maps "%s" to min7, not dom7', (type) => {
+      expect(mapToVoicingQuality(type)).toBe("min7");
+    });
+
+    it('maps "m6" to min6, not maj6', () => {
+      expect(mapToVoicingQuality("m6")).toBe("min6");
+    });
+
+    it('maps "m6/9" to m6/9, not dom7', () => {
+      expect(mapToVoicingQuality("m6/9")).toBe("m6/9");
+    });
+
+    it('maps "maj7" to maj7 (not captured by the minor-shorthand check)', () => {
+      expect(mapToVoicingQuality("maj7")).toBe("maj7");
+    });
+
+    // "M7" is Tonal's alias for major seventh. "m7" is minor seventh. Case
+    // is the *only* signal that tells them apart, so mapToVoicingQuality
+    // must test this uppercase-M shorthand case-sensitively before it
+    // lowercases the input for every other check.
+    it('maps "M7" to maj7, not min7 (case is the only signal distinguishing it from "m7")', () => {
+      expect(mapToVoicingQuality("M7")).toBe("maj7");
+    });
+  });
+
+  // Trap #3: mapToVoicingQuality's first line lowercases the input before
+  // any branch logic runs. Case is the *only* thing distinguishing
+  // uppercase-M shorthand ("M", "M7", "M9", "M11", "M13", "M6" — major)
+  // from lowercase-m shorthand ("m", "m7", ... — minor, Trap #2 above), so
+  // lowercasing first destroys that signal and "M7" silently resolves to
+  // min7. This convention (uppercase M = major) is real and used elsewhere
+  // in the monorepo (chordl-guitar's toDbSuffix). The uppercase-M shorthand
+  // must be matched case-sensitively *before* the `toLowerCase()` call, not
+  // folded into the lowercase branch logic. Do not "simplify" this away by
+  // moving the check after lowercasing.
+  describe("uppercase-M shorthand is distinguished from lowercase-m shorthand", () => {
+    it.each([
+      ["M", undefined],
+      ["M7", "maj7"],
+      ["M9", "maj7"],
+      ["M11", "maj7"],
+      ["M13", "maj7"],
+      ["M6", "maj6"],
+    ] as const)('maps "%s" to %s', (type, expected) => {
+      expect(mapToVoicingQuality(type)).toBe(expected);
+    });
+
+    it('maps bare "m" to undefined, same as "minor"/"minor triad"', () => {
+      expect(mapToVoicingQuality("m")).toBeUndefined();
+    });
+
+    // "M7b5" is not a standard chord symbol: m7b5 (half-diminished) is
+    // always written lowercase, and there is no established "major seventh
+    // flat five" chord — nor a VoicingQuality for one. So "M7b5" is not
+    // given special uppercase handling; it falls through to the general
+    // lowercase logic, where it resolves identically to "m7b5".
+    it('maps "M7b5" the same as "m7b5" (not a standard symbol; no special-cased meaning)', () => {
+      expect(mapToVoicingQuality("M7b5")).toBe("m7b5");
+    });
+  });
+
+  // Trap #4: Tonal spells the sixth-chord family out with words, not digits
+  // — "minor sixth", "sixth" (bare major sixth), and "sixth added ninth"
+  // (bare major 6/9). A numeral-only `t.includes("6")` test misses all of
+  // these and falls through to a 7th-chord quality instead. Both the minor
+  // and major branches, and the bare-shorthand catchall, must recognize the
+  // spelled-out word alongside the digit. Do not simplify this back to a
+  // digit-only check.
+  describe("spelled-out sixths are recognized alongside the digit", () => {
+    it('maps "minor sixth" to min6, not min7', () => {
+      expect(mapToVoicingQuality("minor sixth")).toBe("min6");
+    });
+
+    it('maps "major sixth" to maj6, not maj7', () => {
+      expect(mapToVoicingQuality("major sixth")).toBe("maj6");
+    });
+
+    it('maps bare "sixth" to maj6, not undefined', () => {
+      expect(mapToVoicingQuality("sixth")).toBe("maj6");
+    });
+
+    it('maps digit "6" to maj6', () => {
+      expect(mapToVoicingQuality("6")).toBe("maj6");
+    });
+
+    it('maps "6/9" to 6/9, not dom7', () => {
+      expect(mapToVoicingQuality("6/9")).toBe("6/9");
+    });
+
+    it('maps "6add9" to 6/9, not dom7', () => {
+      expect(mapToVoicingQuality("6add9")).toBe("6/9");
+    });
+  });
+
+  // Trap #6: `sus` must be tested before the TRAILING DIGIT CATCHALL — not,
+  // as an earlier version of this comment claimed, before the `dom` check.
+  //
+  // The distinction was got wrong once already and is worth stating exactly.
+  // No sus name contains the substring "dom", so swapping the `sus` and `dom`
+  // branches changes nothing and these tests pass either way. What actually
+  // breaks them is moving the `sus` check below the
+  // `includes("7") || includes("9") || includes("11") || includes("13")`
+  // catchall, at which point "7sus4" and "9sus4" resolve to dom7.
+  //
+  // Verified empirically both ways rather than reasoned about, because the
+  // reasoned version was wrong.
+  describe("sus is tested before the trailing digit catchall", () => {
+    it('maps "7sus4" to sus4, not dom7', () => {
+      expect(mapToVoicingQuality("7sus4")).toBe("sus4");
+    });
+
+    it('maps "9sus4" to sus4, not dom7', () => {
+      expect(mapToVoicingQuality("9sus4")).toBe("sus4");
+    });
+
+    it('maps "sus2" to sus4', () => {
+      expect(mapToVoicingQuality("sus2")).toBe("sus4");
+    });
+
+    it('maps "sus" to sus4', () => {
+      expect(mapToVoicingQuality("sus")).toBe("sus4");
+    });
+  });
+
+  // Trap #5: Tonal's canonical type for an 11th chord is the bare word
+  // "eleventh" (`Chord.get("C11").type === "eleventh"`), not "dominant
+  // eleventh" — and it has no "7"/"9"/"13" digit for the trailing catchall
+  // to match. Without recognizing "11"/"eleventh" explicitly, every 11th
+  // chord resolved to `undefined` (no voicing at all). This is live: all
+  // three internal call sites pass `resolveChord(...).type` straight
+  // through, so a real C11 chord hit this gap in the shipped app.
+  describe("eleventh chords resolve to dom7", () => {
+    it('maps "11" to dom7', () => {
+      expect(mapToVoicingQuality("11")).toBe("dom7");
+    });
+
+    it('maps "eleventh" to dom7', () => {
+      expect(mapToVoicingQuality("eleventh")).toBe("dom7");
+    });
+
+    it('maps "dominant eleventh" to dom7', () => {
+      expect(mapToVoicingQuality("dominant eleventh")).toBe("dom7");
+    });
+
+    // "minor eleventh" contains "min", which must still be tested before
+    // this catchall is ever reached — confirms the new "11"/"eleventh"
+    // handling doesn't leak into the minor branch's territory.
+    it('maps "minor eleventh" to min7, not dom7', () => {
+      expect(mapToVoicingQuality("minor eleventh")).toBe("min7");
+    });
+  });
+});
+
+describe("mapToVoicingQuality — substrings that look like other qualities", () => {
+  // "diminished" contains "min", the same trap as "dominant". A bare
+  // diminished triad rendered minor-seventh voicings.
+  it('maps "diminished" to undefined, not min7', () => {
+    expect(mapToVoicingQuality("diminished")).toBeUndefined();
+  });
+
+  it("still answers the diminished spellings that do have a voicing", () => {
+    expect(mapToVoicingQuality("diminished seventh")).toBe("dim7");
+    expect(mapToVoicingQuality("dim7")).toBe("dim7");
+    expect(mapToVoicingQuality("half-diminished")).toBe("m7b5");
+    expect(mapToVoicingQuality("m7b5")).toBe("m7b5");
+  });
+
+  // Uppercase M is major, lowercase m is minor. Anchoring the uppercase table
+  // to the whole string let altered aliases fall through to `/^m\d/`.
+  it("keeps altered uppercase-M aliases major", () => {
+    expect(mapToVoicingQuality("M69")).toBe("6/9");
+    expect(mapToVoicingQuality("M7#11")).toBe("maj7");
+    expect(mapToVoicingQuality("M13#11")).toBe("maj7");
+  });
+
+  it("leaves the plain uppercase-M forms where they were", () => {
+    expect(mapToVoicingQuality("M6")).toBe("maj6");
+    expect(mapToVoicingQuality("M7")).toBe("maj7");
+    expect(mapToVoicingQuality("M9")).toBe("maj7");
+    expect(mapToVoicingQuality("M11")).toBe("maj7");
+    expect(mapToVoicingQuality("M13")).toBe("maj7");
+  });
+
+  it("still reads M7b5 as half-diminished, which has no major reading", () => {
+    expect(mapToVoicingQuality("M7b5")).toBe("m7b5");
+  });
+
+  it("does not mistake uppercase-M for minor shorthand", () => {
+    expect(mapToVoicingQuality("m69")).toBe("m6/9");
+    expect(mapToVoicingQuality("m7")).toBe("min7");
+  });
+
+  // "69" is tonal's own alias for a 6/9 chord; the digit catchall claimed it.
+  it('maps the bare "69" alias to 6/9, not dom7', () => {
+    expect(mapToVoicingQuality("69")).toBe("6/9");
+    expect(mapToVoicingQuality("6/9")).toBe("6/9");
+    expect(mapToVoicingQuality("6add9")).toBe("6/9");
+  });
+
+  it("leaves the dominant fix this PR is named for intact", () => {
+    expect(mapToVoicingQuality("dominant seventh")).toBe("dom7");
+    expect(mapToVoicingQuality("dominant ninth")).toBe("dom7");
+    expect(mapToVoicingQuality("lydian dominant seventh")).toBe("dom7");
+  });
+});
+
+describe("mapToVoicingQuality — an altered degree is not a chord quality", () => {
+  // "major seventh flat sixth" contains the word "sixth", but the sixth is a
+  // flattened degree inside a seventh chord. Answering it with a maj6 voicing
+  // drops the 7th and adds a 6th the chord does not contain.
+  it("reads a flattened sixth as an alteration, not a sixth chord", () => {
+    expect(mapToVoicingQuality("major seventh flat sixth")).toBe("maj7");
+    expect(mapToVoicingQuality("mMaj7b6")).toBe("maj7");
+    expect(mapToVoicingQuality("M7b6")).toBe("maj7");
+  });
+
+  it("still reads a real sixth chord as one", () => {
+    expect(mapToVoicingQuality("sixth")).toBe("maj6");
+    expect(mapToVoicingQuality("minor sixth")).toBe("min6");
+    expect(mapToVoicingQuality("m6")).toBe("min6");
+    expect(mapToVoicingQuality("6#11")).toBe("maj6");
+  });
+
+  // The "11" in "6#11" is an alteration of a sixth chord, not an eleventh.
+  it("reads a sharpened eleventh as an alteration", () => {
+    expect(mapToVoicingQuality("6#11")).toBe("maj6");
+    expect(mapToVoicingQuality("11")).toBe("dom7");
+    expect(mapToVoicingQuality("eleventh")).toBe("dom7");
+  });
+
+  // Uppercase-M shorthand is major, but a suspended or half-diminished
+  // spelling outranks the family — it has no third to make major.
+  it("does not make a suspended chord major", () => {
+    expect(mapToVoicingQuality("M7sus4")).toBe("sus4");
+    expect(mapToVoicingQuality("M9sus4")).toBe("sus4");
+    expect(mapToVoicingQuality("M7#5sus4")).toBe("sus4");
+    expect(mapToVoicingQuality("M7b5")).toBe("m7b5");
+  });
+
+  it("reads tonal's dash spelling of minor", () => {
+    expect(mapToVoicingQuality("-7")).toBe("min7");
+    expect(mapToVoicingQuality("-9")).toBe("min7");
+    expect(mapToVoicingQuality("-11")).toBe("min7");
+    expect(mapToVoicingQuality("-13")).toBe("min7");
+    expect(mapToVoicingQuality("-6")).toBe("min6");
+    expect(mapToVoicingQuality("-69")).toBe("m6/9");
+    expect(mapToVoicingQuality("-7b5")).toBe("m7b5");
+  });
+
+  it("gives a minor augmented triad no seventh voicing", () => {
+    // 1P 3m 5A — no seventh, same as the major, minor and diminished triads.
+    expect(mapToVoicingQuality("minor augmented")).toBeUndefined();
+  });
+});
+
+describe("mapToVoicingQuality — property over tonal's whole vocabulary", () => {
+  // Every defect in this function has been a substring of one quality's name
+  // appearing inside another's. A hand-written table of examples keeps missing
+  // the next one; this asserts the invariant over everything tonal knows.
+  const SIXTH_QUALITIES = new Set(["maj6", "min6", "6/9", "m6/9"]);
+  const SEVENTH_QUALITIES = new Set(["dom7", "min7", "maj7", "m7b5", "dim7"]);
+
+  /**
+   * Known gap, deliberately not fixed here: a triad with an added tone and no
+   * seventh ("add9", "Madd9", "+add9", "add13") is claimed by the digit
+   * catchall and gets a dom7 voicing. Answering them properly is a design
+   * question about what an add chord should voice as, not a substring trap, so
+   * it is named here rather than silently passing.
+   */
+  const ADD_FAMILY = new Set([
+    "add13", "+add#9", "M#5add9", "+add9", "Madd9", "add9", "madd9", "Maddb9", "mb6b9",
+  ]);
+
+  it("never answers a chord with a quality its intervals cannot support", () => {
+    const wrong: string[] = [];
+    for (const ct of ChordType.all()) {
+      const names = [ct.name, ...ct.aliases].filter(Boolean);
+      const hasSixth = ct.intervals.some((i) => /^(6|13)/.test(i));
+      const hasSeventh = ct.intervals.some((i) => /^7/.test(i));
+      for (const name of names) {
+        if (ADD_FAMILY.has(name)) continue;
+        const q = mapToVoicingQuality(name);
+        if (!q) continue;
+        if (SIXTH_QUALITIES.has(q) && !hasSixth) {
+          wrong.push(`${name} -> ${q} but has no 6th (${ct.intervals.join(" ")})`);
+        }
+        if (SEVENTH_QUALITIES.has(q) && !hasSeventh) {
+          wrong.push(`${name} -> ${q} but has no 7th (${ct.intervals.join(" ")})`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
   });
 });
