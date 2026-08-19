@@ -989,9 +989,11 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
         />
       )}
 
-      {/* Controls row — muted, secondary. Every control in it describes a chord
-          diagram, so it goes away wholesale while a text card is being edited. */}
-      {showOptions && !isEditingTextCard && <div className="interactive-controls-row" style={{
+      {/* Controls row — muted, secondary. Always on: these describe the chord
+          you are looking at, so hiding them behind a toggle hid the display
+          switch too. Every control in it describes a chord diagram, so it still
+          goes away wholesale while a text card is being edited. */}
+      {!isEditingTextCard && <div className="interactive-controls-row" style={{
         display: "flex",
         gap: "0.75rem",
         alignItems: "stretch",
@@ -1327,7 +1329,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
           transition: "transform 0.2s ease",
           fontSize: "0.65rem",
         }}>&#9654;</span>
-        {showOptions ? "Hide" : "Show"} options &amp; examples
+        {showOptions ? "Hide" : "Show"} examples
       </button>
     </div>
   );
