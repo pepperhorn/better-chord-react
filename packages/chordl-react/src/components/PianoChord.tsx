@@ -499,8 +499,12 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     }
   }
   if (startingNote) {
+    // Both sides must be normalised. `notes` keeps the chord's own spelling —
+    // Bbm is ["Bb", "Db", "F"] — so normalising only the input turned
+    // "Bbm starting on Db" into a search for "C#" and reported Db missing from
+    // a chord whose own error message listed it as the 3rd.
     const norm = FLAT_TO_SHARP[startingNote] ?? startingNote;
-    const idx = notes.indexOf(norm);
+    const idx = notes.findIndex((n) => (FLAT_TO_SHARP[n] ?? n) === norm);
     if (idx < 0) {
       const available = describeAvailableDegrees(resolved.root, notes);
       throw new Error(
