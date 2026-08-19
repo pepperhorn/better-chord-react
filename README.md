@@ -120,8 +120,9 @@ keyboard. Clefs also seed the inferred base octave (bass = 3, treble = 4).
 ```
 
 The hand can also come first, and what follows it may be notes *or* a chord
-symbol. Both hands can be named in one input, in either order — an LH group
-with no explicit octaves sits an octave below the RH group:
+symbol. Both hands can be named in one input, in either order — with no
+explicit octaves, the hands are placed at least an octave apart and never
+share a key:
 
 ```tsx
 <PianoChord chord="rh c d e lh c e" />
@@ -129,6 +130,10 @@ with no explicit octaves sits an octave below the RH group:
 <PianoChord chord="rh Cmaj7 lh Dm7" />   {/* a chord per hand */}
 <PianoChord chord="rh c d e lh Am" />    {/* notes in one hand, chord in the other */}
 ```
+
+Placement is automatic only while the request leaves octaves open. Name an
+octave on any note and every group is placed exactly as written:
+`"notes C3 E3 in lh and notes C4 E4 in rh"`.
 
 Only the first chord after a hand keyword is used — `"rh Cmaj7 Dm7"` draws
 Cmaj7 and drops Dm7. A lone pitch class still reads as a single note

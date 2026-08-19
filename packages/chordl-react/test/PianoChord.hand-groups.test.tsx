@@ -11,6 +11,11 @@ function highlightedKeys(container: HTMLElement): number {
   ).length;
 }
 
+/** Rendered note labels, in order. Ask for MIDI names to read octaves back. */
+function noteLabels(container: HTMLElement): string[] {
+  return [...container.querySelectorAll(".bc-note-name")].map((n) => n.textContent ?? "");
+}
+
 /** Bracket labels with the x of their label text, left to right. */
 function brackets(container: HTMLElement): { label: string; x: number }[] {
   return [...container.querySelectorAll("svg text")]
@@ -42,6 +47,43 @@ describe("PianoChord hand groups", () => {
     // Cmaj7 (C3 E3 G3 B3) + Dm7 (D4 F4 A4 C5) = 8 keys.
     expect(highlightedKeys(container)).toBe(8);
     expect(brackets(container).map((b) => b.label)).toEqual(["L.H.", "R.H."]);
+  });
+
+  it("keeps the hands an octave apart", () => {
+    const { container } = render(<PianoChord chord="rh c d e lh c e with midi note names" />);
+    expect(noteLabels(container)).toEqual(["C3", "E3", "C4", "D4", "E4"]);
+  });
+
+  it("lifts the RH clear of an LH group that wraps into its octave", () => {
+    // "lh Dm7" resolves D3 F3 A3 C4 — the C4 that "rh Cmaj7" would start on.
+    const { container } = render(<PianoChord chord="rh Cmaj7 lh Dm7 with midi note names" />);
+    expect(noteLabels(container)).toEqual(["D3", "F3", "A3", "C4", "C5", "E5", "G5", "B5"]);
+    expect(highlightedKeys(container)).toBe(8);
+  });
+
+  it("lifts the RH when the default octaves would crowd the LH", () => {
+    // A3 B3 leaves C4 only three semitones up — not a hand's worth of space.
+    const { container } = render(<PianoChord chord="rh c d e lh a b with midi note names" />);
+    expect(noteLabels(container)).toEqual(["A3", "B3", "C5", "D5", "E5"]);
+  });
+
+  it("leaves a comfortable spread alone", () => {
+    const { container } = render(<PianoChord chord="rh e g b lh c e g with midi note names" />);
+    expect(noteLabels(container)).toEqual(["C3", "E3", "G3", "E4", "G4", "B4"]);
+  });
+
+  it("honors octaves the request pins itself", () => {
+    const { container } = render(
+      <PianoChord chord="notes C3 E3 in lh and notes C4 E4 in rh with midi note names" />,
+    );
+    expect(noteLabels(container)).toEqual(["C3", "E3", "C4", "E4"]);
+  });
+
+  it("leaves a bass/treble clef pair where the clefs put it", () => {
+    const { container } = render(
+      <PianoChord chord="notes C E G in the bass clef and notes B D F in the treble clef with midi note names" />,
+    );
+    expect(noteLabels(container)).toEqual(["C3", "E3", "G3", "B4", "D5", "F5"]);
   });
 
   it("labels a per-hand chord request with its chord symbols", () => {
