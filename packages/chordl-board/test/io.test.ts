@@ -1,14 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { computeCacheKey, exportBoardJson, importBoardJson } from "../src/io";
+import {
+  BOARD_SCHEMA,
+  computeCacheKey,
+  exportBoardJson,
+  importBoardJson,
+} from "../src/io";
 import { isTextCard } from "../src/types";
 import type { BoardState } from "../src/types";
 
 const board = (items: BoardState["items"]): BoardState => ({ items, meta: {} });
 
 /** Hand-rolled JSON standing in for an untrusted file the user picked. */
-const rawBoard = (items: unknown[]): string =>
+const rawBoard = (items: unknown[], schema = "chordl.board/v1"): string =>
   JSON.stringify({
-    schema: "chordl.board/v1",
+    schema,
     exportedAt: "2026-08-12T00:00:00.000Z",
     meta: {},
     items,
@@ -271,5 +276,50 @@ describe("render cache key", () => {
       await computeCacheKey({ user_string: "Cmaj7", render_config: { title: "One" } }),
     );
     expect(json.items[0].cacheKey).toBe(json.items[1].cacheKey);
+  });
+});
+
+describe("schema versioning", () => {
+  it("writes v2 — the first version that can carry a text card", async () => {
+    const json = JSON.parse(await exportBoardJson(board([{ id: "a", nl: "Cmaj7" }])));
+    expect(json.schema).toBe("chordl.board/v2");
+    expect(BOARD_SCHEMA).toBe("chordl.board/v2");
+  });
+
+  it("still reads a v1 board written before text cards existed", () => {
+    const back = importBoardJson(
+      rawBoard([{ id: "a", nl: "Cmaj7", title: "One", display: "staff" }]),
+    );
+    expect(back.items).toHaveLength(1);
+    expect(back.items[0]).toMatchObject({ id: "a", nl: "Cmaj7", title: "One", display: "staff" });
+  });
+
+  it("reads a v2 board carrying a text card", () => {
+    const back = importBoardJson(
+      rawBoard(
+        [
+          { id: "a", nl: "Cmaj7" },
+          { id: "b", kind: "text", title: "Chorus", icon: "music:trebleClef" },
+        ],
+        "chordl.board/v2",
+      ),
+    );
+    expect(back.items).toHaveLength(2);
+    expect(isTextCard(back.items[1])).toBe(true);
+    expect(back.items[1]).toMatchObject({ title: "Chorus", icon: "music:trebleClef" });
+  });
+
+  it("rejects a newer schema by saying a newer chordl is needed", () => {
+    expect(() => importBoardJson(rawBoard([], "chordl.board/v3"))).toThrow(/newer chordl/);
+  });
+
+  it("round-trips its own export", async () => {
+    const state = board([
+      { id: "a", nl: "Cmaj7" },
+      { id: "b", kind: "text", title: "Verse", breakAfter: true },
+    ]);
+    const back = importBoardJson(await exportBoardJson(state));
+    expect(back.items).toHaveLength(2);
+    expect(back.items[1]).toMatchObject({ kind: "text", title: "Verse", breakAfter: true });
   });
 });

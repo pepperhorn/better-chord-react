@@ -14,8 +14,20 @@ export interface BoardItemJsonV1 extends BoardItem {
   renderConfig?: Record<string, unknown>;
 }
 
+/**
+ * Schema `exportBoardJson` writes. v2 is the first version that can carry text
+ * cards (`kind`, `icon`, `image`, `breakAfter`); a v1 reader rejects those
+ * items one by one with no way to explain why, so the version says so up front.
+ */
+export const BOARD_SCHEMA = "chordl.board/v2";
+
+/** Schemas `importBoardJson` accepts. v1 boards are chord-only and still read. */
+export const READABLE_BOARD_SCHEMAS = ["chordl.board/v1", "chordl.board/v2"] as const;
+
+export type BoardSchema = (typeof READABLE_BOARD_SCHEMAS)[number];
+
 export interface BoardJsonV1 {
-  schema: "chordl.board/v1";
+  schema: BoardSchema;
   exportedAt: string;
   meta: BoardMeta;
   items: BoardItemJsonV1[];
@@ -80,7 +92,7 @@ export async function exportBoardJson(state: BoardState): Promise<string> {
     }),
   );
   const payload: BoardJsonV1 = {
-    schema: "chordl.board/v1",
+    schema: BOARD_SCHEMA,
     exportedAt: new Date().toISOString(),
     meta: state.meta,
     items,
@@ -126,8 +138,11 @@ function parseImage(value: unknown): string | undefined {
 
 export function importBoardJson(text: string): BoardState {
   const parsed = JSON.parse(text) as Partial<BoardJsonV1>;
-  if (!parsed || parsed.schema !== "chordl.board/v1") {
-    throw new Error("Unsupported board JSON: expected schema 'chordl.board/v1'");
+  if (!parsed || !READABLE_BOARD_SCHEMAS.includes(parsed.schema as BoardSchema)) {
+    throw new Error(
+      `Unsupported board JSON: expected one of ${READABLE_BOARD_SCHEMAS.join(", ")}, got ` +
+        `'${parsed?.schema}'. A board saved by a newer chordl needs a newer chordl to open it.`,
+    );
   }
   if (!Array.isArray(parsed.items)) {
     throw new Error("Invalid board JSON: 'items' must be an array");

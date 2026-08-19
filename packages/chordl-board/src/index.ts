@@ -12,7 +12,8 @@ export { BOARD_DISPLAY_MODES, BOARD_ICON_PREFIXES, BOARD_ITEM_KINDS, isTextCard 
 export { localStorageAdapter, memoryStorageAdapter } from "./storage";
 export type { LocalStorageAdapterOptions } from "./storage";
 export { exportBoardJson, importBoardJson, computeCacheKey } from "./io";
-export type { BoardJsonV1, BoardItemJsonV1 } from "./io";
+export type { BoardJsonV1, BoardItemJsonV1, BoardSchema } from "./io";
+export { BOARD_SCHEMA, READABLE_BOARD_SCHEMAS } from "./io";
 export {
   fileToCardImage,
   imageBytesUsed,
