@@ -15,6 +15,7 @@ import { findVoicing, voicingPitchClasses, mapToVoicingQuality, realizeVoicingFu
 import type { Hand as VoicingHand } from "@pepperhorn/chordl-voicings";
 import { ChordGroup } from "./ChordGroup";
 import { CardHeading, CardFooter } from "./CardHeading";
+import { ascendingOctaves, diatonicStep } from "../diatonic-step";
 import { resolveUITheme, UIThemeProvider } from "../ui-theme";
 
 /**
@@ -602,21 +603,9 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
    * intact, is not a white note, and would index -1 on every flat.
    */
   const computeOctaveQualified = (pitchClasses: string[], baseOctave: number): string[] => {
-    const stepOf = (n: string) =>
-      WHITE_NOTE_ORDER.indexOf(n.charAt(0).toUpperCase() as WhiteNote);
-
-    let octave = baseOctave;
-    let prevWhiteIdx = stepOf(pitchClasses[0]);
-
     // Step 1: naive ascending octave assignment
-    const assigned = pitchClasses.map((n, i) => {
-      const whiteIdx = stepOf(n);
-      if (i > 0 && whiteIdx <= prevWhiteIdx) {
-        octave++;
-      }
-      prevWhiteIdx = whiteIdx;
-      return { name: n, octave };
-    });
+    const octaves = ascendingOctaves(pitchClasses, baseOctave);
+    const assigned = pitchClasses.map((n, i) => ({ name: n, octave: octaves[i] }));
 
     // Step 2: compact — fold notes down an octave if span exceeds playable
     // range. `Note.midi` reads flats directly, so the original names work here.
@@ -856,25 +845,19 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
   // Detect wrapping: any note whose white-key index is at or below the previous.
   let highlightKeys: string[] = keyboardNotes;
   {
-    const whiteIndices = keyboardNotes.map((n) => {
-      return WHITE_NOTE_ORDER.indexOf(n.replace("#", "") as WhiteNote);
-    });
+    // Stepped by the *original* spelling, not the normalised one: the highlight
+    // names stay sharp for key matching, but the octaves have to be the same
+    // ones the staff assigns or "Both" draws two different voicings.
+    const whiteIndices = notes.map(diatonicStep);
+
     const needsOctaveQual = layout.chordOctave > 0 || chordShift !== 0 ||
       whiteIndices.some((idx, i) => i > 0 && idx <= whiteIndices[i - 1]);
 
     if (needsOctaveQual) {
-      let octave = Math.max(layout.chordOctave + chordShift, 0);
-      let prevWhiteIdx = whiteIndices[0];
-
-      // Step 1: naive ascending octave assignment
-      const assigned = keyboardNotes.map((n, i) => {
-        const whiteIdx = whiteIndices[i];
-        if (i > 0 && whiteIdx <= prevWhiteIdx) {
-          octave++;
-        }
-        prevWhiteIdx = whiteIdx;
-        return { note: n, octave };
-      });
+      // Step 1: naive ascending octave assignment — the same walk the staff
+      // runs, over the same spellings, so the two views cannot disagree.
+      const octaves = ascendingOctaves(notes, Math.max(layout.chordOctave + chordShift, 0));
+      const assigned = keyboardNotes.map((n, i) => ({ note: n, octave: octaves[i] }));
 
       // Step 2: compact — fold notes down if span exceeds playable range
       const baseMidi = Note.midi(`${assigned[0].note}${assigned[0].octave + 4}`);

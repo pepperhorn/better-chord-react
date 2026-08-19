@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import type { Format, ColorTheme, WhiteNote, DisplayMode, TextSize, NoteNameMode, OnVariation, RenderVariationExtras, VariationContext } from "../types";
 import { PianoKeyboard } from "./PianoKeyboard";
+import { ascendingOctaves } from "../diatonic-step";
 import { StaffNotation } from "./StaffNotation";
 import { calculateLayout, normalizeNote, WHITE_NOTE_ORDER, autoFingering } from "@pepperhorn/chordl-core";
 import type { ProgressionChord } from "@pepperhorn/chordl-core";
@@ -79,21 +80,10 @@ export function ChordGroup({
           // Use octave-qualified highlights when padding creates duplicate notes
           let highlightKeys: string[] = chord.notes;
           if (layouts[i].chordOctave > 0) {
-            let octave = layouts[i].chordOctave;
-            const firstNorm = normalizeNote(chord.notes[0]);
-            const firstWhiteIdx = WHITE_NOTE_ORDER.indexOf(
-              firstNorm.replace("#", "") as WhiteNote
+            const octaves = ascendingOctaves(chord.notes, layouts[i].chordOctave);
+            highlightKeys = chord.notes.map(
+              (n, j) => `${normalizeNote(n)}:${octaves[j]}`,
             );
-            let prevWhiteIdx = firstWhiteIdx;
-
-            highlightKeys = chord.notes.map((n, j) => {
-              const norm = normalizeNote(n);
-              const whiteKey = norm.replace("#", "") as WhiteNote;
-              const whiteIdx = WHITE_NOTE_ORDER.indexOf(whiteKey);
-              if (j > 0 && whiteIdx <= prevWhiteIdx) octave++;
-              prevWhiteIdx = whiteIdx;
-              return `${norm}:${octave}`;
-            });
           }
 
           return (
