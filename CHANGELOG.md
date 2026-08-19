@@ -108,6 +108,22 @@ substrings, and several names contain the name of a different quality.
   lowercase pass — including tonal's altered aliases `M69` and `M7#11`, which
   an anchored test let fall through into the minor branch. `M7b5` still reads
   as half-diminished, which is the only established meaning of that symbol.
+- **The jazz major-seventh symbols are read as major sevenths.** `^7`, `^9`,
+  `^13`, `Δ9`, `ma7` and their altered forms carry no "maj" for the major test
+  to find, so they fell to the digit catchall and were answered with *dominant*
+  voicings — a b7 against the chord's natural 7. A bare `^` is still the major
+  triad it actually is.
+- **Every minor/major seventh spelling is now minor.** The canonical name
+  contains "minor" and resolved, but the shorthand scattered: `mMaj7` and
+  `-maj7` contain "maj" and landed in the major branch, while `mM7`, `mΔ`,
+  `-Δ7` and `m/M7` fell through to dominant. One chord had three different
+  answers depending on how it was written. `mMaj7b6` and `mb6M7` come with it —
+  whether the added tone is read as a b6 or as the raised fifth it sounds like,
+  the chord is minor either way.
+- **A sus chord with a major seventh gets no voicing rather than a wrong one.**
+  The sus4 entries are quartal stacks built on a minor seventh, so answering
+  `M7sus4` or `M9sus4` with one sounds a b7 against the natural 7 those chords
+  are named for. There is no maj7sus4 quality to return.
 - **An altered degree is no longer read as a quality.** `major seventh flat
   sixth` contains the word "sixth" and `6#11` contains "11", but in both the
   number is an alteration inside another chord, not the chord's own quality.
