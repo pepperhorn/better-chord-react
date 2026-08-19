@@ -108,9 +108,29 @@ substrings, and several names contain the name of a different quality.
   lowercase pass — including tonal's altered aliases `M69` and `M7#11`, which
   an anchored test let fall through into the minor branch. `M7b5` still reads
   as half-diminished, which is the only established meaning of that symbol.
-**Added:** `maj7b5` joins `VoicingQuality`, and `VOICING_LIBRARY` gains entries
+**Added:** `maj7b5`, `add9`, `madd9`, `add11`, `madd11`, `5`, `sus2` and
+`mMaj7` join `VoicingQuality`, and `VOICING_LIBRARY` gains entries
 for the five qualities that had none.
 
+- **A chord with an added tone is a triad plus that tone, not a dominant.**
+  `add9`, `Madd9`, `add2` and the bare `2` are a major triad plus the 9th;
+  `madd9` is a minor one. `add4`/`add11` and `madd4`/`madd11` carry the 11th.
+  They have no seventh at all, which is what an add chord is defined by — but
+  the digit catchall saw the 9 or the 11 and answered dom7, putting a b7 into
+  them. Major or minor comes from the original spelling, since `Madd9` and
+  `madd9` are different chords and differ only by that capital. An altered add
+  (`addb9`, `+add9`) has no matching quality and returns none rather than a
+  voicing that would contradict it.
+- **`5` is a power chord: root, fifth, octave.** Also written `no3`, and named
+  `fifth` by tonal. It had no quality and no voicing.
+- **`sus2` is its own chord.** 1 2 5, not the 1 4 5 of sus4 — the sus4 voicings
+  are quartal stacks on a fourth and a minor seventh, neither of which a sus2
+  contains. `sus24`, which really does have a fourth, still reads as sus4.
+- **The minor/major seventh has its own quality.** It was answered with min7
+  as the nearest thing the library carried, which meant `CmMaj7` — C Eb G B —
+  was voiced with a Bb. It now has `mMaj7` and voicings that sound the natural
+  seventh the chord is named for.
+- **`add6` and `add13` are the sixth chord** they always were, rather than dom7.
 - **Every quality the mapper can return now has a voicing.** `min6`, `m6/9`,
   `6/9` and `dim7` were reachable but carried no entries, so a chord identified
   correctly resolved to nothing at all. Twelve entries are added, using the
