@@ -81,8 +81,16 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // of this table: it isn't ambiguous by case either way, since lowercasing
   // it to "m" already falls through every branch below to `undefined`, the
   // same as "major"/"major triad" do for plain triads.
-  if (/^M(6|7|9|11|13)$/.test(chordType)) {
-    return chordType === "M6" ? "maj6" : "maj7";
+  // Anchoring this to the whole string was too strict: tonal also publishes
+  // altered uppercase aliases ("M69" for a 6/9, "M7#11"), and those fell past
+  // the table into the lowercase logic, where `/^m\d/` read them as *minor*
+  // shorthand — M69 came out min6 and M7#11 came out min7. Matching the prefix
+  // and classifying the remainder keeps the whole family major.
+  if (/^M\d/.test(chordType) && !/^M7b5$/.test(chordType)) {
+    const rest = chordType.slice(1);
+    if (/^(69|6\/9|6add9)/.test(rest)) return "6/9";
+    if (/^6/.test(rest)) return "maj6";
+    return "maj7";
   }
 
   const t = chordType.toLowerCase();
@@ -90,6 +98,12 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   if (t.includes("alt")) return "alt";
   if (t.includes("dim7") || t.includes("diminished seventh")) return "dim7";
   if (t.includes("m7b5") || t.includes("half")) return "m7b5";
+  // Trap #1 again, one chord along: "diminished" contains "min" (di-MIN-ished),
+  // so a bare diminished triad reached the minor branch and rendered min7
+  // voicings. It has no seventh-chord voicing of its own, so it is undefined
+  // like the major and minor triads — "diminished seventh" and the
+  // half-diminished spellings are both already answered above.
+  if (t.includes("dim")) return undefined;
   if (t.includes("sus")) return "sus4";
   // "dominant" contains the substring "min", so this must precede the minor
   // test below or every dominant chord resolves to min7.
@@ -104,7 +118,17 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   if (t.includes("min") || t.includes("minor") || isMinorShorthand) {
     // Plain triads ("minor", "minor triad") don't map to 7th voicings
     if (t === "minor" || t === "minor triad") return undefined;
-    if (t.includes("6/9") || t.includes("6add9")) return "m6/9";
+    // Kept in step with the major branch below: the two used to test different
+    // 6/9 spellings, which is the asymmetry that let "minor sixth" through as
+    // min7 in the first place.
+    if (
+      t.includes("6/9") ||
+      t.includes("69") ||
+      t.includes("6add9") ||
+      t.includes("sixth added ninth")
+    ) {
+      return "m6/9";
+    }
     // Trap #4: Tonal spells the minor sixth chord "minor sixth" with no digit
     // at all, so the numeral-only test misses it and falls through to
     // min7. Recognize the spelled-out word alongside the numeral.
@@ -113,7 +137,14 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   }
   if (t.includes("maj") || t.includes("major")) {
     if (t === "major" || t === "major triad") return undefined;
-    if (t.includes("6/9") || t.includes("6add9") || t.includes("sixth added ninth")) return "6/9";
+    if (
+      t.includes("6/9") ||
+      t.includes("69") ||
+      t.includes("6add9") ||
+      t.includes("sixth added ninth")
+    ) {
+      return "6/9";
+    }
     // Same Trap #4 spelled-out-sixth issue as the minor branch above
     // ("major sixth" has no digit); without this "major sixth" falls
     // through to maj7.
@@ -125,7 +156,14 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // "sixth" / "sixth added ninth" / "eleventh" names). The 6-family checks
   // must run before the 7/9/11/13 catchall or "6/9" and "6add9" (which
   // contain "9") get caught by it and misclassified as dom7.
-  if (t.includes("6/9") || t.includes("6add9") || t.includes("sixth added ninth")) return "6/9";
+  if (
+    t.includes("6/9") ||
+    t.includes("69") ||
+    t.includes("6add9") ||
+    t.includes("sixth added ninth")
+  ) {
+    return "6/9";
+  }
   // Trap #5: Tonal's canonical type for an 11th chord is the bare word
   // "eleventh" ("C11".type === "eleventh"), with no "7"/"9"/"13" digit for
   // this catchall to match — so 11th chords fell through to `undefined`

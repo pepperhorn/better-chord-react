@@ -410,3 +410,56 @@ describe("mapToVoicingQuality", () => {
     });
   });
 });
+
+describe("mapToVoicingQuality — substrings that look like other qualities", () => {
+  // "diminished" contains "min", the same trap as "dominant". A bare
+  // diminished triad rendered minor-seventh voicings.
+  it('maps "diminished" to undefined, not min7', () => {
+    expect(mapToVoicingQuality("diminished")).toBeUndefined();
+  });
+
+  it("still answers the diminished spellings that do have a voicing", () => {
+    expect(mapToVoicingQuality("diminished seventh")).toBe("dim7");
+    expect(mapToVoicingQuality("dim7")).toBe("dim7");
+    expect(mapToVoicingQuality("half-diminished")).toBe("m7b5");
+    expect(mapToVoicingQuality("m7b5")).toBe("m7b5");
+  });
+
+  // Uppercase M is major, lowercase m is minor. Anchoring the uppercase table
+  // to the whole string let altered aliases fall through to `/^m\d/`.
+  it("keeps altered uppercase-M aliases major", () => {
+    expect(mapToVoicingQuality("M69")).toBe("6/9");
+    expect(mapToVoicingQuality("M7#11")).toBe("maj7");
+    expect(mapToVoicingQuality("M13#11")).toBe("maj7");
+  });
+
+  it("leaves the plain uppercase-M forms where they were", () => {
+    expect(mapToVoicingQuality("M6")).toBe("maj6");
+    expect(mapToVoicingQuality("M7")).toBe("maj7");
+    expect(mapToVoicingQuality("M9")).toBe("maj7");
+    expect(mapToVoicingQuality("M11")).toBe("maj7");
+    expect(mapToVoicingQuality("M13")).toBe("maj7");
+  });
+
+  it("still reads M7b5 as half-diminished, which has no major reading", () => {
+    expect(mapToVoicingQuality("M7b5")).toBe("m7b5");
+  });
+
+  it("does not mistake uppercase-M for minor shorthand", () => {
+    expect(mapToVoicingQuality("m69")).toBe("m6/9");
+    expect(mapToVoicingQuality("m7")).toBe("min7");
+  });
+
+  // "69" is tonal's own alias for a 6/9 chord; the digit catchall claimed it.
+  it('maps the bare "69" alias to 6/9, not dom7', () => {
+    expect(mapToVoicingQuality("69")).toBe("6/9");
+    expect(mapToVoicingQuality("6/9")).toBe("6/9");
+    expect(mapToVoicingQuality("6add9")).toBe("6/9");
+  });
+
+  it("leaves the dominant fix this PR is named for intact", () => {
+    expect(mapToVoicingQuality("dominant seventh")).toBe("dom7");
+    expect(mapToVoicingQuality("dominant ninth")).toBe("dom7");
+    expect(mapToVoicingQuality("lydian dominant seventh")).toBe("dom7");
+  });
+});

@@ -82,6 +82,35 @@ to) rather than svguitar's highest-pitch-first numbering.
 This lives in core rather than chordl-voicings because it needs
 `classifyTones`/`dropOrder`; voicings is a leaf package that core depends on.
 
+### chordl-voicings 0.3.1
+
+`mapToVoicingQuality` classified a chord by searching its type name for
+substrings, and several names contain the name of a different quality.
+
+- **Dominant chords no longer render minor voicings.** `"dominant"` contains
+  `"min"` (do-MIN-ant), and the minor test ran first, so every dominant type —
+  `dominant seventh`, `dominant ninth`, `dominant thirteenth`, `lydian dominant
+  seventh` — resolved to min7. This is the whole shipped dominant vocabulary,
+  and it is what `resolveChord("C7").type` returns.
+- **A diminished triad no longer renders minor voicings.** `"diminished"`
+  contains `"min"` too. `dim7` and the half-diminished spellings were answered
+  earlier and were correct; the bare triad fell through to min7. It now returns
+  no quality, like the major and minor triads.
+- **Minor shorthand is read as minor.** `m7`, `m9`, `m11`, `m13` contain
+  neither `"min"` nor `"minor"`, so they reached the digit catchall and came
+  out dom7 (`m11` returned nothing at all). This is reachable from chordl's own
+  code, not only from external callers: `buildSpecialChord` emits the literal
+  type `m6/9` for any `Xm6/9`, and every call site passes `.type` straight
+  through.
+- **Uppercase-M shorthand stays major.** Lowercasing destroys the one signal
+  separating `M7` (major) from `m7` (minor), so it is now tested before the
+  lowercase pass — including tonal's altered aliases `M69` and `M7#11`, which
+  an anchored test let fall through into the minor branch. `M7b5` still reads
+  as half-diminished, which is the only established meaning of that symbol.
+- **Spelled-out and bare names resolve.** Tonal names several chords with no
+  digit to match: `sixth`, `minor sixth`, `sixth added ninth`, `eleventh`. The
+  bare `69` alias was also being claimed by the digit catchall as dom7.
+
 ## 0.3.5 — 2026-05-26
 
 ### Fixed
