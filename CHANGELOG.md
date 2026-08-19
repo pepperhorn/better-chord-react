@@ -64,6 +64,17 @@ to) rather than svguitar's highest-pitch-first numbering.
 - **A guitar card's chord name is no longer drawn twice** — once by the panel and once by svguitar's built-in diagram title, in a font it sized independently of the page.
 - **Board PNG/PDF exports can't capture a loading placeholder.** `ChordBoard` imported the guitar panel lazily for a saving it never made (chordl-react ships as one bundle, so `PianoChord` already pulls in svguitar and chords-db), while its Suspense fallback was a live race with `html2canvas`. The import is now static.
 
+### chordl-core
+
+- **A chord tonal leaves unnamed now carries its canonical name.** `Cadd9`,
+  `Cmadd9`, `CM7b5` and `C6#11` resolve to the right notes but tonal gives them
+  `type: ""`, because those chord types carry aliases and no name. An empty type
+  tells a consumer nothing, and it is the field `mapToVoicingQuality` reads to
+  pick a voicing — so an add chord could be spelled correctly and still be
+  voiced as nothing. The type now falls back to the first alias tonal lists for
+  it. Notes, root and display name are unchanged; `add2`, `2` and `add9` all
+  resolve to one name, as one chord should.
+
 ### chordl-core 0.4.0
 
 - `constrainVoicing` fits a voicing to a hand, bounded by `maxSpanPerHand`

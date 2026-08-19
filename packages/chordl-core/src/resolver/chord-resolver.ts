@@ -184,7 +184,14 @@ export function resolveChord(
   } else if (!chord.empty) {
     notes = chord.notes.map(simplifyNote);
     root = simplifyNote(chord.tonic ?? notes[0]);
-    type = chord.type;
+    // tonal names most of its chord types but not all: `Cadd9`, `CM7b5` and
+    // `C6#11` resolve to real notes carrying `type: ""`. An empty type tells a
+    // consumer nothing — `mapToVoicingQuality` reads this field to pick a
+    // voicing — so fall back to the type's own first alias, which is the
+    // canonical spelling tonal lists for it. The display name comes from the
+    // parsed chord name, not from here, so this only affects consumers that
+    // reason about the chord's quality.
+    type = chord.type || chord.aliases?.[0] || "";
     intervals = chord.intervals;
   } else {
     // Fallback: strip trailing alterations and reapply as intervals

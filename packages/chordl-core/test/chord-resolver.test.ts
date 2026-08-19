@@ -62,3 +62,35 @@ describe("resolveChord", () => {
     expect(result.notes).toEqual(["G", "B", "D", "F", "A#"]);
   });
 });
+
+describe("chord types tonal leaves unnamed", () => {
+  // tonal resolves these to real notes but gives them `type: ""`, because the
+  // ChordType carries aliases and no name. An empty type tells a consumer
+  // nothing, and `mapToVoicingQuality` reads this field to choose a voicing.
+  it("names a chord from its canonical alias when tonal gives none", () => {
+    expect(resolveChord("Cadd9").type).toBe("Madd9");
+    expect(resolveChord("Cmadd9").type).toBe("madd9");
+    expect(resolveChord("CM7b5").type).toBe("M7b5");
+    expect(resolveChord("C6#11").type).toBe("M6#11");
+  });
+
+  it("leaves the notes and root exactly as they were", () => {
+    expect(resolveChord("Cadd9").notes).toEqual(["C", "E", "G", "D"]);
+    expect(resolveChord("Cadd9").root).toBe("C");
+    expect(resolveChord("CM7b5").notes).toEqual(["C", "E", "Gb", "B"]);
+  });
+
+  it("does not touch the chords tonal does name", () => {
+    expect(resolveChord("Cmaj7").type).toBe("major seventh");
+    expect(resolveChord("C7").type).toBe("dominant seventh");
+    expect(resolveChord("C5").type).toBe("fifth");
+    expect(resolveChord("Csus2").type).toBe("suspended second");
+  });
+
+  it("spells the same chord the same way however it was written", () => {
+    // add2, 2 and add9 are one chord; they must not resolve three ways.
+    const t = resolveChord("Cadd9").type;
+    expect(resolveChord("Cadd2").type).toBe(t);
+    expect(resolveChord("C2").type).toBe(t);
+  });
+});
