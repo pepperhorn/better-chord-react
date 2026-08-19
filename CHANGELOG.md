@@ -89,8 +89,9 @@ substrings, and several names contain the name of a different quality.
 
 - **Dominant chords no longer render minor voicings.** `"dominant"` contains
   `"min"` (do-MIN-ant), and the minor test ran first, so every dominant type —
-  `dominant seventh`, `dominant ninth`, `dominant thirteenth`, `lydian dominant
-  seventh` — resolved to min7. This is the whole shipped dominant vocabulary,
+  `dominant seventh`, `dominant ninth`, `dominant thirteenth`, `dominant flat
+  ninth`, `dominant sharp ninth` and `lydian dominant seventh` — resolved to
+  min7. This is the whole shipped dominant vocabulary,
   and it is what `resolveChord("C7").type` returns.
 - **A diminished triad no longer renders minor voicings.** `"diminished"`
   contains `"min"` too. `dim7` and the half-diminished spellings were answered
@@ -107,9 +108,28 @@ substrings, and several names contain the name of a different quality.
   lowercase pass — including tonal's altered aliases `M69` and `M7#11`, which
   an anchored test let fall through into the minor branch. `M7b5` still reads
   as half-diminished, which is the only established meaning of that symbol.
+- **An altered degree is no longer read as a quality.** `major seventh flat
+  sixth` contains the word "sixth" and `6#11` contains "11", but in both the
+  number is an alteration inside another chord, not the chord's own quality.
+  The same applies to the digit in `mMaj7b6`. Answering them with a sixth
+  voicing dropped the seventh and added a sixth the chord does not contain.
+- **Tonal's dash spelling of minor is read as minor.** `-7`, `-9`, `-11`,
+  `-13`, `-6`, `-69` and `-7b5` are the same shorthand as the `m` forms and
+  were falling to the dominant catchall.
 - **Spelled-out and bare names resolve.** Tonal names several chords with no
   digit to match: `sixth`, `minor sixth`, `sixth added ninth`, `eleventh`. The
   bare `69` alias was also being claimed by the digit catchall as dom7.
+
+Note for consumers: `min6`, `m6/9`, `6/9` and `dim7` are now returned where
+they were previously mis-answered, but `VOICING_LIBRARY` carries no entries for
+those qualities yet, so `findVoicing` returns nothing for them. A sixth chord
+that used to render a wrong (minor-seventh) voicing now renders none until the
+library gains them. `VoicingVariantToggle` falls through to its inversion and
+algorithmic variants; a call passing a style hint logs the usual
+"No voicing found" warning.
+
+Known gap, unchanged: a triad with an added tone and no seventh (`add9`,
+`add13`, `+add9`) is still claimed by the digit catchall and answered as dom7.
 
 ## 0.3.5 — 2026-05-26
 

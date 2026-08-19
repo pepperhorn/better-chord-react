@@ -86,18 +86,22 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // the table into the lowercase logic, where `/^m\d/` read them as *minor*
   // shorthand — M69 came out min6 and M7#11 came out min7. Matching the prefix
   // and classifying the remainder keeps the whole family major.
-  if (/^M\d/.test(chordType) && !/^M7b5$/.test(chordType)) {
-    const rest = chordType.slice(1);
-    if (/^(69|6\/9|6add9)/.test(rest)) return "6/9";
-    if (/^6/.test(rest)) return "maj6";
-    return "maj7";
-  }
-
   const t = chordType.toLowerCase();
+
+  // "sixth" names a sixth chord — but "major seventh flat sixth" and friends
+  // use the same word for an *altered degree inside a seventh chord*, and
+  // answering those with a maj6 voicing drops the 7th and adds a 6th the chord
+  // does not contain.
+  const namesASixthChord =
+    (t.includes("sixth") && !t.includes("flat sixth") && !t.includes("sharp sixth")) ||
+    // The digit form has the same trap: the "6" in "mMaj7b6" is a flattened
+    // 6th inside a major-seventh chord, not a sixth chord. Only a 6 that is
+    // not being altered counts.
+    /(^|[^#b])6/.test(t);
 
   if (t.includes("alt")) return "alt";
   if (t.includes("dim7") || t.includes("diminished seventh")) return "dim7";
-  if (t.includes("m7b5") || t.includes("half")) return "m7b5";
+  if (t.includes("m7b5") || t.includes("-7b5") || t.includes("half")) return "m7b5";
   // Trap #1 again, one chord along: "diminished" contains "min" (di-MIN-ished),
   // so a bare diminished triad reached the minor branch and rendered min7
   // voicings. It has no seventh-chord voicing of its own, so it is undefined
@@ -105,6 +109,19 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // half-diminished spellings are both already answered above.
   if (t.includes("dim")) return undefined;
   if (t.includes("sus")) return "sus4";
+  // Uppercase M is major, lowercase m is minor, and lowercasing destroys the
+  // difference — so this reads the original string. It sits *here*, not at the
+  // top: `M7sus4` and `M9sus4` are suspended chords, and `M7b5` is the standard
+  // spelling of a half-diminished, so those tests outrank the family. Anchoring
+  // it to the whole string was too strict — tonal also publishes altered
+  // aliases (`M69`, `M7#11`) that then fell into the lowercase logic, where
+  // `/^m\d/` read them as *minor* shorthand.
+  if (/^M\d/.test(chordType)) {
+    const rest = chordType.slice(1);
+    if (/^(69|6\/9|6add9)/.test(rest)) return "6/9";
+    if (/^6/.test(rest)) return "maj6";
+    return "maj7";
+  }
   // "dominant" contains the substring "min", so this must precede the minor
   // test below or every dominant chord resolves to min7.
   if (t.includes("dom")) return "dom7";
@@ -114,10 +131,22 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // dom7, "m6" -> maj6). Match "m" directly followed by a digit instead:
   // "maj7"/"major seventh" have "a" after the "m" so they don't collide, and
   // "m7b5" is already caught above so it never reaches this check.
-  const isMinorShorthand = /^m\d/.test(t);
+  // tonal publishes a leading "-" for minor alongside "m": -7, -9, -11, -13,
+  // -6, -69. Same shorthand, same trap — without it they fall to the digit
+  // catchall and come out dominant.
+  const isMinorShorthand = /^[m-]\d/.test(t);
   if (t.includes("min") || t.includes("minor") || isMinorShorthand) {
     // Plain triads ("minor", "minor triad") don't map to 7th voicings
-    if (t === "minor" || t === "minor triad") return undefined;
+    // Triads with no seventh of their own, same reasoning as the diminished
+    // triad above.
+    if (
+      t === "minor" ||
+      t === "min" ||
+      t === "minor triad" ||
+      t === "minor augmented"
+    ) {
+      return undefined;
+    }
     // Kept in step with the major branch below: the two used to test different
     // 6/9 spellings, which is the asymmetry that let "minor sixth" through as
     // min7 in the first place.
@@ -132,11 +161,11 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
     // Trap #4: Tonal spells the minor sixth chord "minor sixth" with no digit
     // at all, so the numeral-only test misses it and falls through to
     // min7. Recognize the spelled-out word alongside the numeral.
-    if (t.includes("6") || t.includes("sixth")) return "min6";
+    if (namesASixthChord) return "min6";
     return "min7";
   }
   if (t.includes("maj") || t.includes("major")) {
-    if (t === "major" || t === "major triad") return undefined;
+    if (t === "major" || t === "maj" || t === "major triad") return undefined;
     if (
       t.includes("6/9") ||
       t.includes("69") ||
@@ -148,7 +177,7 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
     // Same Trap #4 spelled-out-sixth issue as the minor branch above
     // ("major sixth" has no digit); without this "major sixth" falls
     // through to maj7.
-    if (t.includes("6") || t.includes("sixth")) return "maj6";
+    if (namesASixthChord) return "maj6";
     return "maj7";
   }
   // Bare extension/6-chord shorthand with no "dom"/"min"/"maj" qualifier
@@ -172,10 +201,13 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // never emits a bare "ninth"/"thirteenth" without a qualifier) are
   // already handled.
   if (
-    t.includes("dom") ||
     t.includes("7") ||
     t.includes("9") ||
-    t.includes("11") ||
+    // Not a bare `includes("11")`: that also matches the alteration in "6#11"
+    // and "13#11", claiming a sixth chord for dom7. Only an 11 used as the
+    // chord's own extension counts. ("dom" is not tested here — every string
+    // containing it returned above.)
+    /(^|[^#b])11/.test(t) ||
     t.includes("13") ||
     t.includes("eleventh")
   ) {
@@ -184,7 +216,7 @@ export function mapToVoicingQuality(chordType: string, notes?: string[]): Voicin
   // Trap: Tonal's canonical name for the bare major sixth chord is "sixth"
   // (no digit), not "major sixth" — recognize the spelled-out word here too,
   // or "sixth" alone resolves to undefined instead of maj6.
-  if (t.includes("6") || t.includes("sixth")) return "maj6";
+  if (namesASixthChord) return "maj6";
 
   return undefined;
 }

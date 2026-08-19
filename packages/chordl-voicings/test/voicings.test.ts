@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { ChordType } from "tonal";
 import {
   VOICING_LIBRARY,
   queryVoicings,
@@ -461,5 +462,94 @@ describe("mapToVoicingQuality — substrings that look like other qualities", ()
     expect(mapToVoicingQuality("dominant seventh")).toBe("dom7");
     expect(mapToVoicingQuality("dominant ninth")).toBe("dom7");
     expect(mapToVoicingQuality("lydian dominant seventh")).toBe("dom7");
+  });
+});
+
+describe("mapToVoicingQuality — an altered degree is not a chord quality", () => {
+  // "major seventh flat sixth" contains the word "sixth", but the sixth is a
+  // flattened degree inside a seventh chord. Answering it with a maj6 voicing
+  // drops the 7th and adds a 6th the chord does not contain.
+  it("reads a flattened sixth as an alteration, not a sixth chord", () => {
+    expect(mapToVoicingQuality("major seventh flat sixth")).toBe("maj7");
+    expect(mapToVoicingQuality("mMaj7b6")).toBe("maj7");
+    expect(mapToVoicingQuality("M7b6")).toBe("maj7");
+  });
+
+  it("still reads a real sixth chord as one", () => {
+    expect(mapToVoicingQuality("sixth")).toBe("maj6");
+    expect(mapToVoicingQuality("minor sixth")).toBe("min6");
+    expect(mapToVoicingQuality("m6")).toBe("min6");
+    expect(mapToVoicingQuality("6#11")).toBe("maj6");
+  });
+
+  // The "11" in "6#11" is an alteration of a sixth chord, not an eleventh.
+  it("reads a sharpened eleventh as an alteration", () => {
+    expect(mapToVoicingQuality("6#11")).toBe("maj6");
+    expect(mapToVoicingQuality("11")).toBe("dom7");
+    expect(mapToVoicingQuality("eleventh")).toBe("dom7");
+  });
+
+  // Uppercase-M shorthand is major, but a suspended or half-diminished
+  // spelling outranks the family — it has no third to make major.
+  it("does not make a suspended chord major", () => {
+    expect(mapToVoicingQuality("M7sus4")).toBe("sus4");
+    expect(mapToVoicingQuality("M9sus4")).toBe("sus4");
+    expect(mapToVoicingQuality("M7#5sus4")).toBe("sus4");
+    expect(mapToVoicingQuality("M7b5")).toBe("m7b5");
+  });
+
+  it("reads tonal's dash spelling of minor", () => {
+    expect(mapToVoicingQuality("-7")).toBe("min7");
+    expect(mapToVoicingQuality("-9")).toBe("min7");
+    expect(mapToVoicingQuality("-11")).toBe("min7");
+    expect(mapToVoicingQuality("-13")).toBe("min7");
+    expect(mapToVoicingQuality("-6")).toBe("min6");
+    expect(mapToVoicingQuality("-69")).toBe("m6/9");
+    expect(mapToVoicingQuality("-7b5")).toBe("m7b5");
+  });
+
+  it("gives a minor augmented triad no seventh voicing", () => {
+    // 1P 3m 5A — no seventh, same as the major, minor and diminished triads.
+    expect(mapToVoicingQuality("minor augmented")).toBeUndefined();
+  });
+});
+
+describe("mapToVoicingQuality — property over tonal's whole vocabulary", () => {
+  // Every defect in this function has been a substring of one quality's name
+  // appearing inside another's. A hand-written table of examples keeps missing
+  // the next one; this asserts the invariant over everything tonal knows.
+  const SIXTH_QUALITIES = new Set(["maj6", "min6", "6/9", "m6/9"]);
+  const SEVENTH_QUALITIES = new Set(["dom7", "min7", "maj7", "m7b5", "dim7"]);
+
+  /**
+   * Known gap, deliberately not fixed here: a triad with an added tone and no
+   * seventh ("add9", "Madd9", "+add9", "add13") is claimed by the digit
+   * catchall and gets a dom7 voicing. Answering them properly is a design
+   * question about what an add chord should voice as, not a substring trap, so
+   * it is named here rather than silently passing.
+   */
+  const ADD_FAMILY = new Set([
+    "add13", "+add#9", "M#5add9", "+add9", "Madd9", "add9", "madd9", "Maddb9", "mb6b9",
+  ]);
+
+  it("never answers a chord with a quality its intervals cannot support", () => {
+    const wrong: string[] = [];
+    for (const ct of ChordType.all()) {
+      const names = [ct.name, ...ct.aliases].filter(Boolean);
+      const hasSixth = ct.intervals.some((i) => /^(6|13)/.test(i));
+      const hasSeventh = ct.intervals.some((i) => /^7/.test(i));
+      for (const name of names) {
+        if (ADD_FAMILY.has(name)) continue;
+        const q = mapToVoicingQuality(name);
+        if (!q) continue;
+        if (SIXTH_QUALITIES.has(q) && !hasSixth) {
+          wrong.push(`${name} -> ${q} but has no 6th (${ct.intervals.join(" ")})`);
+        }
+        if (SEVENTH_QUALITIES.has(q) && !hasSeventh) {
+          wrong.push(`${name} -> ${q} but has no 7th (${ct.intervals.join(" ")})`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
   });
 });
