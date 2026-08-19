@@ -9,6 +9,7 @@ import {
   inferStyle,
   mapToVoicingQuality,
 } from "../src/index";
+import type { VoicingQuality } from "../src/types";
 
 describe("VOICING_LIBRARY", () => {
   it("contains entries from all 8 categories", () => {
@@ -310,13 +311,14 @@ describe("mapToVoicingQuality", () => {
       expect(mapToVoicingQuality("m")).toBeUndefined();
     });
 
-    // "M7b5" is not a standard chord symbol: m7b5 (half-diminished) is
-    // always written lowercase, and there is no established "major seventh
-    // flat five" chord — nor a VoicingQuality for one. So "M7b5" is not
-    // given special uppercase handling; it falls through to the general
-    // lowercase logic, where it resolves identically to "m7b5".
-    it('maps "M7b5" the same as "m7b5" (not a standard symbol; no special-cased meaning)', () => {
-      expect(mapToVoicingQuality("M7b5")).toBe("m7b5");
+    // "M7b5" is a chord in its own right — 1 3 b5 7, tonal's major seventh
+    // flat five — and not a spelling of the half-diminished 1 b3 b5 b7 it used
+    // to resolve to. Lowercasing turns one into the other, so it is matched on
+    // the original string before that happens.
+    it('reads "M7b5" as its own chord, not a half-diminished', () => {
+      expect(mapToVoicingQuality("M7b5")).toBe("maj7b5");
+      expect(mapToVoicingQuality("M9b5")).toBe("maj7b5");
+      expect(mapToVoicingQuality("m7b5")).toBe("m7b5");
     });
   });
 
@@ -442,8 +444,8 @@ describe("mapToVoicingQuality — substrings that look like other qualities", ()
     expect(mapToVoicingQuality("M13")).toBe("maj7");
   });
 
-  it("still reads M7b5 as half-diminished, which has no major reading", () => {
-    expect(mapToVoicingQuality("M7b5")).toBe("m7b5");
+  it("reads M7b5 as its own chord", () => {
+    expect(mapToVoicingQuality("M7b5")).toBe("maj7b5");
   });
 
   it("does not mistake uppercase-M for minor shorthand", () => {
@@ -498,7 +500,7 @@ describe("mapToVoicingQuality — an altered degree is not a chord quality", () 
     expect(mapToVoicingQuality("M7sus4")).toBeUndefined();
     expect(mapToVoicingQuality("M9sus4")).toBeUndefined();
     expect(mapToVoicingQuality("M7#5sus4")).toBeUndefined();
-    expect(mapToVoicingQuality("M7b5")).toBe("m7b5");
+    expect(mapToVoicingQuality("M7b5")).toBe("maj7b5");
   });
 
   it("reads tonal's dash spelling of minor", () => {
@@ -602,16 +604,8 @@ describe("mapToVoicingQuality — the seventh must not contradict the chord", ()
   // seventh is the other kind. This is the invariant the aliases above broke.
   it("never answers a major-seventh chord with a minor-seventh quality", () => {
     const MINOR_SEVENTH_QUALITIES = new Set(["dom7", "min7", "m7b5", "dim7", "sus4"]);
-    /**
-     * Still unresolved, and named rather than hidden: these need a quality the
-     * library does not have.
-     *  - `oM7` / `o7M7` are diminished major sevenths (1 b3 b5 7). Neither dim7
-     *    nor m7b5 fits — both carry a diminished or minor seventh.
-     *  - `M7b5` is tonal's major seventh flat five (1 3 b5 7), a different
-     *    chord from the half-diminished it currently answers with. Changing it
-     *    means deciding what a b5 major seventh should voice as.
-     */
-    const NEEDS_A_QUALITY_THAT_DOES_NOT_EXIST = new Set(["oM7", "o7M7", "M7b5"]);
+    /** Nothing outstanding: every major-seventh chord now has an answer. */
+    const NEEDS_A_QUALITY_THAT_DOES_NOT_EXIST = new Set<string>();
     const wrong: string[] = [];
     for (const ct of ChordType.all()) {
       if (!ct.intervals.includes("7M")) continue;
@@ -631,5 +625,91 @@ describe("mapToVoicingQuality — the seventh must not contradict the chord", ()
       }
     }
     expect(wrong).toEqual([]);
+  });
+});
+
+describe("VOICING_LIBRARY covers every quality it can be asked for", () => {
+  // `mapToVoicingQuality` can return any VoicingQuality, so any it returns
+  // without an entry here is a chord identified correctly and then voiced as
+  // nothing. min6, m6/9, 6/9 and dim7 were in that state.
+  const ALL_QUALITIES: VoicingQuality[] = [
+    "maj7", "min7", "dom7", "m7b5", "dim7", "min6",
+    "maj6", "sus4", "alt", "6/9", "m6/9", "maj7b5",
+  ];
+
+  it("has at least one entry for every quality", () => {
+    const empty = ALL_QUALITIES.filter(
+      (q) => !VOICING_LIBRARY.some((e) => e.quality === q),
+    );
+    expect(empty).toEqual([]);
+  });
+
+  it("returns a voicing for every quality", () => {
+    for (const q of ALL_QUALITIES) {
+      expect(findVoicing(q), `no voicing for ${q}`).toBeTruthy();
+    }
+  });
+
+  // Every defect in this file has been a note that contradicts the chord it
+  // belongs to. This checks the data the same way the mapper is checked.
+  it("contains no note that contradicts its own quality", () => {
+    const FORBIDDEN: Partial<Record<VoicingQuality, number[]>> = {
+      maj7: [3, 10],        // no minor 3rd, no minor 7th
+      min7: [4, 11],        // no major 3rd, no major 7th
+      dom7: [3, 11],
+      m7b5: [4, 7, 11],     // no major 3rd, no perfect 5th
+      dim7: [4, 7, 10, 11], // the 7th is diminished, spelled as a 6th
+      min6: [4, 10, 11],    // a sixth chord has no seventh
+      maj6: [3, 10, 11],
+      "6/9": [3, 10, 11],
+      "m6/9": [4, 10, 11],
+      maj7b5: [3, 7, 10],   // no perfect 5th — the flat five is the point
+      alt: [11],
+    };
+    const bad: string[] = [];
+    for (const entry of VOICING_LIBRARY) {
+      const forbidden = FORBIDDEN[entry.quality];
+      if (!forbidden) continue;
+      const pcs = entry.intervals.map((i) => ((i % 12) + 12) % 12);
+      const clash = pcs.filter((p) => forbidden.includes(p));
+      if (clash.length) {
+        bad.push(`${entry.id} (${entry.quality}) sounds ${clash.join(", ")}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
+describe("mapToVoicingQuality — the diminished and flat-five symbols", () => {
+  it("reads o7 and °7 as diminished sevenths", () => {
+    expect(mapToVoicingQuality("o7")).toBe("dim7");
+    expect(mapToVoicingQuality("°7")).toBe("dim7");
+    expect(mapToVoicingQuality("dim7")).toBe("dim7");
+  });
+
+  it("gives the bare diminished triad no seventh voicing", () => {
+    expect(mapToVoicingQuality("o")).toBeUndefined();
+    expect(mapToVoicingQuality("°")).toBeUndefined();
+    expect(mapToVoicingQuality("dim")).toBeUndefined();
+  });
+
+  // A diminished triad carrying a major seventh is the minor/major shape with
+  // a lowered fifth — a minor chord.
+  it("reads oM7 and o7M7 as minor/major sevenths", () => {
+    expect(mapToVoicingQuality("oM7")).toBe("min7");
+    expect(mapToVoicingQuality("o7M7")).toBe("min7");
+  });
+
+  it("reads the half-diminished symbols", () => {
+    expect(mapToVoicingQuality("ø")).toBe("m7b5");
+    expect(mapToVoicingQuality("h7")).toBe("m7b5");
+    expect(mapToVoicingQuality("m7b5")).toBe("m7b5");
+    expect(mapToVoicingQuality("-7b5")).toBe("m7b5");
+  });
+
+  it("does not let a bare h match every spelled-out name", () => {
+    expect(mapToVoicingQuality("major seventh")).toBe("maj7");
+    expect(mapToVoicingQuality("eleventh")).toBe("dom7");
+    expect(mapToVoicingQuality("half-diminished")).toBe("m7b5");
   });
 });

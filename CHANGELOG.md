@@ -82,7 +82,7 @@ to) rather than svguitar's highest-pitch-first numbering.
 This lives in core rather than chordl-voicings because it needs
 `classifyTones`/`dropOrder`; voicings is a leaf package that core depends on.
 
-### chordl-voicings 0.3.1
+### chordl-voicings 0.4.0
 
 `mapToVoicingQuality` classified a chord by searching its type name for
 substrings, and several names contain the name of a different quality.
@@ -108,6 +108,30 @@ substrings, and several names contain the name of a different quality.
   lowercase pass — including tonal's altered aliases `M69` and `M7#11`, which
   an anchored test let fall through into the minor branch. `M7b5` still reads
   as half-diminished, which is the only established meaning of that symbol.
+**Added:** `maj7b5` joins `VoicingQuality`, and `VOICING_LIBRARY` gains entries
+for the five qualities that had none.
+
+- **Every quality the mapper can return now has a voicing.** `min6`, `m6/9`,
+  `6/9` and `dim7` were reachable but carried no entries, so a chord identified
+  correctly resolved to nothing at all. Twelve entries are added, using the
+  chord's own tones — no seventh on a sixth chord, no perfect fifth on a
+  flat-five one.
+- **`M7b5` is its own chord.** Tonal's major seventh flat five is 1 3 b5 7; it
+  was being lowercased into `m7b5` and answered as a half-diminished, which is
+  1 b3 b5 b7 — a different third and a different seventh. It now has its own
+  quality and its own voicings.
+- **The `o` and `°` diminished symbols resolve.** `o7` and `°7` are the same
+  chord as `dim7` and carry none of its letters, so they fell to the digit
+  catchall and were answered as dominants. The bare `o`/`°` is the diminished
+  triad and has no seventh voicing. `oM7` and `o7M7` are diminished triads
+  carrying a *major* seventh — the minor/major shape with a lowered fifth — and
+  are read as minor.
+- **`ø`, `h` and `h7` resolve as half-diminished.** Matched whole, since a bare
+  "h" appears inside "seventh", "eleventh" and "half".
+- **Fixed a voicing that contradicted itself.** `drop24-m7b5` opened on a major
+  third in a half-diminished chord: its lowest interval was `-8` where the
+  comment — and the chord — called for the flat five an octave down, `-6`. A new
+  test checks every entry in the library for notes that contradict its quality.
 - **The jazz major-seventh symbols are read as major sevenths.** `^7`, `^9`,
   `^13`, `Δ9`, `ma7` and their altered forms carry no "maj" for the major test
   to find, so they fell to the digit catchall and were answered with *dominant*

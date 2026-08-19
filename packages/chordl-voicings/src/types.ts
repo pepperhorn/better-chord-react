@@ -28,7 +28,9 @@ export type VoicingQuality =
   | "sus4"
   | "alt"
   | "6/9"
-  | "m6/9";
+  | "m6/9"
+  /** Major seventh flat five (1 3 b5 7) — its own chord, not a half-diminished. */
+  | "maj7b5";
 
 export type Hand = "LH" | "RH";
 
