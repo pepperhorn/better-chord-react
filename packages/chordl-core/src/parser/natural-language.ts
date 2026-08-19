@@ -1,4 +1,5 @@
 import type { Format, TextSize, ParsedChordRequest, NotesGroup } from "../types";
+import { resolveChord } from "../resolver/chord-resolver";
 
 // "a"/"an" are excluded when immediately followed by '#', '/', or end-of-string —
 // those are the only non-word-char continuations a real chord root can have
@@ -224,6 +225,39 @@ const NOTE_BARE_HAND_SINGLE_RE = new RegExp(
   `\\(?\\b(${SINGLE_NOTE_PATTERN})\\b\\)?\\s*(?:in\\s+(?:the\\s+)?)?(${HAND_CLEF_PATTERN})\\b`,
   "gi",
 );
+
+// A chord symbol following a hand keyword: "rh Cmaj7", "lh: Bbm7b5",
+// "left hand Am", "bass clef G7/B". Deliberately permissive — the token is
+// validated by actually resolving it as a chord, so junk never becomes a group.
+const CHORD_TOKEN_PATTERN = "[A-Ga-g][#b]?[A-Za-z0-9#b\\u00b0\\u00f8+\\-/]*";
+
+// "rh Cmaj7 lh Dm7" — hand keyword + chord symbol(s). The trailing group
+// captures any further chord tokens so "rh Cmaj7 Dm7" can drop the second one:
+// only the first chord after a hand keyword is used.
+const HAND_PREFIX_CHORD_RE = new RegExp(
+  `\\b(${HAND_CLEF_PATTERN})\\s*(?::\\s*|\\s+)(${CHORD_TOKEN_PATTERN})((?:\\s+${CHORD_TOKEN_PATTERN})*)`,
+  "gi",
+);
+
+// A plain pitch class ("C", "Eb") — the single-note pass already claims those.
+// Tokens carrying a digit ("G7", "C9") read as chords here, matching how
+// "G7 in lh" / "Bb7 in lh" are treated elsewhere in this parser; an
+// octave-qualified note needs the explicit "notes" keyword ("notes G7 in lh").
+const BARE_NOTE_TOKEN_RE = /^[A-Ga-g][#b]?$/;
+
+/**
+ * Resolve a token as a chord symbol, or undefined when it isn't one.
+ * Bare pitches are rejected so "lh Bb" stays a single-note assignment.
+ */
+function chordTokenNotes(token: string): string[] | undefined {
+  if (BARE_NOTE_TOKEN_RE.test(token)) return undefined;
+  try {
+    const { notes } = resolveChord(token);
+    return notes.length > 0 ? notes : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 // "Eb Gb Bb // Db Eb F Gb" — polychord-style "top over bottom" (rh then lh).
 const POLYCHORD_SLASH_RE = new RegExp(
@@ -509,13 +543,22 @@ export function parseChordDescription(input: string): ParsedChordRequest {
   // Note-group extraction runs in priority order. Each pass strips its matches
   // from `residual` so later (looser) passes can't re-consume the same notes.
   let residual = input;
+  // Hand-prefixed chord phrases actually consumed by pass 4d, so the chord-name
+  // pass below strips exactly those (and not look-alikes it rejected).
+  const handChordMatches: string[] = [];
   const stripFromResidual = (match: string) => {
     residual = residual.replace(match, " ");
   };
-  const pushGroup = (tokens: string[], hand?: "lh" | "rh", clef?: "bass" | "treble") => {
+  const pushGroup = (
+    tokens: string[],
+    hand?: "lh" | "rh",
+    clef?: "bass" | "treble",
+    chord?: string,
+  ) => {
     const g: NotesGroup = { notes: tokens };
     if (hand) g.hand = hand;
     if (clef) g.clef = clef;
+    if (chord) g.chord = chord;
     groups.push(g);
   };
 
@@ -584,6 +627,31 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     if (!hand && !clef) continue;
     pushGroup(tokens, hand, clef);
     stripFromResidual(m[0]);
+  }
+
+  // 4d. "rh Cmaj7 lh Dm7" — hand keyword + chord symbol. Runs after every
+  // bare-note pass so note lists still win; whatever is left here is a chord.
+  // Only the first chord after a hand keyword is used — trailing chords are
+  // dropped (and removed from the residual so they don't become the chord name).
+  HAND_PREFIX_CHORD_RE.lastIndex = 0;
+  for (const m of [...residual.matchAll(HAND_PREFIX_CHORD_RE)]) {
+    const { hand, clef } = parseHandOrClef(m[1]);
+    if (!hand && !clef) continue;
+    const notes = chordTokenNotes(m[2]);
+    if (!notes) continue;
+    pushGroup(notes, hand, clef, m[2]);
+
+    // Drop the run of extra chord tokens that directly follows, stopping at
+    // the first token that isn't a chord so unrelated text survives.
+    let extras = m[3] ?? "";
+    while (extras.length > 0) {
+      const next = extras.match(/^\s+(\S+)/);
+      if (!next || !chordTokenNotes(next[1])) break;
+      extras = extras.slice(next[0].length);
+    }
+    const consumed = m[0].slice(0, m[0].length - extras.length);
+    handChordMatches.push(consumed);
+    stripFromResidual(consumed);
   }
 
   // 5. "Eb Gb Bb // Db Eb F Gb" — polychord-style "top over bottom" (rh, lh).
@@ -674,8 +742,11 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     result.startingNote = capitalizeNote(startMatch[1]);
   }
 
-  // Strip extracted patterns and filler for chord name extraction
-  let cleaned = input
+  // Strip extracted patterns and filler for chord name extraction. Chord
+  // phrases already claimed by a hand go first — they're plain substrings of
+  // the input, so removing them here keeps them out of the chord name.
+  let cleaned = handChordMatches
+    .reduce((text, phrase) => text.replace(phrase, " "), input)
     .replace(FORMAT_FULL_RE, "")
     .replace(FORMAT_RE, "")
     .replace(SIZE_NAME_RE, "")

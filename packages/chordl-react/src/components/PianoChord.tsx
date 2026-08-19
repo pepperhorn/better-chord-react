@@ -244,8 +244,11 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     type Resolved = { pc: string; norm: string; octave: number; groupIdx: number };
     const allResolved: Resolved[] = [];
     parsed.notesGroups.forEach((group, gIdx) => {
-      // Clef-aware base octave: bass = 3, treble = 4, default = 4
-      const baseOctave = group.clef === "bass" ? 3 : 4;
+      // Clef- and hand-aware base octave: bass clef / left hand = 3,
+      // treble clef / right hand = 4. Without this, an LH group with no
+      // octave digits lands on the same keys as the RH group and disappears
+      // underneath it ("rh c d e lh c e").
+      const baseOctave = group.clef === "bass" || (!group.clef && group.hand === "lh") ? 3 : 4;
       const tokens = group.notes.map((t) => {
         const m = t.match(/^([A-Ga-g][#b]?)(\d)?$/);
         if (!m) return { pc: t, octave: undefined as number | undefined };
@@ -335,7 +338,12 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     if (lhKeys.length > 0) notesHandBrackets.push({ label: "L.H.", keyIndices: lhKeys });
     if (rhKeys.length > 0) notesHandBrackets.push({ label: "R.H.", keyIndices: rhKeys });
 
-    const chordLabel = parsed.chordName || allResolved.map((t) => t.pc).join(" ");
+    // Label: an explicit chord name wins, then the chord symbols the groups
+    // came from ("rh Cmaj7 lh Dm7" → "Cmaj7 / Dm7"), then the raw notes.
+    const groupChords = parsed.notesGroups.map((g) => g.chord).filter(Boolean) as string[];
+    const chordLabel =
+      parsed.chordName ||
+      (groupChords.length > 0 ? groupChords.join(" / ") : allResolved.map((t) => t.pc).join(" "));
     currentNotes = allResolved.map((t) => t.pc);
 
     return (

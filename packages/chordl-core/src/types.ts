@@ -78,6 +78,8 @@ export interface NotesGroup {
   hand?: "lh" | "rh";
   /** Clef context: affects inferred base octave and implies a hand. */
   clef?: "bass" | "treble";
+  /** Source chord symbol when the group came from one ("rh Cmaj7"). */
+  chord?: string;
 }
 
 export interface KeyDescriptor {

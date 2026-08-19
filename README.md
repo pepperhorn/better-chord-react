@@ -78,6 +78,8 @@ The parser extracts structured data from freeform text:
 | `"with notes E4 G4 C5"` | notesGroups=[{notes:[E4,G4,C5]}] (explicit) |
 | `"notes C E G in lh"` | notesGroups=[{notes:[C,E,G], hand:lh}] |
 | `"notes E G B in top hand"` | notesGroups=[{notes:[E,G,B], hand:rh}] |
+| `"rh c d e lh c e"` | notesGroups=[{notes:[C,D,E], hand:rh}, {notes:[C,E], hand:lh}] |
+| `"rh Cmaj7 lh Dm7"` | notesGroups=[{notes:[C,E,G,B], hand:rh, chord:Cmaj7}, {notes:[D,F,A,C], hand:lh, chord:Dm7}] |
 | `"notes C E G in the bass clef"` | notesGroups=[{notes:[C,E,G], hand:lh, clef:bass}] |
 | `"notes E G B in the treble clef"` | notesGroups=[{notes:[E,G,B], hand:rh, clef:treble}] |
 
@@ -116,6 +118,23 @@ keyboard. Clefs also seed the inferred base octave (bass = 3, treble = 4).
 <PianoChord chord="with notes G B D F in top hand" />
 <PianoChord chord="notes C E G in the bass clef" />
 ```
+
+The hand can also come first, and what follows it may be notes *or* a chord
+symbol. Both hands can be named in one input, in either order — an LH group
+with no explicit octaves sits an octave below the RH group:
+
+```tsx
+<PianoChord chord="rh c d e lh c e" />
+<PianoChord chord="lh c e rh c d e" />   {/* same picture */}
+<PianoChord chord="rh Cmaj7 lh Dm7" />   {/* a chord per hand */}
+<PianoChord chord="rh c d e lh Am" />    {/* notes in one hand, chord in the other */}
+```
+
+Only the first chord after a hand keyword is used — `"rh Cmaj7 Dm7"` draws
+Cmaj7 and drops Dm7. A lone pitch class still reads as a single note
+(`"lh Bb"` = the note Bb), while a symbol carrying a quality or extension
+reads as a chord (`"lh G7"` = G B D F). For the note G in octave 7, say
+`"notes G7 in lh"`.
 
 Pair bass + treble clef in one input to render both hands on a single
 keyboard with separate L.H. / R.H. brackets:
