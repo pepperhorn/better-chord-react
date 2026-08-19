@@ -688,8 +688,17 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
   // edited — hence one switch here rather than a `kind` check at each writer.
   const cardFields = isEditingTextCard ? textCardFields : chordCardFields;
 
-  /** Leaves text-card editing without touching the card, which is already saved. */
-  const stopEditingTextCard = () => {
+  /**
+   * Leaves card editing without touching the card, which is already saved.
+   * Covers chord cards as well as text ones: `handleEditBoardItem` puts both
+   * kinds into edit mode, but only the text banner used to offer a way out, so
+   * a selected chord card captured every later edit with no way back.
+   *
+   * Clearing the board selection is part of leaving: the highlight is what says
+   * "your edits land here", and it outliving edit mode is the same bug seen
+   * from the board's side.
+   */
+  const stopEditing = () => {
     setEditingItemId(null);
     setEditingKind("chord");
     setTitle("");
@@ -698,6 +707,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     setCardIcon("");
     setCardImage("");
     setImageError(null);
+    board.clearSelection();
   };
 
   const handleAddToBoard = () => {
@@ -705,7 +715,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     // Always a chord card. "+ Text" on the board toolbar is the only route to a
     // text card, so a text edit in progress must not leak into this button.
     board.addItem(chordCardFields);
-    if (isEditingTextCard) stopEditingTextCard();
+    if (isEditingTextCard) stopEditing();
   };
 
   /** Appends a text card and drops the user straight into editing it. */
@@ -732,7 +742,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
    */
   const handleRemoveBoardItem = (remove: (id: string) => void) => (id: string) => {
     remove(id);
-    if (id === editingItemId && isEditingTextCard) stopEditingTextCard();
+    if (id === editingItemId && isEditingTextCard) stopEditing();
   };
 
   const handleToggleBreak = (id: string) => {
@@ -853,7 +863,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
           </span>
           <button
             className="btn-text-card-done"
-            onClick={stopEditingTextCard}
+            onClick={stopEditing}
             style={{
               padding: "6px 16px", fontSize: "0.8rem", fontWeight: 500, fontFamily: "inherit",
               border: "1px solid var(--btn-border)", borderRadius: 20,
@@ -999,12 +1009,33 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
         alignItems: "stretch",
         flexWrap: "wrap",
         justifyContent: "center",
-        opacity: 0.55,
+        // Muted while it is only chrome; full strength while editing, when the
+        // Done control in it is the way out.
+        opacity: editingItemId ? 1 : 0.55,
         transition: "opacity 0.25s ease",
       }}
-        onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
-        onMouseLeave={(e) => e.currentTarget.style.opacity = "0.55"}
+        onMouseEnter={(e) => { if (!editingItemId) e.currentTarget.style.opacity = "0.9"; }}
+        onMouseLeave={(e) => { if (!editingItemId) e.currentTarget.style.opacity = "0.55"; }}
       >
+        {editingItemId && (
+          <div className="control-item control-item-editing">
+            <span className="control-label">Editing</span>
+            <div className="control-content">
+              <button
+                className="btn-stop-editing"
+                onClick={stopEditing}
+                title="Stop editing this card and go back to creating a new chord"
+                style={{
+                  padding: "6px 16px", fontSize: "0.8rem", fontWeight: 500, fontFamily: "inherit",
+                  border: "1px solid var(--btn-border)", borderRadius: 20,
+                  background: "var(--pill-active-bg)", color: "var(--pill-active-text)", cursor: "pointer",
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
         <PillGroup
           label="Theme"
           options={THEME_OPTIONS}
@@ -1292,7 +1323,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
               // An import replaces every id on the board, so the text-card
               // editor would otherwise be writing into a card that is gone.
               board.replaceState(state);
-              if (isEditingTextCard) stopEditingTextCard();
+              if (isEditingTextCard) stopEditing();
             }}
             uiTheme={uiTheme}
             scale={0.5}
