@@ -78,7 +78,7 @@ export function VoicingVariantToggle({
         }
       }
 
-      const quality = mapToVoicingQuality(res.type, notes);
+      const quality = mapToVoicingQuality(res.type, res.intervals);
       return { parsed, root: res.root, quality, notes, type: res.type, styleHint: parsed.styleHint };
     } catch {
       return null;

@@ -35,7 +35,7 @@ const ALTERATION_TO_INTERVAL: Record<string, string> = {
 // then transposing the root by those intervals to get extra notes
 function resolveWithFallback(
   chordName: string
-): { notes: string[]; root: string; type: string } | null {
+): { notes: string[]; root: string; type: string; intervals: string[] } | null {
   // Extract root note
   const rootMatch = chordName.match(/^([A-G][#b]?)/);
   if (!rootMatch) return null;
@@ -61,6 +61,12 @@ function resolveWithFallback(
     const chord = Chord.get(root + suffix);
     if (!chord.empty) {
       let notes = chord.notes.map(simplifyNote);
+      // Kept in step with `notes`, entry for entry: an interval is pushed
+      // exactly when its note is. `mapToVoicingQuality` classifies by interval,
+      // and the type string this branch returns ("major (extended)") names only
+      // the *base* chord — the alterations that made it a fallback are not in
+      // it, so the name alone cannot describe the chord.
+      const intervals = [...chord.intervals];
 
       // Add extra notes from stripped alterations
       for (const ivl of extraIntervals) {
@@ -70,11 +76,17 @@ function resolveWithFallback(
           // Replace if same degree already exists, otherwise add
           if (!notes.includes(normalized)) {
             notes.push(normalized);
+            intervals.push(ivl);
           }
         }
       }
 
-      return { notes, root: simplifyNote(root), type: chord.type + " (extended)" };
+      return {
+        notes,
+        root: simplifyNote(root),
+        type: chord.type + " (extended)",
+        intervals,
+      };
     }
   }
 
@@ -85,7 +97,17 @@ export interface ResolvedChord {
   notes: string[];
   root: string;
   type: string;
-  /** Tonal interval names when available (e.g. ["1P", "3M", "5P", "7M"]) */
+  /**
+   * Interval names relative to the root (e.g. ["1P", "3M", "5P", "7M"]).
+   *
+   * Populated on every branch of `resolveChord` — tonal, `buildSpecialChord`
+   * and `resolveWithFallback` alike. `mapToVoicingQuality` classifies chords by
+   * these rather than by the shape of `type`, so a branch that left them
+   * undefined would silently fall back to reading the chord's name.
+   *
+   * Unlike `notes`, these are *not* rotated by `inversion` below: they describe
+   * the chord, not the order its notes are voiced in.
+   */
   intervals?: string[];
 }
 
@@ -116,7 +138,9 @@ function normalizeChordName(name: string): string {
 }
 
 // Special chord builders for symbols Tonal can't handle at all
-function buildSpecialChord(name: string): { notes: string[]; root: string; type: string } | null {
+function buildSpecialChord(
+  name: string
+): { notes: string[]; root: string; type: string; intervals: string[] } | null {
   const rootMatch = name.match(/^([A-G][#b]?)/i);
   if (!rootMatch) return null;
   const root = rootMatch[1];
@@ -128,6 +152,7 @@ function buildSpecialChord(name: string): { notes: string[]; root: string; type:
       notes: [root, Note.transpose(root, "5P"), Note.transpose(root, "7m")].map(simplifyNote),
       root: simplifyNote(root),
       type: "7omit3",
+      intervals: ["1P", "5P", "7m"],
     };
   }
 
@@ -142,6 +167,7 @@ function buildSpecialChord(name: string): { notes: string[]; root: string; type:
       ].map(simplifyNote),
       root: simplifyNote(root),
       type: "m7sus4",
+      intervals: ["1P", "3m", "4P", "7m"],
     };
   }
 
@@ -157,6 +183,9 @@ function buildSpecialChord(name: string): { notes: string[]; root: string; type:
       ].map(simplifyNote),
       root: simplifyNote(root),
       type: "m6/9",
+      // The ninth is transposed as a 2M above, which is the same pitch class;
+      // named here as the ninth the chord actually spells.
+      intervals: ["1P", "3m", "5P", "6M", "9M"],
     };
   }
 
@@ -181,6 +210,7 @@ export function resolveChord(
     notes = special.notes;
     root = special.root;
     type = special.type;
+    intervals = special.intervals;
   } else if (!chord.empty) {
     notes = chord.notes.map(simplifyNote);
     root = simplifyNote(chord.tonic ?? notes[0]);
@@ -202,6 +232,7 @@ export function resolveChord(
     notes = fallback.notes;
     root = fallback.root;
     type = fallback.type;
+    intervals = fallback.intervals;
   }
 
   // Apply inversion: rotate notes array

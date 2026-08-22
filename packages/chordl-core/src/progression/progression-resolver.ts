@@ -85,7 +85,7 @@ function getStyleVariations(styleHint: string): VoicingStyle[] {
  */
 function voiceChord(symbol: string, style?: VoicingStyle): ProgressionChord {
   const resolved = resolveChord(symbol);
-  const quality = mapToVoicingQuality(resolved.type, resolved.notes);
+  const quality = mapToVoicingQuality(resolved.type, resolved.intervals);
 
   let notes = resolved.notes;
   let voicingStyle: string | undefined;
