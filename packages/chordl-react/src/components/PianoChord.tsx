@@ -458,7 +458,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
 
   // If a style hint is present, try the voicing library for richer voicings
   if (parsed.styleHint) {
-    const quality = mapToVoicingQuality(resolved.type, resolved.notes);
+    const quality = mapToVoicingQuality(resolved.type, resolved.intervals);
     if (quality) {
       const voicing = findVoicing(quality, parsed.styleHint);
       if (voicing) {

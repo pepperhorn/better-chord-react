@@ -530,11 +530,12 @@ describe("mapToVoicingQuality — property over tonal's whole vocabulary", () =>
   const SEVENTH_QUALITIES = new Set(["dom7", "min7", "maj7", "m7b5", "dim7"]);
 
   /**
-   * The add family now has its own qualities. What remains is `mb6b9`
-   * (1 b3 b6 b9) — a minor triad with two altered tones and no seventh, still
-   * claimed by the digit catchall. Named rather than silently passing.
+   * Nothing outstanding. `mb6b9` (1 b3 b6 b9) was the last named gap — a minor
+   * triad with two altered tones and no seventh, claimed by the old digit
+   * catchall and answered dom7. Classifying by interval retired it: the chord
+   * has no seventh, so no seventh quality can be reached for it.
    */
-  const ADD_FAMILY = new Set(["mb6b9"]);
+  const ADD_FAMILY = new Set<string>();
 
   it("never answers a chord with a quality its intervals cannot support", () => {
     const wrong: string[] = [];
@@ -779,5 +780,115 @@ describe("mapToVoicingQuality — root and fifth", () => {
     const v = findVoicing("5");
     expect(v).toBeTruthy();
     expect(v!.intervals).toEqual([0, 7, 12]);
+  });
+});
+
+describe("mapToVoicingQuality — the chord decides, not the spelling of its name", () => {
+  // The mechanism test. Every defect in this function was a name read wrongly:
+  // one quality's name inside another's ("do-min-ant", "di-min-ished"), or a
+  // marker the matcher had no case for. The consequence was that two spellings
+  // of *one chord* could get different answers, and six really did.
+  //
+  // Classifying by interval makes that unrepresentable, and this asserts it
+  // over everything tonal knows rather than by example. It fails on the old
+  // implementation with six chords listed.
+  it("gives every spelling of a chord the same answer", () => {
+    const byIntervals = new Map<string, { names: string[]; answers: Set<string> }>();
+    for (const ct of ChordType.all()) {
+      const key = ct.intervals.join(" ");
+      const seen = byIntervals.get(key) ?? { names: [], answers: new Set<string>() };
+      for (const name of [ct.name, ...ct.aliases].filter(Boolean)) {
+        seen.names.push(name);
+        seen.answers.add(mapToVoicingQuality(name) ?? "none");
+      }
+      byIntervals.set(key, seen);
+    }
+    const disagreed: string[] = [];
+    for (const [intervals, { names, answers }] of byIntervals) {
+      if (answers.size > 1) {
+        disagreed.push(
+          `${intervals}: ${names.map((n) => `${n}=${mapToVoicingQuality(n) ?? "none"}`).join(" ")}`
+        );
+      }
+    }
+    expect(disagreed).toEqual([]);
+  });
+
+  // The six chords that disagreed with themselves, kept as named cases so a
+  // regression says which chord broke rather than only that one did.
+  it("answers the chords that used to disagree with themselves", () => {
+    // "mi7" carries neither "min" nor an "m" against a digit, so it fell to the
+    // trailing-digit catchall and was answered dominant — a major third over a
+    // minor chord.
+    expect(mapToVoicingQuality("mi7")).toBe("min7");
+    expect(mapToVoicingQuality("m7")).toBe("min7");
+    // A bare "Δ" is a major seventh. The old matcher required a digit after it.
+    expect(mapToVoicingQuality("Δ")).toBe("maj7");
+    expect(mapToVoicingQuality("Δ#11")).toBe("maj7");
+    // tonal's own canonical name for maj7#5, which answered nothing while the
+    // alias "maj7#5" answered maj7.
+    expect(mapToVoicingQuality("augmented seventh")).toBe("maj7");
+    // Same intervals as "7alt" (1P 3M 5A 7m 9A), which already answered alt.
+    expect(mapToVoicingQuality("7#5#9")).toBe("alt");
+    expect(mapToVoicingQuality("7alt")).toBe("alt");
+    // Same intervals as "b9sus", which already answered sus4.
+    expect(mapToVoicingQuality("phryg")).toBe("sus4");
+  });
+
+  it("reads a half-diminished with a ninth as half-diminished", () => {
+    // m9b5 is 1P 2M 3m 5d 7m. It was answered min7, whose voicings sound a
+    // natural fifth against the chord's flattened one.
+    expect(mapToVoicingQuality("m9b5")).toBe("m7b5");
+  });
+
+  it("gives a chord with no seventh no seventh quality", () => {
+    // mb6b9 is 1 b3 b6 b9 — the last named gap in the property test above. The
+    // digit catchall answered it dom7.
+    expect(mapToVoicingQuality("mb6b9")).toBeUndefined();
+  });
+
+  it("voices a quartal chord with the quartal stack, not the third it implies", () => {
+    // m7sus4 (1P 3m 4P 7m) and quartal (1P 4P 7m 10m) both replace the fifth
+    // with a fourth. The sus4 voicings are stacks of [0, 5, 10] — notes both
+    // chords contain — where the min7 voicings would sound the absent fifth.
+    expect(mapToVoicingQuality("m7sus4")).toBe("sus4");
+    expect(mapToVoicingQuality("quartal")).toBe("sus4");
+    // A minor eleventh keeps its fifth, so it stays a minor seventh chord.
+    expect(mapToVoicingQuality("m11")).toBe("min7");
+  });
+
+  it("takes the intervals over the name when both are given", () => {
+    // The point of the rewrite: a name that lies is overruled by the notes.
+    expect(mapToVoicingQuality("dominant seventh", ["1P", "3m", "5P", "7m"])).toBe("min7");
+    expect(mapToVoicingQuality("minor seventh", ["1P", "3M", "5P", "7m"])).toBe("dom7");
+    // A name we have never heard of, with intervals that are perfectly clear.
+    expect(mapToVoicingQuality("wholly made up", ["1P", "3M", "5P", "7M"])).toBe("maj7");
+  });
+
+  it("still reads notes in the old second argument as no argument at all", () => {
+    // Three call sites passed the chord's notes here for as long as the
+    // parameter existed, and it was never read. Note names do not parse as
+    // intervals, so they are ignored and the type name answers, as before.
+    expect(mapToVoicingQuality("major seventh", ["C", "E", "G", "B"])).toBe("maj7");
+    expect(mapToVoicingQuality("minor seventh", ["C", "Eb", "G", "Bb"])).toBe("min7");
+    expect(mapToVoicingQuality("major seventh")).toBe("maj7");
+  });
+
+  it("is unmoved by an inversion", () => {
+    // VoicingVariantToggle rotates the notes array for a slash chord and used
+    // to hand the rotated array over. Intervals are root-relative, so the same
+    // chord answers the same however its notes are ordered.
+    const intervals = ["1P", "3M", "5P", "7M"];
+    expect(mapToVoicingQuality("major seventh", intervals)).toBe("maj7");
+    expect(mapToVoicingQuality("major seventh", ["3M", "5P", "7M", "1P"])).toBe("maj7");
+  });
+
+  it("distinguishes a fourth from an eleventh, and a sixth from a seventh", () => {
+    // Both pairs are the same pitch class and differ only by degree — the two
+    // places where reducing intervals to semitones would lose the chord.
+    expect(mapToVoicingQuality("9sus4")).toBe("sus4"); // 1P 4P 5P 7m 9M
+    expect(mapToVoicingQuality("eleventh")).toBe("dom7"); // 1P 5P 7m 9M 11P
+    expect(mapToVoicingQuality("dim7")).toBe("dim7"); // 1P 3m 5d 7d
+    expect(mapToVoicingQuality("m6")).toBe("min6"); // 1P 3m 5P 6M
   });
 });

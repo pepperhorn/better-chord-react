@@ -94,3 +94,39 @@ describe("chord types tonal leaves unnamed", () => {
     expect(resolveChord("C2").type).toBe(t);
   });
 });
+
+describe("resolveChord — intervals are populated on every branch", () => {
+  // `mapToVoicingQuality` classifies chords by these intervals rather than by
+  // the shape of `type`. Two of the three branches below used to leave them
+  // undefined, which silently sent those chords back to being classified by
+  // name — the mechanism this replaced.
+  it("populates them on the tonal branch", () => {
+    expect(resolveChord("Cmaj7").intervals).toEqual(["1P", "3M", "5P", "7M"]);
+  });
+
+  it("populates them for the hand-built chords tonal cannot parse", () => {
+    // buildSpecialChord: tonal returns nothing at all for these three.
+    expect(resolveChord("C7omit3").intervals).toEqual(["1P", "5P", "7m"]);
+    expect(resolveChord("Cm7sus4").intervals).toEqual(["1P", "3m", "4P", "7m"]);
+    expect(resolveChord("Cm6/9").intervals).toEqual(["1P", "3m", "5P", "6M", "9M"]);
+  });
+
+  it("populates them on the strip-and-reapply fallback", () => {
+    // resolveWithFallback: the type it reports names only the base chord, so
+    // the intervals are the only description of what was actually built.
+    const resolved = resolveChord("Cm7b5b9");
+    expect(resolved.intervals).toBeDefined();
+    expect(resolved.intervals!.length).toBe(resolved.notes.length);
+    // Every note the chord reports is described by an interval from the root.
+    expect(resolved.intervals).toContain("2m");
+  });
+
+  it("does not rotate the intervals when the notes are inverted", () => {
+    // Intervals describe the chord; notes describe the order it is voiced in.
+    // A consumer classifying from a rotated notes array loses the root.
+    const root = resolveChord("Cmaj7");
+    const inverted = resolveChord("Cmaj7", 1);
+    expect(inverted.notes).not.toEqual(root.notes);
+    expect(inverted.intervals).toEqual(root.intervals);
+  });
+});

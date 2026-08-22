@@ -1,4 +1,4 @@
-import { Note } from "tonal";
+import { ChordType, Interval, Note } from "tonal";
 import type { VoicingEntry, VoicingQuery, VoicingQuality, VoicingStyle, RealizedNote, Hand } from "./types";
 import { VOICING_LIBRARY } from "./library";
 import { normalizeToSharps, spellForKey } from "./spelling";
@@ -39,287 +39,221 @@ const ARTIST_STYLE_MAP: Record<string, { style?: VoicingStyle; era?: string }> =
 };
 
 /**
- * Map a chord quality string (from our resolver) to a VoicingQuality.
- * Handles the many names Tonal/our resolver can produce.
+ * Chord spellings tonal's `ChordType` does not publish, mapped to their
+ * intervals — never directly to a quality.
  *
- * IMPORTANT: Check order matters, and the reason differs per check. Every
- * ordering dependency below has been verified by reordering the branches and
- * observing the result, not by reasoning about it — one of them was reasoned
- * about first and the reasoning was wrong.
- *
- * - alt, dim7, m7b5 and sus must precede the TRAILING DIGIT CATCHALL at the
- *   end, because that catchall matches any "7"/"9"/"11"/"13" anywhere in the
- *   string. "m7b5" and "7sus4" both contain a digit it would claim.
- *   Note this is a dependency on the catchall, NOT on the "dom" check — no
- *   sus or m7b5 name contains the substring "dom", so swapping those two
- *   branches changes nothing.
- * - The "dom" check must precede the "min" check: "dominant" contains the
- *   substring "min" (do-**min**-ant), so without this ordering every dominant
- *   chord type is misclassified as minor.
+ * This table exists so that *every* input reaches the same interval
+ * classifier. Mapping a spelling straight to a quality is what produced the
+ * long run of bugs this rewrite replaces: two aliases of one chord could
+ * disagree, because nothing tied them to the notes they name.
  */
-export function mapToVoicingQuality(chordType: string, notes?: string[]): VoicingQuality | undefined {
-  // Trap #3: lowercasing chordType below (for every other check in this
-  // function) destroys the one signal that distinguishes uppercase-M
-  // shorthand ("M", "M7", "M9", "M11", "M13", "M6" — major) from
-  // lowercase-m shorthand ("m", "m7", "m9", ... — minor). This casing
-  // convention is real and used elsewhere in the monorepo (chordl-guitar's
-  // toDbSuffix maps "M7" -> "maj7" and "m"/"min" -> "minor"), so it must be
-  // tested case-sensitively, on the original string, before lowercasing.
-  // Only these bare numeral shorthand forms are ambiguous by case; "maj"-
-  // prefixed forms ("maj7") and spelled-out names ("major seventh") already
-  // contain enough letters to survive lowercasing unambiguously, so they
-  // are deliberately left out of this table and handled by the general
-  // logic below, same as before.
-  //
-  // "M7b5" is also deliberately left out: m7b5 is the standard, universally
-  // lowercase notation for a half-diminished chord — there is no
-  // established "major seventh flat five" symbol (and VoicingQuality has no
-  // such quality to return). So "M7b5" falls through to the general
-  // lowercase logic below, where lowercasing it produces the same string as
-  // "m7b5" and it resolves to "m7b5" (half-diminished), identically to its
-  // lowercase form. Bare "M" (major triad shorthand) is likewise left out
-  // of this table: it isn't ambiguous by case either way, since lowercasing
-  // it to "m" already falls through every branch below to `undefined`, the
-  // same as "major"/"major triad" do for plain triads.
-  // Anchoring this to the whole string was too strict: tonal also publishes
-  // altered uppercase aliases ("M69" for a 6/9, "M7#11"), and those fell past
-  // the table into the lowercase logic, where `/^m\d/` read them as *minor*
-  // shorthand — M69 came out min6 and M7#11 came out min7. Matching the prefix
-  // and classifying the remainder keeps the whole family major.
-  const t = chordType.toLowerCase();
+const EXTRA_TYPE_INTERVALS: Record<string, string[]> = {
+  // Hand-built chords from chordl-core's `buildSpecialChord`. tonal cannot
+  // parse these at all, so `resolveChord` names them itself.
+  "7omit3": ["1P", "5P", "7m"],
+  m7sus4: ["1P", "3m", "4P", "7m"],
+  "m6/9": ["1P", "3m", "5P", "6M", "9M"],
+  // Uppercase-M shorthand for the major extensions. tonal publishes "M7" and
+  // "M6" but stops there, so M9/M11/M13 have to be spelled out. Case matters:
+  // "m9" is a different chord and tonal already knows it.
+  M9: ["1P", "3M", "5P", "7M", "9M"],
+  M11: ["1P", "3M", "5P", "7M", "9M", "11P"],
+  M13: ["1P", "3M", "5P", "7M", "9M", "13M"],
+  // Major-seventh markers tonal lists in some forms but not these.
+  "Δ7": ["1P", "3M", "5P", "7M"],
+  ma9: ["1P", "3M", "5P", "7M", "9M"],
+  // Half-diminished: tonal knows "ø" and "h7", but not "ø7".
+  "ø7": ["1P", "3m", "5d", "7m"],
+  // Power-chord spellings alongside tonal's own "5".
+  no3: ["1P", "5P"],
+  "no 3": ["1P", "5P"],
+  // The added-eleventh triads have a quality here but no tonal type.
+  add11: ["1P", "3M", "5P", "11P"],
+  add4: ["1P", "3M", "5P", "11P"],
+  madd11: ["1P", "3m", "5P", "11P"],
+  madd4: ["1P", "3m", "5P", "11P"],
+  // Spelled-out names tonal does not publish (it has "sixth", not "major
+  // sixth"; "altered", not "altered dominant"; "eleventh", not "dominant
+  // eleventh").
+  "major sixth": ["1P", "3M", "5P", "6M"],
+  "altered dominant": ["1P", "3M", "5A", "7m", "9A"],
+  "dominant eleventh": ["1P", "5P", "7m", "9M", "11P"],
+  alt: ["1P", "3M", "5A", "7m", "9A"],
+};
 
-  // "sixth" names a sixth chord — but "major seventh flat sixth" and friends
-  // use the same word for an *altered degree inside a seventh chord*, and
-  // answering those with a maj6 voicing drops the 7th and adds a 6th the chord
-  // does not contain.
-  // Note on "major seventh flat sixth" (tonal's `M7b6`, 1P 3M 6m 7M): there is
-  // no b6 in that chord. With no perfect fifth present the Ab is a raised
-  // fifth, making it an augmented major seventh — maj7#5, which tonal itself
-  // spells that way under "augmented seventh". VoicingQuality has no maj7#5,
-  // so it answers maj7: the seventh agrees, though a voicing carrying a
-  // natural fifth will contradict the raised one.
-  const namesASixthChord =
-    (t.includes("sixth") && !t.includes("flat sixth") && !t.includes("sharp sixth")) ||
-    // The digit form has the same trap: the "6" in "mMaj7b6" is a flattened
-    // 6th inside a major-seventh chord, not a sixth chord. Only a 6 that is
-    // not being altered counts.
-    /(^|[^#b])6/.test(t);
+/**
+ * The chord's intervals reduced to one quality letter per scale degree, as the
+ * chord spells them.
+ *
+ * Degree number is kept rather than semitones, because two of the decisions
+ * below turn on it and semitones destroy both: a 4th and an 11th are the same
+ * pitch class but a suspension and an extension (`9sus4` is 1P 4P 5P 7m 9M and
+ * an 11th chord is 1P 5P 7m 9M 11P), and a diminished 7th and a major 6th are
+ * both nine semitones but a seventh and a sixth.
+ */
+function degreesOf(intervals: string[]): Map<number, string> {
+  const byDegree = new Map<number, string>();
+  for (const raw of intervals) {
+    const ivl = Interval.get(raw);
+    if (ivl.empty || typeof ivl.num !== "number" || !ivl.q) continue;
+    // First spelling of a degree wins; nothing in the vocabulary spells one
+    // degree twice except 7b9#9, where either answer is altered.
+    if (!byDegree.has(ivl.num)) byDegree.set(ivl.num, ivl.q);
+  }
+  return byDegree;
+}
 
-  // Case-sensitive, and ahead of the half-diminished test below: lowercasing
-  // "M7b5" produces "m7b5" and it would be answered as a half-diminished, which
-  // is a different chord (1 b3 b5 b7 against this one's 1 3 b5 7).
-  if (/^M(7|9|11|13)b5/.test(chordType)) return "maj7b5";
+/**
+ * Pick a voicing quality from a chord's intervals.
+ *
+ * This is the whole mechanism: the chord's own notes decide, so no two
+ * spellings of one chord can disagree, and no quality's name can be found
+ * inside another's.
+ */
+function classifyIntervals(intervals: string[]): VoicingQuality | undefined {
+  const byDegree = degreesOf(intervals);
+  const third = byDegree.get(3);
+  const fifth = byDegree.get(5);
+  const seventh = byDegree.get(7);
+  const sixth = byDegree.get(6);
+  const fourth = byDegree.get(4);
+  const eleventh = byDegree.get(11);
+  // A ninth is a ninth however it is spelled: tonal writes `m9b5` as
+  // 1P 2M 3m 5d 7m, with the ninth as a second.
+  const ninths = [byDegree.get(9), byDegree.get(2)].filter(Boolean);
+  const hasNaturalNinth = ninths.includes("M");
+  const hasAlteredNinth = ninths.some((q) => q === "m" || q === "A");
+  const hasNaturalFifth = fifth === "P";
 
-  // Root and fifth, no third — the guitar power chord. tonal names it "fifth".
-  if (t === "5" || t === "fifth" || t === "no3" || t === "no 3") return "5";
+  // The power chord: root and fifth, and nothing else at all.
+  const degrees = [...byDegree.keys()].filter((d) => d !== 1);
+  if (degrees.length === 1 && hasNaturalFifth) return "5";
 
-  if (t.includes("alt")) return "alt";
-  // "o7" and "°7" are the same chord as "dim7" and carry none of its letters,
-  // so they used to fall all the way to the digit catchall and be answered as
-  // dominants. The bare "o"/"°" is the diminished *triad*, which has no seventh
-  // — handled with the other triads below.
-  if (t.includes("dim7") || t.includes("diminished seventh")) return "dim7";
-  if (/^(o|°)7$/.test(chordType)) return "dim7";
-  // "ø", "h" and "h7" are the other half-diminished symbols. Anchored, because
-  // a bare `includes("h")` would match "seventh", "eleventh", "half" and most
-  // of the spelled-out vocabulary.
-  if (
-    t.includes("m7b5") ||
-    t.includes("-7b5") ||
-    t.includes("half") ||
-    /^(ø7?|h7?)$/.test(chordType)
-  ) {
-    return "m7b5";
+  // The altered dominant: a major third and a minor seventh over a fifth that
+  // is raised, lowered or absent, with an altered ninth. Asked before the
+  // seventh family below, which would otherwise answer every one of these
+  // dom7. A natural fifth disqualifies it — `7b9` and `7#9` are ordinary
+  // dominants with one altered tone, not altered chords.
+  if (third === "M" && seventh === "m" && !hasNaturalFifth && hasAlteredNinth) {
+    return "alt";
   }
-  // Trap #1 again, one chord along: "diminished" contains "min" (di-MIN-ished),
-  // so a bare diminished triad reached the minor branch and rendered min7
-  // voicings. It has no seventh-chord voicing of its own, so it is undefined
-  // like the major and minor triads — "diminished seventh" and the
-  // half-diminished spellings are both already answered above.
-  if (t.includes("dim") || /^(o|°)$/.test(chordType)) return undefined;
-  // "sus2" is a different chord from sus4: 1 2 5, not 1 4 5. The sus4 voicings
-  // are quartal stacks on a P4 and a m7, neither of which a sus2 contains.
-  // Anchored so "sus24" (which really does have a P4) still reads as sus4.
-  if (/(^|[^0-9])sus2($|[^0-9])/.test(t) || t === "suspended second") return "sus2";
-  // A sus chord whose seventh is major (M7sus4, M9sus4) is not what the sus4
-  // voicings describe: those are quartal stacks built on a *minor* seventh
-  // (`[0, 5, 10]`), so answering one would sound a b7 against the chord's
-  // natural 7. There is no maj7sus4 quality to return, so return none — the
-  // caller falls back to the chord's own tones rather than a contradiction.
-  if (t.includes("sus")) {
-    return /^M\d/.test(chordType) || t.includes("maj") ? undefined : "sus4";
-  }
-  // The minor/major seventh family. The canonical name "minor/major seventh"
-  // contains "minor" and resolves below, but every shorthand alias for it
-  // scattered: mMaj7 and -maj7 landed in the *major* branch (they contain
-  // "maj"), while mM7 and -Δ7 fell through to the dominant catchall. A minor
-  // chord was being answered with major and dominant voicings.
-  //
-  // Matched on the original string, since the lowercase m / uppercase M
-  // distinction is the whole signal. "maj7" itself does not match: after the
-  // leading "m" the rest is "aj7", not another major marker.
-  //
-  // A leading lowercase m (not the "m" of "maj"/"ma7") or "-", plus a major
-  // seventh marker anywhere after it, is this family: mMaj7, mM7, -Δ7, -^7,
-  // -maj7, mMaj7b6, mb6M7.
-  // "o"/"°" join this: oM7 and o7M7 are diminished triads carrying a *major*
-  // seventh, which is the minor/major shape with a lowered fifth. They are
-  // minor chords, and min7 is the nearest quality the library holds for one.
-  const startsMinor = /^([mo°](?!aj|a\d)|-)/.test(chordType);
-  // The markers jazz lead sheets use for a major seventh. "M" only counts
-  // against a digit, or "M7"/"M9" would be indistinguishable from a bare "M".
-  // "[Mm]aj" so the prefixed forms ("mMaj7") are caught; "M" against a digit
-  // stays case-sensitive, or plain "m7" would read as a major seventh.
-  const hasMajorSeventhMarker = /(?:[Mm]aj|ma\d|M\d|Δ|\^)/.test(chordType);
-  if (startsMinor && hasMajorSeventhMarker) return "mMaj7";
-  // The same markers with no minor prefix are simply a major seventh. Without
-  // this, "^7", "^9", "Δ9" and "ma7" carry no "maj" for the major branch to
-  // find and fall through to the digit catchall — so the most common jazz
-  // spelling of a major seventh was answered with a *dominant* voicing, a b7
-  // against the chord's natural 7.
-  // The marker must carry a digit: a bare "^" (and "^#5") is tonal's major
-  // *triad*, which has no seventh to voice.
-  if (!startsMinor && /(ma\d|Δ\d|\^\d)/.test(chordType) && !t.includes("dim")) {
-    if (/(69|6\/9|6add9)/.test(chordType)) return "6/9";
-    return "maj7";
-  }
-  // Uppercase M is major, lowercase m is minor, and lowercasing destroys the
-  // difference — so this reads the original string. It sits *here*, not at the
-  // top: `M7sus4` and `M9sus4` are suspended chords, and `M7b5` is the standard
-  // spelling of a half-diminished, so those tests outrank the family. Anchoring
-  // it to the whole string was too strict — tonal also publishes altered
-  // aliases (`M69`, `M7#11`) that then fell into the lowercase logic, where
-  // `/^m\d/` read them as *minor* shorthand.
-  if (/^M\d/.test(chordType)) {
-    const rest = chordType.slice(1);
-    if (/^(69|6\/9|6add9)/.test(rest)) return "6/9";
-    if (/^6/.test(rest)) return "maj6";
-    return "maj7";
-  }
-  // "dominant" contains the substring "min", so this must precede the minor
-  // test below or every dominant chord resolves to min7.
-  if (t.includes("dom")) return "dom7";
-  // Trap #2: minor shorthand ("m7", "m9", "m11", "m13", "m6", "m6/9") contains
-  // neither "min" nor "minor", so without this it falls through all the way
-  // to the dominant/6 catchall below and gets misclassified (e.g. "m7" ->
-  // dom7, "m6" -> maj6). Match "m" directly followed by a digit instead:
-  // "maj7"/"major seventh" have "a" after the "m" so they don't collide, and
-  // "m7b5" is already caught above so it never reaches this check.
-  // tonal publishes a leading "-" for minor alongside "m": -7, -9, -11, -13,
-  // -6, -69. Same shorthand, same trap — without it they fall to the digit
-  // catchall and come out dominant.
-  const isMinorShorthand = /^[m-]\d/.test(t);
-  if (t.includes("min") || t.includes("minor") || isMinorShorthand) {
-    // Plain triads ("minor", "minor triad") don't map to 7th voicings
-    // Triads with no seventh of their own, same reasoning as the diminished
-    // triad above.
-    if (
-      t === "minor" ||
-      t === "min" ||
-      t === "minor triad" ||
-      t === "minor augmented"
-    ) {
+
+  // The seventh chords. A seventh outranks a sixth: `7b6` (1P 3M 5P 6m 7m) and
+  // `M13` both carry a sixth degree that is an extension, not the chord.
+  if (seventh) {
+    // A diminished seventh — nine semitones, but spelled as a seventh.
+    if (seventh === "d") return "dim7";
+    if (seventh === "M") {
+      if (third === "m") return "mMaj7";
+      if (third === "M") return fifth === "d" ? "maj7b5" : "maj7";
+      // A suspended chord whose seventh is major. The sus4 voicings are
+      // quartal stacks on a *minor* seventh, so answering one would sound a b7
+      // against the chord's natural 7; there is no maj7sus4 quality to return.
       return undefined;
     }
-    // Kept in step with the major branch below: the two used to test different
-    // 6/9 spellings, which is the asymmetry that let "minor sixth" through as
-    // min7 in the first place.
-    if (
-      t.includes("6/9") ||
-      t.includes("69") ||
-      t.includes("6add9") ||
-      t.includes("sixth added ninth")
-    ) {
-      return "m6/9";
-    }
-    // Trap #4: Tonal spells the minor sixth chord "minor sixth" with no digit
-    // at all, so the numeral-only test misses it and falls through to
-    // min7. Recognize the spelled-out word alongside the numeral.
-    if (namesASixthChord) return "min6";
-    return "min7";
+    // A minor seventh.
+    // A perfect fourth with no perfect fifth is a quartal chord, whatever
+    // third it also carries: `m7sus4` (1P 3m 4P 7m) and `quartal` (1P 4P 7m
+    // 10m) are both voiced by the sus4 stack [0, 5, 10], which sounds only
+    // notes they contain. The min7 voicings would sound the natural fifth
+    // these chords replace with a fourth.
+    if (fourth === "P" && !hasNaturalFifth) return "sus4";
+    if (third === "m") return fifth === "d" ? "m7b5" : "min7";
+    if (third === "M") return "dom7";
+    // No third. A fourth is a suspension; an eleventh is the 11th chord
+    // (1P 5P 7m 9M 11P), which is a dominant that happens to omit its third.
+    if (fourth) return "sus4";
+    return "dom7";
   }
-  if (t.includes("maj") || t.includes("major")) {
-    if (t === "major" || t === "maj" || t === "major triad") return undefined;
-    if (
-      t.includes("6/9") ||
-      t.includes("69") ||
-      t.includes("6add9") ||
-      t.includes("sixth added ninth")
-    ) {
-      return "6/9";
-    }
-    // Same Trap #4 spelled-out-sixth issue as the minor branch above
-    // ("major sixth" has no digit); without this "major sixth" falls
-    // through to maj7.
-    if (namesASixthChord) return "maj6";
-    return "maj7";
-  }
-  // A triad with an added tone and no seventh: add9/add2/2, madd9, add11/add4,
-  // madd4. These carry a 9, 4 or 11 with no seventh anywhere, so the digit
-  // catchall below used to claim them and answer dom7 — putting a b7 into a
-  // chord defined by not having one.
-  //
-  // Whether the triad is major or minor comes from the original string, not the
-  // lowercased one: "Madd9" and "madd9" are different chords and differ only by
-  // that capital.
-  // Only when there is no seventh: "7add6" and "7add13" are dominant chords
-  // that happen to name an added tone, and they belong to the catchall below.
-  if ((/add/.test(t) || t === "2") && !t.includes("7")) {
-    // An altered added tone (addb9, add#9) or a raised fifth (+add9, M#5add9)
-    // is a different chord again, and the plain add voicings would contradict
-    // it. No quality fits, so none is returned.
-    if (/[b#]\d/.test(t) || t.includes("+") || t.includes("#5")) return undefined;
-    // A sixth *and* a ninth is the 6/9 chord, which has its own quality — this
-    // has to be asked before the plain sixth test or "6add9" answers maj6.
-    if (/(69|6\/9|6add9|sixth added ninth)/.test(t)) {
-      return startsMinor ? "m6/9" : "6/9";
-    }
-    // add6/add13 are the sixth chord, which already has a quality.
-    if (/6|13/.test(t)) return startsMinor ? "min6" : "maj6";
-    if (/11|4/.test(t)) return startsMinor ? "madd11" : "add11";
-    if (/9|2/.test(t)) return startsMinor ? "madd9" : "add9";
+
+  // No seventh. A natural sixth makes it a sixth chord; a minor sixth is a
+  // flattened thirteenth and does not.
+  if (sixth === "M") {
+    if (third === "m") return hasNaturalNinth ? "m6/9" : "min6";
+    if (third === "M") return hasNaturalNinth ? "6/9" : "maj6";
     return undefined;
   }
 
-  // Bare extension/6-chord shorthand with no "dom"/"min"/"maj" qualifier
-  // word (e.g. "7", "9", "11", "13", "6", "6/9", "6add9", or Tonal's bare
-  // "sixth" / "sixth added ninth" / "eleventh" names). The 6-family checks
-  // must run before the 7/9/11/13 catchall or "6/9" and "6add9" (which
-  // contain "9") get caught by it and misclassified as dom7.
-  if (
-    t.includes("6/9") ||
-    t.includes("69") ||
-    t.includes("6add9") ||
-    t.includes("sixth added ninth")
-  ) {
-    return "6/9";
+  // No seventh and no sixth. Without a third the chord is suspended — the
+  // fourth first, so `sus2sus4` (which really does carry a P4) reads as sus4.
+  if (!third) {
+    if (fourth) return "sus4";
+    if (byDegree.get(2) === "M") return "sus2";
+    return undefined;
   }
-  // Trap #5: Tonal's canonical type for an 11th chord is the bare word
-  // "eleventh" ("C11".type === "eleventh"), with no "7"/"9"/"13" digit for
-  // this catchall to match — so 11th chords fell through to `undefined`
-  // (no voicing at all) instead of dom7. Recognize both the digit "11" and
-  // the spelled-out word, matching how "9"/"13" (digit only, since Tonal
-  // never emits a bare "ninth"/"thirteenth" without a qualifier) are
-  // already handled.
-  if (
-    t.includes("7") ||
-    t.includes("9") ||
-    // Not a bare `includes("11")`: that also matches the alteration in "6#11"
-    // and "13#11", claiming a sixth chord for dom7. Only an 11 used as the
-    // chord's own extension counts. ("dom" is not tested here — every string
-    // containing it returned above.)
-    /(^|[^#b])11/.test(t) ||
-    t.includes("13") ||
-    t.includes("eleventh")
-  ) {
-    return "dom7";
-  }
-  // Trap: Tonal's canonical name for the bare major sixth chord is "sixth"
-  // (no digit), not "major sixth" — recognize the spelled-out word here too,
-  // or "sixth" alone resolves to undefined instead of maj6.
-  if (namesASixthChord) return "maj6";
 
+  // A triad, possibly with an added tone. An altered fifth or an altered added
+  // tone makes it a different chord that the plain add voicings contradict, so
+  // no quality is returned for those.
+  if (fifth === "d" || fifth === "A") return undefined;
+  if (hasAlteredNinth) return undefined;
+  if (hasNaturalNinth) return third === "m" ? "madd9" : "add9";
+  if (fourth === "P" || eleventh === "P") return third === "m" ? "madd11" : "add11";
+  // A plain major or minor triad. It has no seventh to voice.
   return undefined;
+}
+
+/**
+ * Intervals a caller supplied, if they really are intervals.
+ *
+ * The second parameter used to be the chord's *notes* and was never read; all
+ * three call sites in this monorepo passed them. Note names never parse as
+ * intervals (`Interval.get("C").empty` is true), so notes are ignored here and
+ * such a caller falls through to the chord-type name exactly as before.
+ */
+function suppliedIntervals(values?: string[]): string[] | undefined {
+  if (!values || values.length === 0) return undefined;
+  return values.every((v) => !Interval.get(v).empty) ? values : undefined;
+}
+
+/**
+ * Intervals for a chord *type name*, via tonal.
+ *
+ * tonal resolves all 249 of its own type names and aliases here, case
+ * sensitively — `Madd9` and `madd9` are different chords and it knows it.
+ * Everything it does not know is in EXTRA_TYPE_INTERVALS above.
+ */
+function intervalsForTypeName(chordType: string): string[] | undefined {
+  const name = chordType.trim();
+  if (!name) return undefined;
+  // chordl-core's resolveWithFallback labels its result "<type> (extended)".
+  const base = name.replace(/\s*\(extended\)$/, "");
+  const byType = ChordType.get(base);
+  if (!byType.empty) return byType.intervals;
+  return EXTRA_TYPE_INTERVALS[base];
+}
+
+/**
+ * Map a chord to the voicing quality that speaks for it.
+ *
+ * Classification is by **interval**, never by the shape of the chord's name.
+ * Pattern-matching the name produced a long run of bugs over PRs #18 and
+ * #31-#33, every one of them the same shape — one quality's name appearing
+ * inside another's ("do-*min*-ant" reading as minor, "di*min*ished" as minor,
+ * "major seventh flat *sixth*" as a sixth chord, `6#11` as an eleventh) — and
+ * fixing each one exposed the next. Intervals cannot be misread that way:
+ * `1P 3M 5P 9M` is unambiguous where "major seventh flat sixth" is not.
+ *
+ * It also made alias disagreement possible, and six chords in tonal's
+ * vocabulary really did disagree with themselves: `mi7` answered dom7 while
+ * `m7` answered min7, `7#5#9` answered dom7 while `7alt` answered alt, and
+ * `Δ` answered nothing while `M7` answered maj7 — the same chords, the same
+ * notes, different answers. Deciding from the intervals makes that
+ * unrepresentable.
+ *
+ * @param chordType  A chord *type* name or alias (`resolved.type`). Used only
+ *                   to look up intervals when none are supplied.
+ * @param intervals  The chord's intervals (`resolved.intervals`). Preferred
+ *                   when present. Notes are accepted and ignored, for callers
+ *                   written against the old signature.
+ */
+export function mapToVoicingQuality(
+  chordType: string,
+  intervals?: string[]
+): VoicingQuality | undefined {
+  const resolved = suppliedIntervals(intervals) ?? intervalsForTypeName(chordType);
+  if (!resolved) return undefined;
+  return classifyIntervals(resolved);
 }
 
 /**
