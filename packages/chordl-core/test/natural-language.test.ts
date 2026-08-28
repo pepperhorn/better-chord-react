@@ -642,3 +642,144 @@ describe("slash-chord bass notes", () => {
     expect(nameOf("C6/9")).toBe("C6/9");
   });
 });
+
+/**
+ * `MIDI_NAMES_RE` was read for its size and mode but never stripped from the
+ * residual, so the word "midi" reached the chord extractor. There it is not
+ * inert: CHORD_RE's quality class contains `m`, so "C midi" parsed as Cm — and
+ * where the root was the article-shaped A, FILLER_WORDS took the A and left the
+ * extractor to find its root in the `d` of "midi", turning "A" into D.
+ *
+ * Every one of these rendered a real but different chord, with no error.
+ */
+describe("midi note names are not part of the chord", () => {
+  const nameOf = (input: string) => parseChordDescription(input).chordName;
+
+  it("no longer appends the m of \"midi\" to the root", () => {
+    expect(nameOf("C with midi note names")).toBe("C");
+    expect(nameOf("G with midi note names")).toBe("G");
+    expect(nameOf("D with midi note names")).toBe("D");
+    expect(nameOf("E midi note names")).toBe("E");
+    expect(nameOf("F midi names")).toBe("F");
+  });
+
+  it("no longer finds a root inside the word \"midi\"", () => {
+    expect(nameOf("A with midi note names")).toBe("A");
+  });
+
+  it("leaves a chord that already has a quality alone", () => {
+    expect(nameOf("Cmaj7 with midi note names")).toBe("Cmaj7");
+    expect(nameOf("Am7 midi note names")).toBe("Am7");
+  });
+
+  it("strips a bare \"midi\" too, since that alone asks for midi names", () => {
+    // The parser treats a loose "midi" as the request, so it must not also
+    // leave the word behind for the chord extractor.
+    expect(nameOf("C midi")).toBe("C");
+    expect(parseChordDescription("C midi").noteNameMode).toBe("midi");
+  });
+
+  it("still reads the mode and size it was asked for", () => {
+    const parsed = parseChordDescription("C with midi note names in xl");
+    expect(parsed.showNoteNames).toBe(true);
+    expect(parsed.noteNameMode).toBe("midi");
+    expect(parsed.noteNameSize).toBe("xl");
+  });
+
+  it("keeps the other modifiers on the same string working", () => {
+    const parsed = parseChordDescription("G7 with midi note names starting on B");
+    expect(parsed.chordName).toBe("G7");
+    expect(parsed.startingNote).toBe("B");
+    expect(parsed.noteNameMode).toBe("midi");
+  });
+})
+
+/**
+ * The article guard tested for the true end of the string, but FILLER_WORDS
+ * runs after every modifier has been cut out — so a bare A carrying any
+ * modifier reached it as "A " and was eaten as an article. The end of what is
+ * left is what matters, trailing space included.
+ */
+describe("root note A with a modifier after it", () => {
+  const nameOf = (input: string) => parseChordDescription(input).chordName;
+
+  it("survives a modifier that was stripped from behind it", () => {
+    expect(nameOf("A with note names")).toBe("A");
+    expect(nameOf("A in second inversion")).toBe("A");
+    expect(nameOf("A with fingering")).toBe("A");
+    expect(nameOf("A compact")).toBe("A");
+  });
+
+  it("survives modifiers on both sides", () => {
+    expect(nameOf("show me an A with note names")).toBe("A");
+  });
+
+  it("keeps reading the modifier it carried", () => {
+    const parsed = parseChordDescription("A in second inversion");
+    expect(parsed.chordName).toBe("A");
+    expect(parsed.inversion).toBe(2);
+  });
+
+  it("still strips a real article", () => {
+    // "a" here introduces a noun, not a chord — the guard must not keep it.
+    expect(nameOf("show me a Cmaj7")).toBe("Cmaj7");
+    expect(nameOf("draw an Em")).toBe("Em");
+  });
+
+  /**
+   * The trap in fixing the above: filler is stripped last, so an article whose
+   * noun was already deleted is left trailing and looks exactly like a bare A.
+   * "in a compact layout" and "A with note names" arrive here as the same "A ".
+   * Deciding on the capital letter and the original input is what tells them
+   * apart — a phantom A chord on a note-list card truncates its fingering row
+   * and makes follow-along emit a chord symbol for a card that has none.
+   */
+  it("does not invent a chord from an article whose noun was stripped", () => {
+    for (const input of [
+      "in a compact layout",
+      "show me a full layout",
+      "a compact",
+      "a fingering",
+      "with a theme",
+      "a left hand C E G",
+      "notes C E G B in a compact layout",
+    ]) {
+      expect(nameOf(input), input).toBe("");
+    }
+  });
+
+  it("leaves a scale request without a phantom chord", () => {
+    const parsed = parseChordDescription("a C major scale");
+    expect(parsed.isScale).toBe(true);
+    expect(parsed.chordName).toBe("");
+  });
+
+  it("keeps a note list free of a chord name", () => {
+    const parsed = parseChordDescription("notes C E G B in a compact layout");
+    expect(parsed.notesGroups?.[0].notes).toEqual(["C", "E", "G", "B"]);
+    expect(parsed.chordName).toBe("");
+  });
+
+  it("still reads a lone lowercase \"a\" as the note", () => {
+    // The article that ends the input has no noun to introduce.
+    expect(nameOf("a")).toBe("A");
+  });
+
+  /**
+   * The other half of the family: where the word after the A is not strippable
+   * filler, the descriptive path never saw the root because the article pass
+   * had already eaten it. "A minor" resolved to nothing at all, and "A minor
+   * seventh" to E.
+   */
+  it("reads a spelled-out quality after the root", () => {
+    expect(nameOf("A minor")).toBe("Am");
+    expect(nameOf("A minor seventh")).toBe("Am7");
+    expect(nameOf("an A minor")).toBe("Am");
+    expect(nameOf("show me A minor")).toBe("Am");
+  });
+
+  it("reads a spelled-out accidental after the root", () => {
+    expect(nameOf("A flat")).toBe("Ab");
+    expect(nameOf("A sharp")).toBe("A#");
+  });
+})

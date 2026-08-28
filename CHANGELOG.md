@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+### chordl-core — "midi note names" is no longer read as part of the chord
+
+`MIDI_NAMES_RE` was read for its mode and size but never stripped from the
+residual the chord extractor works on, so the word "midi" reached it — and it is
+not inert there. `CHORD_RE`'s quality class contains `m`, so **"C with midi note
+names" rendered Cm**; the same for D, E, F and G. Worse, a root of A is
+article-shaped, so it was eaten as one and the extractor found its root in the
+`d` of "mi**d**i": **"A with midi note names" rendered D**. Every case drew a
+real but different chord, with no error.
+
+The clause now leaves with the rest of the request, ahead of `NOTE_NAMES_RE`
+(which matches the "note names" half on its own and would strand "midi"), and a
+loose "midi" goes with it — a bare "midi" is already read as the request.
+
+### chordl-core — a bare A survives the modifiers written after it
+
+Fixing the above exposed the rest of the family. The article guard tested for
+the true end of the string, but filler is stripped after every modifier has been
+cut out, so **"A with note names", "A in second inversion" and "A compact" all
+reached that test as "A " — an article by the old rule, and eaten**, leaving no
+chord at all.
+
+The trap in fixing it is that the residual cannot tell the two apart: "in a
+compact layout" arrives as "A " just as "A with note names" does, because the
+article's own noun is one of the things that was stripped. So the article pass
+decides on evidence the stripping cannot invent — what follows the token (`#`
+or `/`), the capital letter the user typed, and whether the article ended the
+original input. A trailing lowercase "a" whose noun was deleted stays an
+article, so a note-list or scale card never grows a phantom A chord.
+
+That also fixes the other half of the family, where the word after the root is
+not strippable filler and the article pass ate the root before the descriptive
+matcher could see it: **"A minor" resolved to no chord at all, "A minor seventh"
+to E, "A dominant seventh" to D and "A flat" to B.**
+
 ### chordl-board — cards can be resized on the board
 
 A card's hover controls gain a size strip — `sm md rg lg xl 2xl` — where `rg` is

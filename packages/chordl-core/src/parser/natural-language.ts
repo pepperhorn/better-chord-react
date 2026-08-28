@@ -1,12 +1,48 @@
 import type { Format, TextSize, ParsedChordRequest, NotesGroup } from "../types.js";
 import { resolveChord } from "../resolver/chord-resolver.js";
 
-// "a"/"an" are excluded when immediately followed by '#', '/', or end-of-string —
-// those are the only non-word-char continuations a real chord root can have
-// (e.g. bare "A", "A#dim", "A/C#"); any word-char continuation (e.g. "Adim",
-// "Am7") already fails the trailing \b below, so this doesn't affect them.
+// Filler runs in two passes, and the order is load-bearing.
+//
+// The articles "a"/"an" are also the note A, and by the time filler is stripped
+// every modifier has already been cut out — so "A with note names" arrives as
+// "A ", and so does "a compact". The residual cannot tell them apart, because
+// the article's own noun is one of the things that was deleted.
+//
+// So the article pass decides on evidence the stripping cannot destroy: the
+// character after it, the capital letter the user typed, and where the token
+// sat in the original input. See `stripArticles`.
 const FILLER_WORDS =
-  /\b(show\s+me|draw|display|render|please|a(?![#/]|$)|an(?![#/]|$)|the|with|that|this|me|of)\b/gi;
+  /\b(show\s+me|draw|display|render|please|the|with|that|this|me|of)\b/gi;
+
+const ARTICLE_RE = /\b(an?)\b/gi;
+
+/** An article at the very end of the *original* input is the note A: "a", "an A". */
+const ARTICLE_AT_INPUT_END = /\ban?(?=[#/]|\s*$)/i;
+
+/**
+ * Remove English articles without eating the note A.
+ *
+ * Three things say "this is the note, not an article", none of which an earlier
+ * `.replace` can have invented:
+ *
+ *  - what follows is `#` or `/` — only a root can be ("A#dim", "A/C#");
+ *  - the token is a capital `A`, which is how a chord is written and not how an
+ *    article is ("A minor", "A with note names", "A in second inversion");
+ *  - the article ends the original input ("a", "show me an A").
+ *
+ * Anything else is an article, including one left trailing because its noun was
+ * stripped — "in a compact layout" must not resolve to the chord A.
+ */
+function stripArticles(text: string, input: string): string {
+  const bareArticleAtEnd = ARTICLE_AT_INPUT_END.test(input);
+  return text.replace(ARTICLE_RE, (token, _g, offset: number, whole: string) => {
+    const rest = whole.slice(offset + token.length);
+    if (/^[#/]/.test(rest)) return token;
+    if (token === "A") return token;
+    if (/^\s*$/.test(rest) && bareArticleAtEnd) return token;
+    return "";
+  });
+}
 
 const FORMAT_RE = /\b(compact|exact|full)\b/i;
 const FORMAT_FULL_RE = /\bfull\s+(?:layout|height|size|keys?)\b/i;
@@ -759,6 +795,11 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     .replace(PADDING_RE, "")
     .replace(CHORD_OCTAVE_RE, "")
     .replace(BASS_OCTAVE_RE, "")
+    // Before NOTE_NAMES_RE, which matches the "note names" half on its own and
+    // would leave "midi" behind. The leftover word is not inert: CHORD_RE's
+    // quality class contains `m`, so "C midi" parsed as Cm, and an A root lost
+    // to FILLER_WORDS let the extractor find its root in the `d` of "midi".
+    .replace(MIDI_NAMES_RE, "")
     .replace(NOTE_NAMES_RE, "")
     .replace(CUSTOM_FINGERING_RE, "")
     .replace(FINGERING_RE, "")
@@ -776,6 +817,9 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     .replace(SCALE_UNAMBIGUOUS_RE, "")
     .replace(SCALE_EXPLICIT_RE, "")
     .replace(SCALE_SHORTHAND_RE, "")
+    // A loose "midi" is itself the request for midi note names (see the
+    // fallback above), so it has to leave with the rest of the request.
+    .replace(/\bmidi\b/gi, "")
     .replace(/\bscale\b/gi, "")
     .replace(HEADING_RE, "")
     .replace(NOTES_GROUP_PREFIX_RE, "")
@@ -801,6 +845,10 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     .replace(/\bin\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
+
+  // Last, so the article test is asked of text that is finished — and of the
+  // original input, which still knows what the article was standing in front of.
+  cleaned = stripArticles(cleaned, input).replace(/\s+/g, " ").trim();
 
   // Replace word-based accidentals before chord extraction
   cleaned = cleaned
