@@ -447,6 +447,13 @@ export interface ChordBoardProps {
   onClearSelection?: () => void;
   /** Called with the parsed BoardState when a user imports JSON. */
   onImport?: (state: BoardState) => void;
+  /**
+   * Called when a user confirms starting a fresh board. The host resets its own
+   * state — `useChordBoard`'s `replaceState` clears cards and meta together,
+   * which is what "new board" means. The overlay that guards this lives here,
+   * so a host only has to say what an empty board is.
+   */
+  onNew?: () => void;
   uiTheme?: UIThemeMode;
   /** Render scale forwarded to each card's PianoChord. */
   scale?: number;
@@ -477,6 +484,7 @@ export function ChordBoard({
   onSelect,
   onClearSelection,
   onImport,
+  onNew,
   uiTheme,
   scale = 0.6,
   editingId,
@@ -487,6 +495,9 @@ export function ChordBoard({
   const [dragId, setDragId] = useState<string | null>(null);
   const [pulseId, setPulseId] = useState<string | null>(null);
   const [exporting, setExporting] = useState<"png" | "pdf" | null>(null);
+  const [confirmNew, setConfirmNew] = useState(false);
+  const newCancelRef = useRef<HTMLButtonElement>(null);
+  const newOverlayRef = useRef<HTMLDivElement>(null);
   const lastPulseRef = useRef<number | undefined>(undefined);
   const exportRef = useRef<HTMLDivElement | null>(null);
   // Drag is armed when the user mousedowns on a card's handle. State (not ref)
@@ -571,6 +582,27 @@ export function ChordBoard({
     a.download = `${slugFilename()}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  /**
+   * Clearing is unrecoverable — no undo, and localStorage holds the only copy —
+   * so every path to it goes through the overlay. `hasMeta` is why an empty but
+   * titled board still offers the button: the title is board content too.
+   */
+  const hasTitles = Boolean(safeMeta.title || safeMeta.subtitle || safeMeta.footer);
+  const hasLayout = safeMeta.columns !== undefined && safeMeta.columns !== "auto";
+  const hasBoard = items.length > 0 || hasTitles || hasLayout;
+
+  const handleSaveAndNew = async () => {
+    // Save first: if the download throws, the board is still there to retry.
+    await handleExportJson();
+    setConfirmNew(false);
+    onNew?.();
+  };
+
+  const handleClearWithoutSaving = () => {
+    setConfirmNew(false);
+    onNew?.();
   };
 
   const handleImportClick = () => fileInputRef.current?.click();
@@ -673,6 +705,35 @@ export function ChordBoard({
     outline: "none",
   };
 
+  /**
+   * Cancel takes focus the moment the overlay opens, so an Enter left over from
+   * typing lands on the harmless choice rather than on a clear.
+   */
+  useEffect(() => {
+    if (confirmNew) newCancelRef.current?.focus();
+  }, [confirmNew]);
+
+  /* The count comes from the live list, so the sentence can never promise to
+     clear a different board than the one on screen. */
+  const cardPart = items.length === 1 ? "1 card" : `${items.length} cards`;
+  /* Named separately because they are not the same loss: a title is content the
+     user wrote, a column count is a setting. Saying "title" for a board that has
+     none is the sentence promising something it cannot deliver. */
+  const metaPart = hasTitles ? "the board title" : hasLayout ? "the board settings" : null;
+  const clearedParts = [items.length > 0 ? cardPart : null, metaPart].filter(Boolean);
+  const newBoardMessage = `This clears ${clearedParts.join(" and ")}. It can't be undone.`;
+
+  const dialogBtnStyle: CSSProperties = {
+    padding: "8px 14px",
+    fontSize: "0.85rem",
+    fontFamily: "inherit",
+    border: "1px solid var(--btn-border, #ddd)",
+    borderRadius: 10,
+    background: "#fff",
+    color: "inherit",
+    cursor: "pointer",
+  };
+
   const actionBtnStyle: CSSProperties = {
     padding: "6px 12px",
     fontSize: "0.8rem",
@@ -688,6 +749,57 @@ export function ChordBoard({
   return (
     <div className={`chordl-board ${className ?? ""}`.trim()} style={style}>
       <style>{BOARD_STYLES}</style>
+
+      {confirmNew && (
+        <div
+          className="chordl-board-new-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="chordl-board-new-heading"
+          tabIndex={-1}
+          ref={newOverlayRef}
+          onKeyDown={(e) => { if (e.key === "Escape") setConfirmNew(false); }}
+          // A click that reaches the backdrop itself never started inside the
+          // dialog, so it is a click *away* — the same as Cancel.
+          onClick={(e) => { if (e.target === e.currentTarget) setConfirmNew(false); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 20, background: "rgba(15,23,42,0.45)",
+          }}
+        >
+          <div
+            className="chordl-board-new-dialog"
+            style={{
+              width: "100%", maxWidth: 380,
+              padding: 20,
+              borderRadius: 14,
+              background: "#fff",
+              color: "inherit",
+              boxShadow: "0 18px 48px rgba(15,23,42,0.28)",
+              display: "flex", flexDirection: "column", gap: 8,
+            }}
+          >
+            <h2 id="chordl-board-new-heading" className="chordl-board-new-heading" style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>
+              Start a new board?
+            </h2>
+            <p className="chordl-board-new-message" style={{ margin: 0, fontSize: "0.85rem", lineHeight: 1.5, color: "var(--text-muted, #666)" }}>
+              {newBoardMessage}
+            </p>
+            <div className="chordl-board-new-actions" style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+              <button type="button" className="chordl-board-new-save" style={dialogBtnStyle} onClick={handleSaveAndNew}>
+                Download JSON &amp; clear
+              </button>
+              <button type="button" className="chordl-board-new-clear" style={dialogBtnStyle} onClick={handleClearWithoutSaving}>
+                Clear without saving
+              </button>
+              <button type="button" className="chordl-board-new-cancel" ref={newCancelRef} style={{ ...dialogBtnStyle, fontWeight: 600 }} onClick={() => setConfirmNew(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Settings + download toolbar */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -733,6 +845,18 @@ export function ChordBoard({
         </details>
 
         <div className="chordl-board-toolbar" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {onNew && (
+            <button
+              type="button"
+              className="chordl-board-new"
+              style={actionBtnStyle}
+              onClick={() => setConfirmNew(true)}
+              disabled={!!exporting || !hasBoard}
+              title={hasBoard ? "Start a new board" : "The board is already empty"}
+            >
+              NEW
+            </button>
+          )}
           {onAddTextCard && (
             <button
               type="button"

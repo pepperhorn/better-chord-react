@@ -713,6 +713,17 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     board.clearSelection();
   };
 
+  /**
+   * A genuinely blank board: `replaceState` resets cards and meta together, so
+   * the old title does not outlive the cards it described. Any edit in progress
+   * ends too — its card is gone, and the form would otherwise be bound to an id
+   * that no longer exists. ChordBoard owns the confirmation.
+   */
+  const handleNewBoard = () => {
+    board.replaceState({ items: [], meta: {} });
+    if (editingItemId) stopEditing();
+  };
+
   const handleAddToBoard = () => {
     if (isProg) return;
     // Always a chord card. "+ Text" on the board toolbar is the only route to a
@@ -1328,6 +1339,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             selectedId={board.selectedId}
             onSelect={board.selectItem}
             onClearSelection={board.clearSelection}
+            onNew={handleNewBoard}
             onImport={(state) => {
               // An import replaces every id on the board, so any editor —
               // chord or text — would otherwise be writing into a card that is

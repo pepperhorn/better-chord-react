@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### chordl-board — a way to start a new board
+
+There was no way to empty a board short of deleting cards one at a time, which
+the app's own image-quota error already assumed there was: it told users to
+"start a new board" and left them no button for it.
+
+`ChordBoard` gains an `onNew` prop and a **NEW** control beside PNG / PDF /
+JSON / Import, disabled when there is nothing to clear. Clearing is
+unrecoverable — no undo, and localStorage holds the only copy — so it goes
+through an overlay offering *Download JSON & clear*, *Clear without saving* and
+*Cancel*. Cancel takes focus on open, so an Enter left over from typing lands on
+the harmless choice; Escape and a backdrop click cancel too.
+
+The message counts the live cards and names what else goes, distinguishing a
+board title (content the user wrote) from board settings (a column count), so it
+never promises to clear something that is not there. The host clears via
+`replaceState`, which resets cards and meta together — a title outliving the
+cards it described is not a new board.
+
 ### chordl-voicings — inversions are the first alternatives offered
 
 The A/B/C toggle mixed three tiers of voicings, and the library tier came
