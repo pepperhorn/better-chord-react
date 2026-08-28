@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### chordl-board — a selected card can be deselected
+
+Selecting a card was one click; leaving the selection needed the strip of board
+background around the grid, which a full board barely has, and a keyboard user
+had no route at all. Clicking the selected card now deselects it, and Escape
+clears the selection (except while the new-board overlay is up, where Escape
+means "cancel that"). `onSelect` is called with `null` on the way out, so a
+host can tell a deselect from a selection.
+
+In the app, deselecting also leaves card editing: the highlight is what says
+"your edits land here", and a form still bound to a card with no highlight is
+the same bug seen from the other side.
+
 ### chordl-board — card controls stay inside the card, and duplicate replaces copy
 
 Six controls in one non-wrapping row is wider than a card at small scales or in

@@ -1345,7 +1345,13 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             onAddTextCard={handleAddTextCard}
             onToggleBreak={handleToggleBreak}
             selectedId={board.selectedId}
-            onSelect={board.selectItem}
+            // Deselecting also leaves edit mode: the highlight is what says
+            // "your edits land here", so a form still bound to a card with no
+            // highlight is the same bug seen from the other side.
+            onSelect={(id) => {
+              board.selectItem(id);
+              if (id === null && editingItemId) stopEditing();
+            }}
             onClearSelection={board.clearSelection}
             onNew={handleNewBoard}
             onImport={(state) => {

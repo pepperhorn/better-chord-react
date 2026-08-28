@@ -44,3 +44,64 @@ describe("card action row", () => {
     expect(onDuplicate).toHaveBeenCalledWith("a");
   });
 });
+
+/**
+ * A selection is how the app says "your edits land here". Getting into one is a
+ * click; getting out of one used to need the strip of board background around
+ * the grid, which a full board barely has.
+ */
+describe("deselecting a card", () => {
+  it("selects an unselected card", () => {
+    const onSelect = vi.fn();
+    const { container } = render(<ChordBoard items={items} onSelect={onSelect} />);
+    fireEvent.click(container.querySelector('[data-board-id="b"]')!);
+    expect(onSelect).toHaveBeenCalledWith("b");
+  });
+
+  it("deselects when the selected card is clicked again", () => {
+    const onSelect = vi.fn();
+    const { container } = render(<ChordBoard items={items} selectedId="b" onSelect={onSelect} />);
+    fireEvent.click(container.querySelector('[data-board-id="b"]')!);
+    expect(onSelect).toHaveBeenCalledWith(null);
+  });
+
+  it("still moves the selection to a different card", () => {
+    const onSelect = vi.fn();
+    const { container } = render(<ChordBoard items={items} selectedId="b" onSelect={onSelect} />);
+    fireEvent.click(container.querySelector('[data-board-id="a"]')!);
+    expect(onSelect).toHaveBeenCalledWith("a");
+  });
+
+  it("clears the selection on Escape", () => {
+    const onClearSelection = vi.fn();
+    render(<ChordBoard items={items} selectedId="b" onClearSelection={onClearSelection} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClearSelection).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves Escape alone when nothing is selected", () => {
+    const onClearSelection = vi.fn();
+    render(<ChordBoard items={items} onClearSelection={onClearSelection} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClearSelection).not.toHaveBeenCalled();
+  });
+
+  it("gives Escape to the new-board overlay while it is open", () => {
+    const onClearSelection = vi.fn();
+    const { container } = render(
+      <ChordBoard items={items} selectedId="b" onNew={() => {}} onClearSelection={onClearSelection} />,
+    );
+    fireEvent.click(container.querySelector(".chordl-board-new")!);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClearSelection).not.toHaveBeenCalled();
+  });
+
+  it("keeps a click on the action row off the card's own handler", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <ChordBoard items={items} selectedId="a" onSelect={onSelect} onDelete={() => {}} />,
+    );
+    fireEvent.click(container.querySelector(".chordl-board-action-delete")!);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+});

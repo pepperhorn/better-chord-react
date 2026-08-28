@@ -442,7 +442,8 @@ export interface ChordBoardProps {
   onToggleBreak?: (id: string) => void;
   /** Currently selected card — gets a sticky ring and visible chrome. */
   selectedId?: string | null;
-  onSelect?: (id: string) => void;
+  /** Called with a card id to select it, or null when the user deselects. */
+  onSelect?: (id: string | null) => void;
   onClearSelection?: () => void;
   /** Called with the parsed BoardState when a user imports JSON. */
   onImport?: (state: BoardState) => void;
@@ -704,6 +705,23 @@ export function ChordBoard({
   };
 
   /**
+   * Escape deselects. The pointer routes out of a selection are a second click
+   * on the card and the board background around the grid; a keyboard user has
+   * neither, and on a full board the background is a few pixels wide.
+   *
+   * Skipped while the new-board overlay is up: Escape there means "cancel that",
+   * and the overlay handles it.
+   */
+  useEffect(() => {
+    if (!selectedId || confirmNew) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClearSelection?.();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selectedId, confirmNew, onClearSelection]);
+
+  /**
    * Cancel takes focus the moment the overlay opens, so an Enter left over from
    * typing lands on the harmless choice rather than on a clear.
    */
@@ -943,7 +961,10 @@ export function ChordBoard({
                 className={cardClass}
                 style={{ ...cardStyle, opacity: isDragging ? 0.7 : 1 }}
                 draggable={armedDragId === item.id}
-                onClick={() => onSelect?.(item.id)}
+                // Clicking the selected card again deselects it. Without this
+                // the only way out of a selection is the strip of board
+                // background around the grid, which a full board barely has.
+                onClick={() => onSelect?.(isSelected ? null : item.id)}
                 onDragStart={(e) => {
                   if (armedDragId !== item.id) {
                     e.preventDefault();
