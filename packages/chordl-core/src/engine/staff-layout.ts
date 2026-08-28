@@ -1,4 +1,4 @@
-import { normalizeToSharps } from "./note-spelling";
+import { normalizeToSharps } from "./note-spelling.js";
 import {
   STAFF_LINE_SPACING,
   HALF_STAFF_SPACING,
@@ -11,7 +11,7 @@ import {
   ACCIDENTAL_OFFSET,
   SECOND_OFFSET,
   ACCIDENTAL_COL_WIDTH,
-} from "./staff-constants";
+} from "./staff-constants.js";
 
 export interface StaffNote {
   pitchClass: string;

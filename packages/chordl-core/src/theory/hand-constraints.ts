@@ -13,7 +13,7 @@
  * Deriving a junior cutoff from "no 7ths or octaves": a 7th spans 10-11
  * semitones and an octave 12, so maxSpanPerHand 9 (a major 6th) is binding.
  */
-import { PC_SEMITONES, assignAscendingOctaves } from "../engine/note-spelling";
+import { PC_SEMITONES, assignAscendingOctaves } from "../engine/note-spelling.js";
 import type { Hand } from "@pepperhorn/chordl-voicings";
 
 export interface HandConstraints {

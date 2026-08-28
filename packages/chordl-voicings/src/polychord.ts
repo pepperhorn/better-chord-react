@@ -1,5 +1,5 @@
 import { Note, Chord } from "tonal";
-import type { RealizedNote, Hand } from "./types";
+import type { RealizedNote, Hand } from "./types.js";
 
 /**
  * Describes a chord by its root note name and quality string

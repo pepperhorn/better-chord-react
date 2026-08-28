@@ -1,5 +1,5 @@
-import type { Format } from "../types";
-import { MAX_EXAMPLES } from "../config";
+import type { Format } from "../types.js";
+import { MAX_EXAMPLES } from "../config.js";
 
 export interface ParsedProgressionRequest {
   progression: string;

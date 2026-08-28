@@ -5,10 +5,10 @@
  * product actually displays stays the consumer's decision.
  */
 import type { Chord } from "svguitar";
-import type { ChordsDbPosition, InstrumentId } from "./instruments";
-import { INSTRUMENTS, dbPositionToChord } from "./instruments";
-import type { PositionFacts } from "./voicingFacts";
-import { positionFacts, duplicateVoicingMap } from "./voicingFacts";
+import type { ChordsDbPosition, InstrumentId } from "./instruments.js";
+import { INSTRUMENTS, dbPositionToChord } from "./instruments.js";
+import type { PositionFacts } from "./voicingFacts.js";
+import { positionFacts, duplicateVoicingMap } from "./voicingFacts.js";
 
 /**
  * Difficulty rungs expressible as a filter over stored shapes.

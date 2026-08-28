@@ -1,7 +1,7 @@
-import { MAX_EXAMPLES } from "../config";
-import { resolveChord } from "../resolver/chord-resolver";
-import { resolveProgression, tokenizeProgression } from "./roman-numeral";
-import { findTemplate, FORM_TEMPLATES } from "./form-templates";
+import { MAX_EXAMPLES } from "../config.js";
+import { resolveChord } from "../resolver/chord-resolver.js";
+import { resolveProgression, tokenizeProgression } from "./roman-numeral.js";
+import { findTemplate, FORM_TEMPLATES } from "./form-templates.js";
 import {
   findVoicing,
   voicingPitchClasses,

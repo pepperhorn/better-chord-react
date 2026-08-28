@@ -1,7 +1,7 @@
-import type { ColorTheme } from "../types";
-import { boomwhackerTheme } from "./boomwhacker";
-import { crfTheme } from "./crf";
-import { createSimpleTheme } from "./simple";
+import type { ColorTheme } from "../types.js";
+import { boomwhackerTheme } from "./boomwhacker.js";
+import { crfTheme } from "./crf.js";
+import { createSimpleTheme } from "./simple.js";
 
 const themeRegistry: Record<string, ColorTheme> = {
   boomwhacker: boomwhackerTheme,

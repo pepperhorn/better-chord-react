@@ -1,6 +1,6 @@
 import { Note } from "tonal";
-import type { VoicingEntry, VoicingQuality } from "./types";
-import { queryVoicings } from "./query";
+import type { VoicingEntry, VoicingQuality } from "./types.js";
+import { queryVoicings } from "./query.js";
 
 /**
  * Range-aware voicing selection algorithm.

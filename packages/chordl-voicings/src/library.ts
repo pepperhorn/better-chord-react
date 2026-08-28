@@ -1,4 +1,4 @@
-import type { VoicingEntry } from "./types";
+import type { VoicingEntry } from "./types.js";
 
 /**
  * Jazz Piano Voicing Library

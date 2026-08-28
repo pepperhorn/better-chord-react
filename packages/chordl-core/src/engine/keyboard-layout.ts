@@ -1,4 +1,4 @@
-import type { Format, WhiteNote, KeyDescriptor } from "../types";
+import type { Format, WhiteNote, KeyDescriptor } from "../types.js";
 import {
   WHITE_KEY_WIDTH,
   WHITE_KEY_WIDTH_EXACT,
@@ -12,7 +12,7 @@ import {
   BLACK_KEY_OFFSETS_EXACT,
   WHITE_NOTES_WITH_SHARPS,
   WHITE_NOTE_ORDER,
-} from "./svg-constants";
+} from "./svg-constants.js";
 
 const SHARP_SUFFIX: Record<string, string> = {
   C: "C#",

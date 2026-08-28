@@ -1,5 +1,5 @@
-import type { Format, TextSize, ParsedChordRequest, NotesGroup } from "../types";
-import { resolveChord } from "../resolver/chord-resolver";
+import type { Format, TextSize, ParsedChordRequest, NotesGroup } from "../types.js";
+import { resolveChord } from "../resolver/chord-resolver.js";
 
 // "a"/"an" are excluded when immediately followed by '#', '/', or end-of-string —
 // those are the only non-word-char continuations a real chord root can have

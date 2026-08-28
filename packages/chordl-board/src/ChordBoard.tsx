@@ -2,11 +2,11 @@ import { Component, Fragment, useState, useEffect, useRef, useCallback } from "r
 import type { CSSProperties, ReactNode, SVGProps } from "react";
 import { PianoChord, GuitarChordPanel, CardHeading, CardFooter, resolveUITheme } from "@pepperhorn/chordl-react";
 import type { InstrumentId, UIThemeMode } from "@pepperhorn/chordl-react";
-import type { BoardItem, BoardMeta, BoardState, StorageAdapter } from "./types";
-import { isTextCard } from "./types";
-import { BoardIcon } from "./icons";
-import { localStorageAdapter } from "./storage";
-import { exportBoardJson, importBoardJson } from "./io";
+import type { BoardItem, BoardMeta, BoardState, StorageAdapter } from "./types.js";
+import { isTextCard } from "./types.js";
+import { BoardIcon } from "./icons.js";
+import { localStorageAdapter } from "./storage.js";
+import { exportBoardJson, importBoardJson } from "./io.js";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 

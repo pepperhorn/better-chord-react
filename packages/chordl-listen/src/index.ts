@@ -6,20 +6,20 @@
 // FollowAlongOverlay).
 
 // Detection
-export { CHORD_TEMPLATES, PITCH_CLASSES, templateVector } from "./detect/templates";
-export type { ChordTemplate } from "./detect/templates";
-export { matchChord } from "./detect/templateMatch";
-export type { ChordCandidate } from "./detect/templateMatch";
-export { chromaFromSpectrum, spectrumLoudness } from "./detect/chroma";
-export type { ChromaOptions } from "./detect/chroma";
-export { ChordStabilizer } from "./detect/stabilizer";
-export type { StabilizerConfig, StabilizerResult } from "./detect/stabilizer";
-export { ChordListener } from "./detect/chordListener";
-export type { ChordListenerOptions } from "./detect/chordListener";
+export { CHORD_TEMPLATES, PITCH_CLASSES, templateVector } from "./detect/templates.js";
+export type { ChordTemplate } from "./detect/templates.js";
+export { matchChord } from "./detect/templateMatch.js";
+export type { ChordCandidate } from "./detect/templateMatch.js";
+export { chromaFromSpectrum, spectrumLoudness } from "./detect/chroma.js";
+export type { ChromaOptions } from "./detect/chroma.js";
+export { ChordStabilizer } from "./detect/stabilizer.js";
+export type { StabilizerConfig, StabilizerResult } from "./detect/stabilizer.js";
+export { ChordListener } from "./detect/chordListener.js";
+export type { ChordListenerOptions } from "./detect/chordListener.js";
 
 // Resolve
-export { toChordSymbol } from "./resolve/toChordSymbol";
+export { toChordSymbol } from "./resolve/toChordSymbol.js";
 
 // Follow (page turning — driven by FollowAlongOverlay in chordl-react)
-export { SequenceFollower } from "./follow/sequenceFollower";
-export type { ExpectedChord, FollowerConfig, FollowResult } from "./follow/types";
+export { SequenceFollower } from "./follow/sequenceFollower.js";
+export type { ExpectedChord, FollowerConfig, FollowResult } from "./follow/types.js";

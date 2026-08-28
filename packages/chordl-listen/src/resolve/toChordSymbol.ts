@@ -5,7 +5,7 @@
  * "Dm7" and hands it to chordl's resolver (via the board's `nl` field or
  * `resolveChord`), keeping enharmonic/inversion logic in one place.
  */
-import type { ChordCandidate } from "../detect/templateMatch";
+import type { ChordCandidate } from "../detect/templateMatch.js";
 
 /** e.g. { rootName: "D", symbolSuffix: "m7" } -> "Dm7". */
 export function toChordSymbol(candidate: ChordCandidate): string {

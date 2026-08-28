@@ -6,11 +6,11 @@
  * with the events (show the current chord, or accumulate unique chords for a
  * record session); this class only produces a stable stream.
  */
-import { chromaFromSpectrum, spectrumLoudness } from "./chroma";
-import { matchChord } from "./templateMatch";
-import type { ChordCandidate } from "./templateMatch";
-import { ChordStabilizer } from "./stabilizer";
-import type { StabilizerConfig } from "./stabilizer";
+import { chromaFromSpectrum, spectrumLoudness } from "./chroma.js";
+import { matchChord } from "./templateMatch.js";
+import type { ChordCandidate } from "./templateMatch.js";
+import { ChordStabilizer } from "./stabilizer.js";
+import type { StabilizerConfig } from "./stabilizer.js";
 
 export interface ChordListenerOptions extends StabilizerConfig {
   /** AnalyserNode FFT size (power of two). Larger = finer low-freq resolution. Default 8192. */

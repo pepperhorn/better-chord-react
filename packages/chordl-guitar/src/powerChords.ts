@@ -7,8 +7,8 @@
  * renderers see the same contract as any other shape.
  */
 import type { Chord } from "svguitar";
-import type { ChordsDbPosition } from "./instruments";
-import { INSTRUMENTS, dbPositionToChord } from "./instruments";
+import type { ChordsDbPosition } from "./instruments.js";
+import { INSTRUMENTS, dbPositionToChord } from "./instruments.js";
 
 /** Which string carries the root. "E" = 6th string, "A" = 5th string. */
 export type PowerChordStringSet = "E" | "A";

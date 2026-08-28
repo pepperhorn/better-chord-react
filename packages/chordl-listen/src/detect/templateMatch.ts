@@ -7,7 +7,7 @@
  * major triad scores higher against the 3-note major template than the 4-note
  * maj7 template, so triads stay triads.
  */
-import { CHORD_TEMPLATES, PITCH_CLASSES, templateVector } from "./templates";
+import { CHORD_TEMPLATES, PITCH_CLASSES, templateVector } from "./templates.js";
 
 export interface ChordCandidate {
   /** Root pitch class 0..11. */

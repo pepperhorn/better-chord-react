@@ -10,7 +10,7 @@
  * - Augmented = sharp (#)
  */
 
-import { parseInterval } from "./chord-tones";
+import { parseInterval } from "./chord-tones.js";
 
 const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII"];
 const ROMAN_EXT: Record<number, string> = {

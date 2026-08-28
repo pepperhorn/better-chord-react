@@ -1,5 +1,5 @@
 import { Note } from "tonal";
-import { spellWithPreference } from "../engine/note-spelling";
+import { spellWithPreference } from "../engine/note-spelling.js";
 
 const ROMAN_TO_SEMITONE: Record<string, number> = {
   i: 0, ii: 2, iii: 4, iv: 5, v: 7, vi: 9, vii: 11,

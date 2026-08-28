@@ -1,11 +1,11 @@
-import { BOARD_DISPLAY_MODES, BOARD_ICON_PREFIXES, BOARD_ITEM_KINDS, isTextCard } from "./types";
+import { BOARD_DISPLAY_MODES, BOARD_ICON_PREFIXES, BOARD_ITEM_KINDS, isTextCard } from "./types.js";
 import type {
   BoardDisplayMode,
   BoardItem,
   BoardItemKind,
   BoardMeta,
   BoardState,
-} from "./types";
+} from "./types.js";
 
 export interface BoardItemJsonV1 extends BoardItem {
   /** sha256 cache key from ph-chordl computeCacheKey; carried for future lookup. */

@@ -1,6 +1,6 @@
 import { Chord, Note } from "tonal";
-import type { RealizedNote, Hand } from "./types";
-import { normalizeToSharps } from "./spelling";
+import type { RealizedNote, Hand } from "./types.js";
+import { normalizeToSharps } from "./spelling.js";
 
 /**
  * George Shearing "Locked Hands" block chord voicing.

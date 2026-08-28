@@ -1,4 +1,4 @@
-import type { ExpectedChord, FollowerConfig, FollowResult } from "./types";
+import type { ExpectedChord, FollowerConfig, FollowResult } from "./types.js";
 
 /**
  * Forward-only sequence follower for automatic page turning.

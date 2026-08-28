@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### All packages — valid Node ESM
+
+Every `tsc`-built package declared `"type": "module"` but was compiled with
+`moduleResolution: "bundler"`, so none of them actually loaded under Node's
+ESM resolver. This was invisible because `chordl-react` inlined its workspace
+dependencies at build time and every consumer went through a bundler, both of
+which resolve what Node rejects. Three distinct faults:
+
+- **Relative imports carried no file extension** — 126 specifiers across core,
+  guitar, voicings, board and listen emitted as `from "./engine/keyboard-layout"`,
+  which is `ERR_MODULE_NOT_FOUND` in Node. Source now writes explicit `.js`, and
+  core, voicings, guitar and listen moved to `moduleResolution: "nodenext"` so
+  tsc enforces it rather than leaving it to convention. `chordl-board` stays on
+  `bundler` — it is DOM-only and its CJS deps (`html2canvas`, `jspdf`) declare
+  ESM-style default exports that nodenext types as non-callable — but its emit is
+  equally correct, since the extensions are in the source.
+- **`chordl-guitar` imported JSON with no import attribute**, which Node rejects
+  with `ERR_IMPORT_ATTRIBUTE_MISSING`. Both now carry `with { type: "json" }`.
+- **`chordl-core`, `chordl-voicings` and `chordl-listen` advertised
+  `"main"`/`"require": "./dist/index.cjs"` — a file their build never produced.**
+  `require()` of these has been broken for every published version since 0.3.0.
+  They are ESM-only, and now say so, matching `chordl-guitar` and `chordl-board`.
+
+Verified by installing the packed tarballs into a clean consumer and importing
+each package under plain Node ESM — previously three separate hard failures.
+
 ### chordl-guitar 0.2.0
 
 **Breaking:** `OPEN_STRING_MIDI` is removed. Use `INSTRUMENTS[id].openMidi`,
