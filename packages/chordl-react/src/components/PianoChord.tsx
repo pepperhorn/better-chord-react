@@ -532,7 +532,8 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
 
   // Compute degree labels for chords (jazz roman numerals)
   const chordDegreeLabels: string[] | undefined = (() => {
-    if (parsed.noteNameMode !== "degree" && parsed.noteNameMode !== "pitch-class+degree") return undefined;
+    const mode = parsed.noteNameMode;
+    if (mode !== "degree" && mode !== "pitch-class+degree" && mode !== "midi+degree") return undefined;
     const intervals = resolved.intervals;
     if (!intervals || intervals.length === 0) return undefined;
     const singleDegrees = degreesForIntervals(intervals);

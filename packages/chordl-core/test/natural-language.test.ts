@@ -844,3 +844,43 @@ describe("a size between the two clauses", () => {
     expect(parseChordDescription("C with degrees xl").degreeSize).toBe("xl");
   });
 })
+
+/**
+ * "midi note names with degrees" is one request for two rows: the midi names on
+ * top and the degrees under them. The degrees clause used to be skipped
+ * outright whenever midi names were active, so the user asked for degrees and
+ * got silence — no mode change, no `degreeSize`, nothing drawn.
+ */
+describe("midi note names combine with degrees", () => {
+  it("keeps both the midi names and the degrees, each with its own size", () => {
+    const parsed = parseChordDescription("C midi note names with degrees in xl");
+    expect(parsed.showNoteNames).toBe(true);
+    expect(parsed.noteNameMode).toBe("midi+degree");
+    expect(parsed.degreeSize).toBe("xl");
+  });
+
+  it("reads the degrees even when no size is named for them", () => {
+    const parsed = parseChordDescription("C with midi note names and degrees");
+    expect(parsed.showNoteNames).toBe(true);
+    expect(parsed.noteNameMode).toBe("midi+degree");
+    expect(parsed.degreeSize).toBeUndefined();
+  });
+
+  it("still reads a size for each clause separately", () => {
+    const parsed = parseChordDescription("C midi note names in 2xl with degrees in base");
+    expect(parsed.noteNameMode).toBe("midi+degree");
+    expect(parsed.noteNameSize).toBe("2xl");
+    expect(parsed.degreeSize).toBe("base");
+  });
+
+  it("does not turn plain midi note names into a degree mode", () => {
+    const parsed = parseChordDescription("C midi note names");
+    expect(parsed.showNoteNames).toBe(true);
+    expect(parsed.noteNameMode).toBe("midi");
+    expect(parsed.degreeSize).toBeUndefined();
+  });
+
+  it("leaves the chord itself alone", () => {
+    expect(parseChordDescription("Cmaj7 midi note names with degrees in xl").chordName).toBe("Cmaj7");
+  });
+})

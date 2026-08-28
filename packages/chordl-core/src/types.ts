@@ -2,7 +2,12 @@ export type Format = "compact" | "exact";
 /** Tailwind-inspired text size scale for annotations. */
 export type TextSize = "base" | "lg" | "xl" | "2xl";
 /** Note name display mode. */
-export type NoteNameMode = "pitch-class" | "midi" | "degree" | "pitch-class+degree";
+export type NoteNameMode =
+  | "pitch-class"
+  | "midi"
+  | "degree"
+  | "pitch-class+degree"
+  | "midi+degree";
 export type WhiteNote = "C" | "D" | "E" | "F" | "G" | "A" | "B";
 export type NoteName = string;
 

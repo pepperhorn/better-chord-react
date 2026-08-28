@@ -138,7 +138,7 @@ export function VoicingVariantToggle({
     const parts: string[] = [];
     const p = resolved.parsed;
     if (p.showNoteNames) {
-      if (p.noteNameMode === "midi") {
+      if (p.noteNameMode === "midi" || p.noteNameMode === "midi+degree") {
         parts.push("midi note names");
       } else {
         parts.push("note names");

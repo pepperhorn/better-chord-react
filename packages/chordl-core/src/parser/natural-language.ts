@@ -741,13 +741,15 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     result.colorTheme = THEME_MAP[themeMatch[1].toLowerCase()] ?? themeMatch[1].toLowerCase();
   }
 
-  // Degrees keyword is independent — combines with note names if already detected,
-  // otherwise stands alone as degree-only mode. Skipped if MIDI names are active
-  // since "midi+degree" isn't a supported display mode.
+  // Degrees keyword is independent — combines with whichever note names are
+  // already detected, otherwise stands alone as degree-only mode. Midi names
+  // combine too: "midi note names with degrees" is a real request for two rows,
+  // and skipping the clause there dropped both the mode and the degree size, so
+  // the degrees the user asked for were silently never drawn.
   const degMatch = input.match(DEGREES_KEYWORD_RE);
-  if (degMatch && result.noteNameMode !== "midi") {
+  if (degMatch) {
     if (result.showNoteNames) {
-      result.noteNameMode = "pitch-class+degree";
+      result.noteNameMode = result.noteNameMode === "midi" ? "midi+degree" : "pitch-class+degree";
     } else {
       result.showNoteNames = true;
       result.noteNameMode = "degree";

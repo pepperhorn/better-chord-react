@@ -105,7 +105,7 @@ function matchHighlightsToKeys(
     if (matchIdx !== -1) {
       remaining[matchIdx].matched = true;
       let displayName = displayNoteNames?.[remaining[matchIdx].idx] ?? remaining[matchIdx].note;
-      if (noteNameMode === "midi") {
+      if (noteNameMode === "midi" || noteNameMode === "midi+degree") {
         displayName = `${displayName}${midiBaseOctave + key.octave}`;
       }
       highlighted.push({
@@ -182,7 +182,7 @@ export function PianoKeyboard({
   const resolvedShowNoteNames = showNoteNames ?? SHOW_NOTE_NAMES;
   // Determine which annotation rows to show based on noteNameMode
   const isDegreeOnly = noteNameMode === "degree";
-  const isDegreeCombo = noteNameMode === "pitch-class+degree";
+  const isDegreeCombo = noteNameMode === "pitch-class+degree" || noteNameMode === "midi+degree";
   const hasNoteNames = resolvedShowNoteNames && highlightKeys.length > 0 && !isDegreeOnly;
   const hasDegrees = resolvedShowNoteNames && highlightKeys.length > 0 && (isDegreeOnly || isDegreeCombo)
     && degreeLabels && degreeLabels.length > 0;
