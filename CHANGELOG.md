@@ -25,6 +25,14 @@ all ESM, and `chordl-guitar` and `chordl-board` were already ESM-only.
 The exports map gains the same terminal `"default"` condition as the rest
 of the workspace.
 
+**Release note: `chordl-react` can no longer be published on its own.** Its four
+`@pepperhorn` dependencies used to be inlined, so a react-only publish worked
+even though none of their current versions is on the registry. They are now
+load-bearing runtime imports, and `pnpm publish` rewrites `workspace:*` to the
+exact local version — so publishing `chordl-react@0.4.0` before them yields a
+package that fails to install. All six must go out together, in dependency
+order: voicings, guitar, listen, core, react, board.
+
 Verified by installing the packed tarballs into a clean consumer, checking all
 12 external specifiers resolve, and server-rendering `PianoChord` with
 `react-dom/server` — one installed copy of `chordl-core`.

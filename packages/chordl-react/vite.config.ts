@@ -29,7 +29,6 @@ export default defineConfig(({ command }) => ({
   build: {
     lib: {
       entry: resolve(__dirname, "src/index.ts"),
-      name: "BetterChordReact",
       formats: ["es"],
       fileName: "chordl",
     },
