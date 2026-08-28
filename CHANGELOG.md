@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### chordl-voicings — inversions are the first alternatives offered
+
+The A/B/C toggle mixed three tiers of voicings, and the library tier came
+first: after the default, a learner's next two options for `Cmaj7` were a Shell
+and a Rootless Type B — different sets of notes, not different arrangements of
+the notes they had just asked for.
+
+Inversions now fill the slots directly after the default, and the library and
+algorithmic tiers follow. An inversion keeps every note the chord already has
+and only moves the bass, so it is the smallest step away from what the user
+typed, and the one worth meeting first. A style hint still owns slot A: asking
+for a voicing by name is asking for that voicing.
+
+For a four-note chord that is `Root position · 1st inv · 2nd inv · 3rd inv`
+before anything else appears; the default count of three fills exactly with a
+triad's root position and its two inversions.
+
 ### chordl-react — ship dependencies instead of inlining them
 
 The Vite build externalised only `react`, `react-dom` and `react/jsx-runtime`,

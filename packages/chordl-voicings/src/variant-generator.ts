@@ -12,9 +12,12 @@ function isRootPosition(notes: string[], root: string): boolean {
 /**
  * Generate voicing variants for the A/B/C toggle.
  *
- * Strategy: three tiers of sources mixed for variety.
- * 1. Library voicings (grouped by style, one per style)
- * 2. Inversions (note rotation)
+ * Strategy: three tiers of sources, nearest-first. An inversion keeps every
+ * note the user's chord already has and only moves the bass, so it is the
+ * smallest step away from what they typed; library and algorithmic voicings
+ * change which notes sound, so they come after.
+ * 1. Inversions (note rotation)
+ * 2. Library voicings (grouped by style, one per style)
  * 3. Algorithmic (open voicing, close position)
  *
  * @param root - Root note (e.g. "C", "D#")
@@ -79,6 +82,21 @@ export function generateVariants(
     });
   }
 
+  // ── Inversions ───────────────────────────────────────────────────
+  // Ahead of the library on purpose: the first alternatives a learner is
+  // offered should be the chord they typed with a different note in the bass,
+  // not a different set of notes.
+  const INVERSION_LABELS = ["1st inv", "2nd inv", "3rd inv", "4th inv", "5th inv"];
+  for (let inv = 1; inv < resolvedNotes.length && inv <= 5; inv++) {
+    const rotated = [...resolvedNotes.slice(inv), ...resolvedNotes.slice(0, inv)];
+    addCandidate({
+      id: `inv-${inv}`,
+      label: INVERSION_LABELS[inv - 1] ?? `${inv}th inv`,
+      notes: rotated,
+      source: "inversion",
+    });
+  }
+
   // ── Library voicings (one per style) ─────────────────────────────
   if (quality) {
     const byStyle = new Map<string, VoicingEntry>();
@@ -102,18 +120,6 @@ export function generateVariants(
         source: "library",
       });
     }
-  }
-
-  // ── Inversions ───────────────────────────────────────────────────
-  const INVERSION_LABELS = ["1st inv", "2nd inv", "3rd inv", "4th inv", "5th inv"];
-  for (let inv = 1; inv < resolvedNotes.length && inv <= 5; inv++) {
-    const rotated = [...resolvedNotes.slice(inv), ...resolvedNotes.slice(0, inv)];
-    addCandidate({
-      id: `inv-${inv}`,
-      label: INVERSION_LABELS[inv - 1] ?? `${inv}th inv`,
-      notes: rotated,
-      source: "inversion",
-    });
   }
 
   // ── Algorithmic variants ─────────────────────────────────────────
