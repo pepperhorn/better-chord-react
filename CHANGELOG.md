@@ -22,8 +22,21 @@ which resolve what Node rejects. Three distinct faults:
   with `ERR_IMPORT_ATTRIBUTE_MISSING`. Both now carry `with { type: "json" }`.
 - **`chordl-core`, `chordl-voicings` and `chordl-listen` advertised
   `"main"`/`"require": "./dist/index.cjs"` — a file their build never produced.**
-  `require()` of these has been broken for every published version since 0.3.0.
-  They are ESM-only, and now say so, matching `chordl-guitar` and `chordl-board`.
+  `require()` of `chordl-core` and `chordl-voicings` has been broken in every
+  published version since 0.3.0; `chordl-listen` has never been published, so it
+  carried the same fault unreleased. They are ESM-only, and now say so, matching
+  `chordl-guitar` and `chordl-board`. Every package also gained a terminal
+  `"default"` export condition, so a resolver using a condition set without
+  `"import"` falls back instead of failing outright.
+
+`chordl-guitar` declares `"engines": { "node": ">=20.10" }`, the floor for the
+import-attribute syntax its JSON imports now use — a parse error below that, and
+better surfaced at install than at bundle time.
+
+`chordl-board` carries a test asserting every relative specifier in its source
+has an explicit extension. It is the one package tsc does not enforce this for,
+and build, lint and the rest of the suite all resolve extensionless specifiers
+happily — so nothing else would catch a regression before it shipped.
 
 Verified by installing the packed tarballs into a clean consumer and importing
 each package under plain Node ESM — previously three separate hard failures.
