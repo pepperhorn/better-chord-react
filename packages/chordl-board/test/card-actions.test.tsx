@@ -79,7 +79,19 @@ describe("deselecting a card", () => {
     expect(onClearSelection).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves Escape alone when nothing is selected", () => {
+  /**
+   * A card can be open for editing without being selected, and the host wires
+   * "leave edit mode" into the same handler. Ignoring Escape there left the
+   * keyboard no way out of an edit.
+   */
+  it("clears on Escape while a card is being edited, selected or not", () => {
+    const onClearSelection = vi.fn();
+    render(<ChordBoard items={items} editingId="b" onClearSelection={onClearSelection} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClearSelection).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves Escape alone when nothing is selected or being edited", () => {
     const onClearSelection = vi.fn();
     render(<ChordBoard items={items} onClearSelection={onClearSelection} />);
     fireEvent.keyDown(document, { key: "Escape" });

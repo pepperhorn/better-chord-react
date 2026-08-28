@@ -28,6 +28,25 @@ const BARE_ROOT = /^[A-G][#b]?$/;
 const NOTE_TOKEN = /(?:^|[\s,])([A-Ga-g][#b]?)(?=[\s,]|$)/g;
 
 /**
+ * Write the quality onto the root where it stands, keeping the rest of what the
+ * user typed.
+ *
+ * Replacing the whole input with `root + quality` was simpler and wrong: "C in
+ * second inversion" parses to a bare root, so the strip shows, and one click
+ * threw the inversion away. Anything the picker cannot locate falls back to the
+ * plain chord — better a bare chord than a mangled sentence.
+ */
+export function applyQuality(input: string, root: string, quality: string): string {
+  const escaped = root.replace(/[#]/g, "\\#");
+  const token = new RegExp(`(^|[^A-Za-z#b])(${escaped})(?![A-Za-z#b])`, "g");
+  let last: RegExpExecArray | null = null;
+  for (let m = token.exec(input); m; m = token.exec(input)) last = m;
+  if (!last) return `${root}${quality}`;
+  const at = last.index + last[1].length;
+  return input.slice(0, at) + root + quality + input.slice(at + root.length);
+}
+
+/**
  * Decide whether a bare-root shortcut applies to this input.
  *
  * The check is on the *parsed* chord name, not the raw text, so "show me an A"
@@ -93,7 +112,7 @@ export function ChordQualityPicker({ input, onPick, className }: ChordQualityPic
           type="button"
           className="btn-quality"
           style={btnStyle}
-          onClick={() => onPick(`${root}${quality}`)}
+          onClick={() => onPick(applyQuality(input, root, quality))}
           title={`${root}${quality}`}
         >
           {quality}

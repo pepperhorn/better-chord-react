@@ -34,9 +34,29 @@ export const DEFAULT_CHORD_DETAILS: ChordDetailState = {
 };
 
 const SIZE = "(base|lg|xl|2xl)";
-/** Custom fingering first: it also starts with the word "fingering". */
-const CUSTOM_FINGERING = new RegExp(`\\s*custom\\s+fingering\\s+"([^"]*)"(?:\\s+in\\s+${SIZE})?`, "i");
-const FINGERING = new RegExp(`\\s*(?:with\\s+)?fingering(?:\\s+in\\s+${SIZE})?`, "i");
+/**
+ * Custom fingering first: it also starts with the word "fingering". The quote
+ * class matches the core parser's, so a card written with curly or single
+ * quotes is read back as the custom fingering it is rather than falling through
+ * to the auto branch.
+ */
+const CUSTOM_FINGERING = new RegExp(
+  `\\s*(?:with\\s+)?custom\\s+fingering\\s+["\u201c\u201d']([^"\u201c\u201d']*)["\u201c\u201d'](?:\\s+in\\s+${SIZE})?`,
+  "i",
+);
+/**
+ * Auto fingering: the word on its own.
+ *
+ * The lookaheads are what keep it off a clause it does not own. `custom
+ * fingering "1,3,5"` and the core's unquoted `fingering 1 3 5` both contain the
+ * word, and matching either one stripped the values into the chord text and
+ * silently called it auto — a card the user wrote by hand, corrupted the moment
+ * it was opened for edit.
+ */
+const FINGERING = new RegExp(
+  `\\s*(?:with\\s+)?(?<!custom\\s)fingering(?:\\s+in\\s+${SIZE})?(?!\\s*["\u201c\u201d'])(?!\\s+[\\dxX-])`,
+  "i",
+);
 /** "midi" is part of the keyword, so the mode falls out of the same match. */
 const NOTE_NAMES = new RegExp(`\\s*(?:with\\s+)?(midi\\s+)?note\\s+names(?:\\s+in\\s+${SIZE})?`, "i");
 const DEGREES = new RegExp(`\\s*(?:with\\s+)?degrees(?:\\s+in\\s+${SIZE})?`, "i");

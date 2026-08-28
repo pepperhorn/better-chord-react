@@ -145,6 +145,19 @@ function parseImage(value: unknown): string | undefined {
   return typeof value === "string" && value.startsWith("data:image/") ? value : undefined;
 }
 
+/**
+ * Imported meta is as untrusted as an imported item. `columns` reaches a CSS
+ * grid, where a count the layout cannot divide evenly renders every card as a
+ * sliver — so anything outside what the settings offer becomes "auto".
+ */
+function parseMeta(value: unknown): BoardMeta {
+  const raw = (value ?? {}) as BoardMeta;
+  const columns = raw.columns;
+  const usable = columns === "auto"
+    || (typeof columns === "number" && Number.isInteger(columns) && columns >= 1 && columns <= 6);
+  return usable ? raw : { ...raw, columns: undefined };
+}
+
 export function importBoardJson(text: string): BoardState {
   const parsed = JSON.parse(text) as Partial<BoardJsonV1>;
   if (!parsed || !READABLE_BOARD_SCHEMAS.includes(parsed.schema as BoardSchema)) {
@@ -179,5 +192,5 @@ export function importBoardJson(text: string): BoardState {
       breakAfter: parseBreakAfter(raw.breakAfter),
     };
   });
-  return { items, meta: parsed.meta ?? {} };
+  return { items, meta: parseMeta(parsed.meta) };
 }

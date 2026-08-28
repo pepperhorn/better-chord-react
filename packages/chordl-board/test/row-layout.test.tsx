@@ -90,3 +90,29 @@ describe("row layout", () => {
     expect(gridOf(container).style.display).toBe("flex");
   });
 });
+
+/**
+ * `columns` reaches a CSS grid. A count the track layout cannot divide evenly
+ * produces a fractional span, which the CSS parser drops outright — leaving
+ * every card auto-placed on one track, a two-pixel sliver.
+ */
+describe("an unusable column count", () => {
+  const cards = [card("a"), card("b")];
+
+  it("falls back to the wrapping layout", () => {
+    for (const columns of [7, 0, -2, 2.5]) {
+      const { container, unmount } = render(<ChordBoard items={cards} meta={{ columns }} />);
+      expect(gridOf(container).style.display, String(columns)).toBe("flex");
+      expect(placement(container, "a"), String(columns)).toBe("");
+      unmount();
+    }
+  });
+
+  it("still uses the grid for every count the settings offer", () => {
+    for (const columns of [1, 2, 3, 4, 5, 6]) {
+      const { container, unmount } = render(<ChordBoard items={cards} meta={{ columns }} />);
+      expect(gridOf(container).style.display, String(columns)).toBe("grid");
+      unmount();
+    }
+  });
+});

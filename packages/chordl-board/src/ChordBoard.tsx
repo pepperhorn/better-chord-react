@@ -513,7 +513,6 @@ export function ChordBoard({
   const [exporting, setExporting] = useState<"png" | "pdf" | null>(null);
   const [confirmNew, setConfirmNew] = useState(false);
   const newCancelRef = useRef<HTMLButtonElement>(null);
-  const newOverlayRef = useRef<HTMLDivElement>(null);
   const lastPulseRef = useRef<number | undefined>(undefined);
   const exportRef = useRef<HTMLDivElement | null>(null);
   // Drag is armed when the user mousedowns on a card's handle. State (not ref)
@@ -610,8 +609,14 @@ export function ChordBoard({
   const hasBoard = items.length > 0 || hasTitles || hasLayout;
 
   const handleSaveAndNew = async () => {
-    // Save first: if the download throws, the board is still there to retry.
-    await handleExportJson();
+    // Save first, and only clear if it worked: the whole point of this path is
+    // that the board leaves with a copy. A failed download keeps the overlay
+    // open on a board that is still there, rather than clearing it anyway.
+    try {
+      await handleExportJson();
+    } catch {
+      return;
+    }
     setConfirmNew(false);
     onNew?.();
   };
@@ -652,7 +657,14 @@ export function ChordBoard({
   const isExporting = exporting !== null;
 
   const columns = safeMeta.columns;
-  const useGrid = typeof columns === "number" && columns > 0;
+  /*
+   * 1–6 is what the settings offer and what GRID_TRACKS divides evenly. A count
+   * from anywhere else — an imported board, a host setting `columns` directly —
+   * would give a fractional span, which the CSS parser drops entirely, leaving
+   * every card a one-track sliver. The wrapping layout handles it instead.
+   */
+  const useGrid = typeof columns === "number" && Number.isInteger(columns)
+    && columns >= 1 && columns <= 6;
 
   const cardStyle: CSSProperties = {
     position: "relative",
@@ -780,21 +792,26 @@ export function ChordBoard({
   };
 
   /**
-   * Escape deselects. The pointer routes out of a selection are a second click
-   * on the card and the board background around the grid; a keyboard user has
-   * neither, and on a full board the background is a few pixels wide.
+   * Escape backs out of whatever the board has the user in — a selection, or a
+   * card open for editing. The pointer routes are a second click on the card
+   * and the board background around the grid; a keyboard user has neither, and
+   * on a full board the background is a few pixels wide.
+   *
+   * Editing counts even with nothing selected: a card can be opened for edit
+   * without being selected, and leaving the keyboard no way out of *that* is
+   * the same trap from the other side.
    *
    * Skipped while the new-board overlay is up: Escape there means "cancel that",
    * and the overlay handles it.
    */
   useEffect(() => {
-    if (!selectedId || confirmNew) return;
+    if ((!selectedId && !editingId) || confirmNew) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClearSelection?.();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [selectedId, confirmNew, onClearSelection]);
+  }, [selectedId, editingId, confirmNew, onClearSelection]);
 
   /**
    * Cancel takes focus the moment the overlay opens, so an Enter left over from
@@ -848,7 +865,6 @@ export function ChordBoard({
           aria-modal="true"
           aria-labelledby="chordl-board-new-heading"
           tabIndex={-1}
-          ref={newOverlayRef}
           onKeyDown={(e) => { if (e.key === "Escape") setConfirmNew(false); }}
           // A click that reaches the backdrop itself never started inside the
           // dialog, so it is a click *away* — the same as Cancel.

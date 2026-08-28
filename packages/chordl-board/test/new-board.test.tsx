@@ -130,3 +130,18 @@ describe("New board", () => {
     expect(overlay.textContent).not.toContain("1 cards");
   });
 });
+
+describe("New board — when the download fails", () => {
+  it("keeps the board and the overlay", async () => {
+    // The point of this path is that the board leaves with a copy of itself.
+    URL.createObjectURL = vi.fn(() => { throw new Error("no blob urls here"); });
+    const onNew = vi.fn();
+    const { container } = render(<ChordBoard items={items} meta={meta} onNew={onNew} />);
+    const overlay = openOverlay(container);
+    fireEvent.click(overlay.querySelector(".chordl-board-new-save")!);
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(onNew).not.toHaveBeenCalled();
+    expect(document.querySelector(".chordl-board-new-overlay")).toBeTruthy();
+  });
+});

@@ -91,3 +91,37 @@ describe("splitChordDetails", () => {
     expect(split.input).not.toMatch(/note names|degrees/i);
   });
 });
+
+/**
+ * The composer is not the only thing that writes these strings — a user can
+ * type them, and the core parser accepts forms the form never emits: unquoted
+ * values ("fingering 1 3 5"), curly and single quotes. Matching a clause the
+ * split does not own stripped the values into the chord text and called the
+ * mode auto, corrupting a card the moment it was opened for edit.
+ */
+describe("splitChordDetails — clauses it does not own", () => {
+  it("leaves hand-written explicit fingering alone", () => {
+    for (const nl of ["C fingering 1 3 5", "C with fingering 1-3-5 in lg", "C fingers 1,2,3"]) {
+      const split = splitChordDetails(nl);
+      expect(split.input, nl).toBe(nl);
+      expect(split.fingeringMode, nl).toBe("none");
+    }
+  });
+
+  it("reads custom fingering however it was quoted", () => {
+    for (const quoted of ['"1,3,5"', "'1,3,5'", "“1,3,5”"]) {
+      const split = splitChordDetails(`C custom fingering ${quoted} in xl`);
+      expect(split.input, quoted).toBe("C");
+      expect(split.fingeringMode, quoted).toBe("custom");
+      expect(split.fingeringValues, quoted).toEqual(["1", "3", "5"]);
+    }
+  });
+
+  it("still reads the auto clause the form writes", () => {
+    expect(splitChordDetails("C with fingering in lg")).toMatchObject({
+      input: "C",
+      fingeringMode: "auto",
+      fingeringSize: "lg",
+    });
+  });
+});

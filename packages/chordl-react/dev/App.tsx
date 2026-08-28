@@ -1353,7 +1353,14 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
               board.selectItem(id);
               if (id === null && editingItemId) stopEditing();
             }}
-            onClearSelection={board.clearSelection}
+            // Same reasoning as `onSelect(null)` above, for the routes that do
+            // not go through a card: Escape and a click on the board
+            // background. Leaving one of them wired to a bare clearSelection is
+            // how the form stayed bound to a card with no highlight.
+            onClearSelection={() => {
+              board.clearSelection();
+              if (editingItemId) stopEditing();
+            }}
             onNew={handleNewBoard}
             onImport={(state) => {
               // An import replaces every id on the board, so any editor —

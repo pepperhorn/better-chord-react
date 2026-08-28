@@ -81,7 +81,28 @@ describe("ChordQualityPicker", () => {
     const onPick = vi.fn();
     const { container } = render(<ChordQualityPicker input="show me an A" onPick={onPick} />);
     fireEvent.click(container.querySelector(".btn-quality")!);
-    expect(onPick).toHaveBeenCalledWith("Am");
+    expect(onPick).toHaveBeenCalledWith("show me an Am");
+  });
+
+  /**
+   * A bare root can still carry modifiers: "C in second inversion" parses to a
+   * bare "C", so the strip shows. Replacing the whole input with root+quality
+   * threw the rest away.
+   */
+  it("keeps the rest of what the user typed", () => {
+    const onPick = vi.fn();
+    const { container } = render(
+      <ChordQualityPicker input="C in second inversion" onPick={onPick} />,
+    );
+    fireEvent.click(container.querySelector(".btn-quality")!);
+    expect(onPick).toHaveBeenCalledWith("Cm in second inversion");
+  });
+
+  it("writes onto the root inside a sentence", () => {
+    const onPick = vi.fn();
+    const { container } = render(<ChordQualityPicker input="show me an A" onPick={onPick} />);
+    fireEvent.click(container.querySelectorAll(".btn-quality")[1]);
+    expect(onPick).toHaveBeenCalledWith("show me an A7");
   });
 
   it("keeps the root's own accidental spelling", () => {
