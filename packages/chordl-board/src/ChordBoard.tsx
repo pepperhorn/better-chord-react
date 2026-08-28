@@ -418,6 +418,19 @@ export function useChordBoard(opts?: {
 
 // ── Stateless renderer ────────────────────────────────────────────
 
+/**
+ * Track count for the fixed-column grid.
+ *
+ * 120 is twice the lowest common multiple of 1 through 6 — every column count
+ * the board offers. A card therefore spans a whole number of tracks at any
+ * column count, and the doubling makes the *half* of a leftover column whole
+ * too, which is what centres a short row exactly.
+ */
+const GRID_TRACKS = 120;
+
+/** Half the 12px gutter, carried by each card. See `columnGap: 0` below. */
+const CARD_GUTTER = 6;
+
 export interface ChordBoardProps {
   items: BoardItem[];
   clipboard?: BoardItem | null;
@@ -677,8 +690,45 @@ export function ChordBoard({
   };
 
   const gridStyle: CSSProperties = useGrid
-    ? { display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 12, alignItems: "flex-start" }
+    ? {
+        display: "grid",
+        gridTemplateColumns: `repeat(${GRID_TRACKS}, minmax(0, 1fr))`,
+        // Column gutters live on the cards, not on the grid: 120 tracks means
+        // 119 gutters, and at 12px each they would consume more than the board
+        // is wide. Tracks stay pure width, so a span is exactly one column and
+        // a centring offset is exact.
+        columnGap: 0,
+        rowGap: 12,
+        alignItems: "flex-start",
+      }
     : { display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-start", justifyContent: "center" };
+
+  /**
+   * Where each card sits on the track grid.
+   *
+   * Cards keep the width their column count gives them — a card is the same
+   * size wherever it lands. A row holding fewer cards than the setting is
+   * centred instead, with the leftover columns split evenly either side, so a
+   * row cut short by a break reads as a deliberate short row rather than as a
+   * full row missing its right-hand cards.
+   */
+  const span = useGrid ? GRID_TRACKS / (columns as number) : 0;
+  const rowStarts: Record<number, number> = {};
+  if (useGrid) {
+    const perRow = columns as number;
+    let rowStart = 0;
+    for (let i = 0; i < items.length; i++) {
+      const rowLength = i - rowStart + 1;
+      const rowEnds = Boolean(items[i].breakAfter) || rowLength === perRow || i === items.length - 1;
+      if (!rowEnds) continue;
+      if (rowLength < perRow) {
+        // Half the leftover columns, in tracks. Whole because GRID_TRACKS is
+        // twice a multiple of every column count the board offers.
+        rowStarts[rowStart] = ((perRow - rowLength) * span) / 2 + 1;
+      }
+      rowStart = i + 1;
+    }
+  }
 
   /**
    * A `breakAfter` card is followed by this: a rendered sibling that fills the
@@ -941,7 +991,7 @@ export function ChordBoard({
               : "No cards yet — click the add button to capture the current chord."}
           </div>
         )}
-        {items.map((item) => {
+        {items.map((item, index) => {
           const isDragging = dragId === item.id;
           const isEditing = editingId === item.id;
           const isSelected = selectedId === item.id;
@@ -959,7 +1009,19 @@ export function ChordBoard({
                 data-board-id={item.id}
                 data-selected={isSelected ? "true" : "false"}
                 className={cardClass}
-                style={{ ...cardStyle, opacity: isDragging ? 0.7 : 1 }}
+                style={{
+                  ...cardStyle,
+                  opacity: isDragging ? 0.7 : 1,
+                  ...(useGrid
+                    ? {
+                        gridColumn: rowStarts[index] !== undefined
+                          ? `${rowStarts[index]} / span ${span}`
+                          : `span ${span}`,
+                        marginLeft: CARD_GUTTER,
+                        marginRight: CARD_GUTTER,
+                      }
+                    : null),
+                }}
                 draggable={armedDragId === item.id}
                 // Clicking the selected card again deselects it. Without this
                 // the only way out of a selection is the strip of board

@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+### chordl-board — a short row is centred instead of hugging the left edge
+
+With a column count set, a row holding fewer cards than the setting — the one
+before a break, or the last one — sat in the grid's leftmost tracks. Two cards
+on a four-per-row board read as "a full row missing two" rather than as a row
+of two.
+
+The leftover columns are now split evenly either side, so a short row is
+centred. Cards keep the width their column count gives them: a card is the same
+size wherever it lands.
+
+The grid runs on 120 tracks — twice the lowest common multiple of every column
+count the board offers — so a card spans whole tracks and half a leftover
+column is whole too, which is what makes the centring exact. Column gutters
+moved onto the cards: 119 grid gutters at 12px would be wider than the board.
+
+### chordl-board — a row ended by a break shares out its width
+
+With a column count set, a row cut short by a break sat in the grid's own
+tracks: two cards on a four-per-row board rendered narrow and hard against the
+left edge, reading as "a full row missing two" rather than as halves.
+
+Cards on a row that a break ends now widen to share the whole row, so a row of
+two reads as two halves and a lone card after a break takes the row. The grid
+runs on 60 tracks — the lowest common multiple of every column count the board
+offers — so any row length from one to six divides into whole tracks, with the
+same 12px between cards as before.
+
+The trailing row is deliberately left alone: it is where the list ran out, not
+where the user drew a line, and growing it would resize cards each time another
+was added.
+
 ### chordl-board — a selected card can be deselected
 
 Selecting a card was one click; leaving the selection needed the strip of board
