@@ -425,7 +425,6 @@ export interface ChordBoardProps {
   meta?: BoardMeta;
   onMetaChange?: (patch: Partial<BoardMeta>) => void;
   onEdit?: (item: BoardItem) => void;
-  onCopy?: (id: string) => void;
   onCut?: (id: string) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
@@ -471,7 +470,6 @@ export function ChordBoard({
   meta,
   onMetaChange,
   onEdit,
-  onCopy,
   onCut,
   onDelete,
   onDuplicate,
@@ -1003,8 +1001,15 @@ export function ChordBoard({
                     className="chordl-board-actions"
                     style={{
                       display: "flex",
+                      // Six controls are wider than a card at small scales and
+                      // in a many-column layout. A flex row without this does
+                      // not shrink to fit — it spills past the card border.
+                      flexWrap: "wrap",
+                      // Centred rather than right-aligned: once the row can
+                      // wrap, a short second line hanging off one edge reads as
+                      // a mistake.
+                      justifyContent: "center",
                       gap: 4,
-                      justifyContent: "flex-end",
                       marginTop: 2,
                       borderTop: "1px solid var(--btn-border, #eee)",
                       paddingTop: 6,
@@ -1012,9 +1017,12 @@ export function ChordBoard({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button className="chordl-board-action-edit" style={iconBtnStyle} onClick={() => onEdit?.(item)} title="Edit">edit</button>
-                    <button className="chordl-board-action-copy" style={iconBtnStyle} onClick={() => onCopy?.(item.id)} title="Copy">copy</button>
+                    {/* One control, not two. "copy" put a card on a clipboard
+                        the user then had to paste, and "repeat" did the whole
+                        job in a click — so the clipboard round-trip was a
+                        longer road to the same card. */}
+                    <button className="chordl-board-action-duplicate" style={iconBtnStyle} onClick={() => onDuplicate?.(item.id)} title="Duplicate">duplicate</button>
                     <button className="chordl-board-action-cut" style={iconBtnStyle} onClick={() => onCut?.(item.id)} title="Cut">cut</button>
-                    <button className="chordl-board-action-repeat" style={iconBtnStyle} onClick={() => onDuplicate?.(item.id)} title="Repeat (duplicate)">repeat</button>
                     {/* The only card state in this row with a value to read back,
                         so it has to look different when on — a break is invisible
                         otherwise, and an invisible toggle gets pressed twice. */}

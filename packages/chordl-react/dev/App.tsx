@@ -1336,7 +1336,6 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             onMetaChange={board.setMeta}
             clipboard={board.clipboard}
             onEdit={handleEditBoardItem}
-            onCopy={board.copyItem}
             onCut={handleRemoveBoardItem(board.cutItem)}
             onDelete={handleRemoveBoardItem(board.removeItem)}
             onPaste={board.pasteItem}

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### chordl-board — card controls stay inside the card, and duplicate replaces copy
+
+Six controls in one non-wrapping row is wider than a card at small scales or in
+a many-column layout, and a flex row does not shrink to fit — it spilled past
+the card border. The row now wraps, and is centred rather than right-aligned so
+a short second line does not hang off one edge.
+
+`copy` and `repeat` are replaced by a single `duplicate`. `copy` only filled a
+clipboard the user then had to paste; `repeat` did the whole job in one click,
+so the clipboard round-trip was a longer road to the same card. `cut` still
+fills the clipboard for a move, and `ChordBoard`'s `onCopy` prop is gone with
+the control that drove it — `useChordBoard().copyItem` remains for hosts that
+want their own.
+
 ### chordl-react — quality shortcuts for a bare root
 
 Typing `A` renders A major immediately, which is the fastest path in the app,
