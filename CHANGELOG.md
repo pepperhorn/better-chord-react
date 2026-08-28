@@ -24,10 +24,18 @@ cut out, so **"A with note names", "A in second inversion" and "A compact" all
 reached that test as "A " — an article by the old rule, and eaten**, leaving no
 chord at all.
 
-Filler now runs in two passes: everything else first, then the articles, last of
-all and judged against text that is genuinely finished. An article is only an
-article when something still follows it. "show me a Cmaj7" and "draw an Em" are
-unaffected — there, something does.
+The trap in fixing it is that the residual cannot tell the two apart: "in a
+compact layout" arrives as "A " just as "A with note names" does, because the
+article's own noun is one of the things that was stripped. So the article pass
+decides on evidence the stripping cannot invent — what follows the token (`#`
+or `/`), the capital letter the user typed, and whether the article ended the
+original input. A trailing lowercase "a" whose noun was deleted stays an
+article, so a note-list or scale card never grows a phantom A chord.
+
+That also fixes the other half of the family, where the word after the root is
+not strippable filler and the article pass ate the root before the descriptive
+matcher could see it: **"A minor" resolved to no chord at all, "A minor seventh"
+to E, "A dominant seventh" to D and "A flat" to B.**
 
 ### chordl-board — cards can be resized on the board
 

@@ -3,20 +3,46 @@ import { resolveChord } from "../resolver/chord-resolver.js";
 
 // Filler runs in two passes, and the order is load-bearing.
 //
-// The articles "a"/"an" are also the note A and a word that can precede it, so
-// an article is only an article when something follows it. The rest of the
-// filler is removed first, which is what makes that test meaningful: "A with
-// note names" reaches this point as "A with " — judged in one pass the A is
-// followed by a word and is eaten; with "with" already gone it is followed by
-// nothing and survives.
+// The articles "a"/"an" are also the note A, and by the time filler is stripped
+// every modifier has already been cut out — so "A with note names" arrives as
+// "A ", and so does "a compact". The residual cannot tell them apart, because
+// the article's own noun is one of the things that was deleted.
 //
-// '#' and '/' are the other continuations a real root can have ("A#dim",
-// "A/C#"). A word-char continuation ("Adim", "Am7") already fails the trailing
-// \b, so it never reaches the test.
+// So the article pass decides on evidence the stripping cannot destroy: the
+// character after it, the capital letter the user typed, and where the token
+// sat in the original input. See `stripArticles`.
 const FILLER_WORDS =
   /\b(show\s+me|draw|display|render|please|the|with|that|this|me|of)\b/gi;
 
-const FILLER_ARTICLES = /\b(an?)(?![#/]|\s*$)\b/gi;
+const ARTICLE_RE = /\b(an?)\b/gi;
+
+/** An article at the very end of the *original* input is the note A: "a", "an A". */
+const ARTICLE_AT_INPUT_END = /\ban?(?=[#/]|\s*$)/i;
+
+/**
+ * Remove English articles without eating the note A.
+ *
+ * Three things say "this is the note, not an article", none of which an earlier
+ * `.replace` can have invented:
+ *
+ *  - what follows is `#` or `/` — only a root can be ("A#dim", "A/C#");
+ *  - the token is a capital `A`, which is how a chord is written and not how an
+ *    article is ("A minor", "A with note names", "A in second inversion");
+ *  - the article ends the original input ("a", "show me an A").
+ *
+ * Anything else is an article, including one left trailing because its noun was
+ * stripped — "in a compact layout" must not resolve to the chord A.
+ */
+function stripArticles(text: string, input: string): string {
+  const bareArticleAtEnd = ARTICLE_AT_INPUT_END.test(input);
+  return text.replace(ARTICLE_RE, (token, _g, offset: number, whole: string) => {
+    const rest = whole.slice(offset + token.length);
+    if (/^[#/]/.test(rest)) return token;
+    if (token === "A") return token;
+    if (/^\s*$/.test(rest) && bareArticleAtEnd) return token;
+    return "";
+  });
+}
 
 const FORMAT_RE = /\b(compact|exact|full)\b/i;
 const FORMAT_FULL_RE = /\bfull\s+(?:layout|height|size|keys?)\b/i;
@@ -817,12 +843,12 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     .replace(/\bsize\b/gi, "")
     .replace(/\bkeys?\b/gi, "")
     .replace(/\bin\b/gi, "")
-    // Last, so "is anything left after this?" is asked of text that really is
-    // finished. Run any earlier and "A in second inversion" is still "A in "
-    // here, and the A is judged an article because a word follows it.
-    .replace(FILLER_ARTICLES, "")
     .replace(/\s+/g, " ")
     .trim();
+
+  // Last, so the article test is asked of text that is finished — and of the
+  // original input, which still knows what the article was standing in front of.
+  cleaned = stripArticles(cleaned, input).replace(/\s+/g, " ").trim();
 
   // Replace word-based accidentals before chord extraction
   cleaned = cleaned

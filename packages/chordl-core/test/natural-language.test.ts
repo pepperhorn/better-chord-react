@@ -725,4 +725,61 @@ describe("root note A with a modifier after it", () => {
     expect(nameOf("show me a Cmaj7")).toBe("Cmaj7");
     expect(nameOf("draw an Em")).toBe("Em");
   });
+
+  /**
+   * The trap in fixing the above: filler is stripped last, so an article whose
+   * noun was already deleted is left trailing and looks exactly like a bare A.
+   * "in a compact layout" and "A with note names" arrive here as the same "A ".
+   * Deciding on the capital letter and the original input is what tells them
+   * apart — a phantom A chord on a note-list card truncates its fingering row
+   * and makes follow-along emit a chord symbol for a card that has none.
+   */
+  it("does not invent a chord from an article whose noun was stripped", () => {
+    for (const input of [
+      "in a compact layout",
+      "show me a full layout",
+      "a compact",
+      "a fingering",
+      "with a theme",
+      "a left hand C E G",
+      "notes C E G B in a compact layout",
+    ]) {
+      expect(nameOf(input), input).toBe("");
+    }
+  });
+
+  it("leaves a scale request without a phantom chord", () => {
+    const parsed = parseChordDescription("a C major scale");
+    expect(parsed.isScale).toBe(true);
+    expect(parsed.chordName).toBe("");
+  });
+
+  it("keeps a note list free of a chord name", () => {
+    const parsed = parseChordDescription("notes C E G B in a compact layout");
+    expect(parsed.notesGroups?.[0].notes).toEqual(["C", "E", "G", "B"]);
+    expect(parsed.chordName).toBe("");
+  });
+
+  it("still reads a lone lowercase \"a\" as the note", () => {
+    // The article that ends the input has no noun to introduce.
+    expect(nameOf("a")).toBe("A");
+  });
+
+  /**
+   * The other half of the family: where the word after the A is not strippable
+   * filler, the descriptive path never saw the root because the article pass
+   * had already eaten it. "A minor" resolved to nothing at all, and "A minor
+   * seventh" to E.
+   */
+  it("reads a spelled-out quality after the root", () => {
+    expect(nameOf("A minor")).toBe("Am");
+    expect(nameOf("A minor seventh")).toBe("Am7");
+    expect(nameOf("an A minor")).toBe("Am");
+    expect(nameOf("show me A minor")).toBe("Am");
+  });
+
+  it("reads a spelled-out accidental after the root", () => {
+    expect(nameOf("A flat")).toBe("Ab");
+    expect(nameOf("A sharp")).toBe("A#");
+  });
 })
