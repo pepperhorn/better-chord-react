@@ -1,16 +1,16 @@
 {
   "name": "@pepperhorn/chordl-react",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "React component library for SVG piano chord diagrams",
   "type": "module",
-  "main": "./dist/chordl.cjs",
+  "main": "./dist/chordl.js",
   "module": "./dist/chordl.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/chordl.js",
-      "require": "./dist/chordl.cjs"
+      "default": "./dist/chordl.js"
     }
   },
   "sideEffects": false,

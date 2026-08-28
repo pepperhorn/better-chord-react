@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### chordl-react — ship dependencies instead of inlining them
+
+The Vite build externalised only `react`, `react-dom` and `react/jsx-runtime`,
+so the other nine declared runtime dependencies — the four `@pepperhorn`
+packages plus `tonal`, `svguitar`, `jszip`, `smplr` and `verovio` — were inlined
+into the bundle *and* installed transitively. Consumers downloaded that code
+twice and could end up running two copies of `chordl-core`. The external list is
+now derived from the manifest, so anything declared as a dependency stays a
+runtime import, subpaths included.
+
+| | before | after |
+|---|---|---|
+| `dist/chordl.js` | 983.97 kB | 115.74 kB |
+| `dist/` total | 19 MB | 1.2 MB |
+| packed tarball | 6.52 MB | 0.74 MB |
+
+**The CJS build is dropped; the package is ESM-only.** It only ever worked by
+inlining — externalised, `dist/chordl.cjs` would `require()` packages that are
+ESM-only. Nothing consumes it: `ph-chordl`, `chordcards` and `render-cli` are
+all ESM, and `chordl-guitar` and `chordl-board` were already ESM-only.
+The exports map gains the same terminal `"default"` condition as the rest
+of the workspace.
+
+Verified by installing the packed tarballs into a clean consumer, checking all
+12 external specifiers resolve, and server-rendering `PianoChord` with
+`react-dom/server` — one installed copy of `chordl-core`.
+
 ### All packages — valid Node ESM
 
 Every `tsc`-built package declared `"type": "module"` but was compiled with
