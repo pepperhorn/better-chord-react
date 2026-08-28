@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### chordl-react — editing a card restores the detail panel it was made with
+
+A chord card stores its annotations inside its own string: "C note names in xl
+with degrees in lg". Opening one for edit put that whole string in the input box
+and reset every toggle, so the detail panel read empty for a card that plainly
+had details — and the first toggle touched appended a clause the string already
+carried, giving "note names in lg note names in lg".
+
+`splitChordDetails` is now the exact inverse of the composer that writes those
+modifiers, and both live in one module (`src/editor/chordDetails.ts`) so they
+cannot drift. Editing a card fills the input with the chord alone and restores
+note names, degrees, fingering and octave shift — mode and size included — to
+what the card was made with.
+
+A clause only sets a toggle if it was removed from the text, so the two can
+never both claim it. Anything the split does not recognise stays in the input:
+"Cmaj7#5 starting on G#" belongs to the user, not to the form.
+
 ### chordl-react — an octave shift moves the keyboard's window, not its width
 
 `chord up 1 octave` extended the keyboard by a whole octave — eight white keys
