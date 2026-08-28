@@ -69,7 +69,10 @@ const asSize = (raw: string | undefined, fallback: TextSize): TextSize =>
 export function composeChordDetails(state: ChordDetailState): string {
   const parts: string[] = [];
   if (state.showNoteNames) {
-    const kw = state.noteNameMode === "midi" ? "midi note names" : "note names";
+    // Any midi mode, not just the bare one: NoteNameMode also carries
+    // "midi+degree", and an exact match serialised that back as plain
+    // "note names", losing the midi request compose/split promises to preserve.
+    const kw = state.noteNameMode.startsWith("midi") ? "midi note names" : "note names";
     parts.push(`${kw} in ${state.noteNameSize}`);
   }
   if (state.showDegrees) {
