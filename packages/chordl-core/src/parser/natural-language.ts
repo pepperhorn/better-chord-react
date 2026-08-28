@@ -1,12 +1,22 @@
 import type { Format, TextSize, ParsedChordRequest, NotesGroup } from "../types.js";
 import { resolveChord } from "../resolver/chord-resolver.js";
 
-// "a"/"an" are excluded when immediately followed by '#', '/', or end-of-string —
-// those are the only non-word-char continuations a real chord root can have
-// (e.g. bare "A", "A#dim", "A/C#"); any word-char continuation (e.g. "Adim",
-// "Am7") already fails the trailing \b below, so this doesn't affect them.
+// Filler runs in two passes, and the order is load-bearing.
+//
+// The articles "a"/"an" are also the note A and a word that can precede it, so
+// an article is only an article when something follows it. The rest of the
+// filler is removed first, which is what makes that test meaningful: "A with
+// note names" reaches this point as "A with " — judged in one pass the A is
+// followed by a word and is eaten; with "with" already gone it is followed by
+// nothing and survives.
+//
+// '#' and '/' are the other continuations a real root can have ("A#dim",
+// "A/C#"). A word-char continuation ("Adim", "Am7") already fails the trailing
+// \b, so it never reaches the test.
 const FILLER_WORDS =
-  /\b(show\s+me|draw|display|render|please|a(?![#/]|$)|an(?![#/]|$)|the|with|that|this|me|of)\b/gi;
+  /\b(show\s+me|draw|display|render|please|the|with|that|this|me|of)\b/gi;
+
+const FILLER_ARTICLES = /\b(an?)(?![#/]|\s*$)\b/gi;
 
 const FORMAT_RE = /\b(compact|exact|full)\b/i;
 const FORMAT_FULL_RE = /\bfull\s+(?:layout|height|size|keys?)\b/i;
@@ -759,6 +769,11 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     .replace(PADDING_RE, "")
     .replace(CHORD_OCTAVE_RE, "")
     .replace(BASS_OCTAVE_RE, "")
+    // Before NOTE_NAMES_RE, which matches the "note names" half on its own and
+    // would leave "midi" behind. The leftover word is not inert: CHORD_RE's
+    // quality class contains `m`, so "C midi" parsed as Cm, and an A root lost
+    // to FILLER_WORDS let the extractor find its root in the `d` of "midi".
+    .replace(MIDI_NAMES_RE, "")
     .replace(NOTE_NAMES_RE, "")
     .replace(CUSTOM_FINGERING_RE, "")
     .replace(FINGERING_RE, "")
@@ -776,6 +791,9 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     .replace(SCALE_UNAMBIGUOUS_RE, "")
     .replace(SCALE_EXPLICIT_RE, "")
     .replace(SCALE_SHORTHAND_RE, "")
+    // A loose "midi" is itself the request for midi note names (see the
+    // fallback above), so it has to leave with the rest of the request.
+    .replace(/\bmidi\b/gi, "")
     .replace(/\bscale\b/gi, "")
     .replace(HEADING_RE, "")
     .replace(NOTES_GROUP_PREFIX_RE, "")
@@ -799,6 +817,10 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     .replace(/\bsize\b/gi, "")
     .replace(/\bkeys?\b/gi, "")
     .replace(/\bin\b/gi, "")
+    // Last, so "is anything left after this?" is asked of text that really is
+    // finished. Run any earlier and "A in second inversion" is still "A in "
+    // here, and the A is judged an article because a word follows it.
+    .replace(FILLER_ARTICLES, "")
     .replace(/\s+/g, " ")
     .trim();
 

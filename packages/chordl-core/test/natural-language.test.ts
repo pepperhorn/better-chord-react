@@ -642,3 +642,87 @@ describe("slash-chord bass notes", () => {
     expect(nameOf("C6/9")).toBe("C6/9");
   });
 });
+
+/**
+ * `MIDI_NAMES_RE` was read for its size and mode but never stripped from the
+ * residual, so the word "midi" reached the chord extractor. There it is not
+ * inert: CHORD_RE's quality class contains `m`, so "C midi" parsed as Cm — and
+ * where the root was the article-shaped A, FILLER_WORDS took the A and left the
+ * extractor to find its root in the `d` of "midi", turning "A" into D.
+ *
+ * Every one of these rendered a real but different chord, with no error.
+ */
+describe("midi note names are not part of the chord", () => {
+  const nameOf = (input: string) => parseChordDescription(input).chordName;
+
+  it("no longer appends the m of \"midi\" to the root", () => {
+    expect(nameOf("C with midi note names")).toBe("C");
+    expect(nameOf("G with midi note names")).toBe("G");
+    expect(nameOf("D with midi note names")).toBe("D");
+    expect(nameOf("E midi note names")).toBe("E");
+    expect(nameOf("F midi names")).toBe("F");
+  });
+
+  it("no longer finds a root inside the word \"midi\"", () => {
+    expect(nameOf("A with midi note names")).toBe("A");
+  });
+
+  it("leaves a chord that already has a quality alone", () => {
+    expect(nameOf("Cmaj7 with midi note names")).toBe("Cmaj7");
+    expect(nameOf("Am7 midi note names")).toBe("Am7");
+  });
+
+  it("strips a bare \"midi\" too, since that alone asks for midi names", () => {
+    // The parser treats a loose "midi" as the request, so it must not also
+    // leave the word behind for the chord extractor.
+    expect(nameOf("C midi")).toBe("C");
+    expect(parseChordDescription("C midi").noteNameMode).toBe("midi");
+  });
+
+  it("still reads the mode and size it was asked for", () => {
+    const parsed = parseChordDescription("C with midi note names in xl");
+    expect(parsed.showNoteNames).toBe(true);
+    expect(parsed.noteNameMode).toBe("midi");
+    expect(parsed.noteNameSize).toBe("xl");
+  });
+
+  it("keeps the other modifiers on the same string working", () => {
+    const parsed = parseChordDescription("G7 with midi note names starting on B");
+    expect(parsed.chordName).toBe("G7");
+    expect(parsed.startingNote).toBe("B");
+    expect(parsed.noteNameMode).toBe("midi");
+  });
+})
+
+/**
+ * The article guard tested for the true end of the string, but FILLER_WORDS
+ * runs after every modifier has been cut out — so a bare A carrying any
+ * modifier reached it as "A " and was eaten as an article. The end of what is
+ * left is what matters, trailing space included.
+ */
+describe("root note A with a modifier after it", () => {
+  const nameOf = (input: string) => parseChordDescription(input).chordName;
+
+  it("survives a modifier that was stripped from behind it", () => {
+    expect(nameOf("A with note names")).toBe("A");
+    expect(nameOf("A in second inversion")).toBe("A");
+    expect(nameOf("A with fingering")).toBe("A");
+    expect(nameOf("A compact")).toBe("A");
+  });
+
+  it("survives modifiers on both sides", () => {
+    expect(nameOf("show me an A with note names")).toBe("A");
+  });
+
+  it("keeps reading the modifier it carried", () => {
+    const parsed = parseChordDescription("A in second inversion");
+    expect(parsed.chordName).toBe("A");
+    expect(parsed.inversion).toBe(2);
+  });
+
+  it("still strips a real article", () => {
+    // "a" here introduces a noun, not a chord — the guard must not keep it.
+    expect(nameOf("show me a Cmaj7")).toBe("Cmaj7");
+    expect(nameOf("draw an Em")).toBe("Em");
+  });
+})
