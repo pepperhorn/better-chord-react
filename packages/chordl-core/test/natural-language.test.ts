@@ -783,3 +783,36 @@ describe("root note A with a modifier after it", () => {
     expect(nameOf("A sharp")).toBe("A#");
   });
 })
+
+/**
+ * Note names and degrees are asked for separately — "note names in xl with
+ * degrees in lg" is one request carrying two sizes. Both were written to
+ * `noteNameSize`, so the second overwrote the first and the note names came out
+ * silently demoted to the degrees' size.
+ */
+describe("note-name and degree sizes are independent", () => {
+  it("keeps both sizes when both are asked for", () => {
+    const parsed = parseChordDescription("C note names in xl with degrees in lg");
+    expect(parsed.noteNameSize).toBe("xl");
+    expect(parsed.degreeSize).toBe("lg");
+    expect(parsed.noteNameMode).toBe("pitch-class+degree");
+  });
+
+  it("does not care which order they were written in", () => {
+    const parsed = parseChordDescription("C with degrees in base note names in 2xl");
+    expect(parsed.noteNameSize).toBe("2xl");
+    expect(parsed.degreeSize).toBe("base");
+  });
+
+  it("leaves the note-name size alone when only degrees are sized", () => {
+    const parsed = parseChordDescription("C with degrees in lg");
+    expect(parsed.degreeSize).toBe("lg");
+    expect(parsed.noteNameSize).toBeUndefined();
+  });
+
+  it("leaves the degree size unset when only note names are sized", () => {
+    const parsed = parseChordDescription("C note names in xl");
+    expect(parsed.noteNameSize).toBe("xl");
+    expect(parsed.degreeSize).toBeUndefined();
+  });
+})

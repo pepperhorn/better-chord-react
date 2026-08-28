@@ -36,6 +36,12 @@ export interface ParsedChordRequest {
   noteNameSize?: TextSize;
   /** Note name display mode: pitch-class (default) or midi (with octave numbers). */
   noteNameMode?: NoteNameMode;
+  /**
+   * Text size for degree labels. Independent of `noteNameSize` because the two
+   * are asked for separately — "note names in xl with degrees in lg" is one
+   * request with two sizes in it. Absent falls back to the note-name size.
+   */
+  degreeSize?: TextSize;
   /** Fingering values (aligned with chord notes). Numbers 1–5 plus extra symbols (0, -, x). Invalid entries become "?". */
   fingering?: (number | string)[];
   /** Auto-compute fingering when true (no explicit numbers given). */

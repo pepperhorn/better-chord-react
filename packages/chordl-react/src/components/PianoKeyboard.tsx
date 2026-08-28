@@ -144,6 +144,7 @@ export function PianoKeyboard({
   fingering,
   fingeringSize = "lg",
   degreeLabels,
+  degreeSize,
   clipLeft = false,
   clipRight = false,
   uiTheme,
@@ -303,7 +304,15 @@ export function PianoKeyboard({
       )
     : [];
 
-  const nameFontSize = resolveAnnotationFontSize(noteNameSize);
+  /*
+   * In degree-only mode the degree *is* the label row, so it takes the degree
+   * size directly. In the combo mode it sits under the note name as a second
+   * row, and keeps the 0.85 that has always marked it as the secondary one —
+   * the size chosen for it scales that relationship rather than replacing it.
+   */
+  const degreeOwnSize = degreeSize ?? noteNameSize;
+  const nameFontSize = resolveAnnotationFontSize(isDegreeOnly ? degreeOwnSize : noteNameSize);
+  const degreeFontSize = resolveAnnotationFontSize(degreeOwnSize) * 0.85;
   const fingerFontSize = resolveAnnotationFontSize(fingeringSize);
 
   // Stagger: if any note has an accidental (#/b), put accidentals on row 1
@@ -423,7 +432,7 @@ export function PianoKeyboard({
                 )}
                 {showDeg && degree && (
                   <span className="bc-degree-label" style={{
-                    fontSize: nameFontSize * 0.85,
+                    fontSize: degreeFontSize,
                     fontWeight: 500,
                     color: uiTokens.textMuted,
                     fontFamily: "system-ui, sans-serif",
