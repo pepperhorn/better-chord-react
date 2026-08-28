@@ -783,3 +783,64 @@ describe("root note A with a modifier after it", () => {
     expect(nameOf("A sharp")).toBe("A#");
   });
 })
+
+/**
+ * Note names and degrees are asked for separately — "note names in xl with
+ * degrees in lg" is one request carrying two sizes. Both were written to
+ * `noteNameSize`, so the second overwrote the first and the note names came out
+ * silently demoted to the degrees' size.
+ */
+describe("note-name and degree sizes are independent", () => {
+  it("keeps both sizes when both are asked for", () => {
+    const parsed = parseChordDescription("C note names in xl with degrees in lg");
+    expect(parsed.noteNameSize).toBe("xl");
+    expect(parsed.degreeSize).toBe("lg");
+    expect(parsed.noteNameMode).toBe("pitch-class+degree");
+  });
+
+  it("does not care which order they were written in", () => {
+    const parsed = parseChordDescription("C with degrees in base note names in 2xl");
+    expect(parsed.noteNameSize).toBe("2xl");
+    expect(parsed.degreeSize).toBe("base");
+  });
+
+  it("leaves the note-name size alone when only degrees are sized", () => {
+    const parsed = parseChordDescription("C with degrees in lg");
+    expect(parsed.degreeSize).toBe("lg");
+    expect(parsed.noteNameSize).toBeUndefined();
+  });
+
+  it("leaves the degree size unset when only note names are sized", () => {
+    const parsed = parseChordDescription("C note names in xl");
+    expect(parsed.noteNameSize).toBe("xl");
+    expect(parsed.degreeSize).toBeUndefined();
+  });
+})
+
+/**
+ * The guard has to run both ways. `NOTE_NAMES_RE` accepts a size before its
+ * keyword ("xl note names") and the degrees clause accepts one after its own
+ * ("degrees xl"), so a bare size sitting between them can be claimed by either.
+ * It belongs to the keyword it precedes; only the explicit "degrees in xl" form
+ * binds it to the degrees.
+ */
+describe("a size between the two clauses", () => {
+  it("goes to the note names it sits in front of", () => {
+    for (const input of ["C with degrees 2xl note names", "C degrees 2xl note names"]) {
+      const parsed = parseChordDescription(input);
+      expect(parsed.noteNameSize, input).toBe("2xl");
+      expect(parsed.degreeSize, input).toBeUndefined();
+    }
+  });
+
+  it("stays with the degrees when they name it explicitly", () => {
+    const parsed = parseChordDescription("C with degrees in 2xl note names");
+    expect(parsed.degreeSize).toBe("2xl");
+    expect(parsed.noteNameSize).toBeUndefined();
+  });
+
+  it("still reads a trailing bare size as the degrees'", () => {
+    // Nothing follows it to claim it.
+    expect(parseChordDescription("C with degrees xl").degreeSize).toBe("xl");
+  });
+})

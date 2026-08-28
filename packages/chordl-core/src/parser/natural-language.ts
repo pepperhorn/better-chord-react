@@ -194,7 +194,18 @@ const OCTAVES_RE = /\b(?:in\s+)?(\d+)\s+octaves?\b/i;
 // "degrees" anywhere — combined with note names if present, standalone otherwise.
 // The literal word "degree(s)" isn't used by any other parser rule
 // (bass-degree / starting-degree use "5th", "9th", etc.), so a broad match is safe.
-const DEGREES_KEYWORD_RE = /\bdegrees?(?:\s+(?:in\s+)?(base|lg|xl|2xl))?\b/i;
+/*
+ * Two forms, because only one of them is unambiguous.
+ *
+ * "degrees in lg" names the degrees' own size and always keeps it. "degrees lg"
+ * is a bare size between two keywords, and NOTE_NAMES_RE accepts exactly that
+ * shape in front of its own keyword ("lg note names") — so in "degrees 2xl note
+ * names" the size belongs to what follows it, not to what precedes it. Without
+ * the lookahead the degrees clause swallowed it and the note names silently
+ * fell back to the default.
+ */
+const DEGREES_KEYWORD_RE =
+  /\bdegrees?(?:\s+(?:in\s+(base|lg|xl|2xl)|(base|lg|xl|2xl)(?!\s+(?:midi\s+)?note\s*names?)))?\b/i;
 
 // "with heading" / "with a heading" / "show heading"
 const HEADING_RE = /\b(?:with\s+)?(?:a\s+)?(?:show\s+)?heading\b/i;
@@ -431,8 +442,17 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     result.bassOctaveShift = isDown ? -count : count;
   }
 
+  /*
+   * Note-name sizes are read from the input with the degrees clause taken out.
+   * NOTE_NAMES_RE accepts a size *before* the keyword ("xl note names"), so in
+   * "with degrees in base note names in 2xl" it read the degrees' own "base" as
+   * the note-name size. Two clauses that each carry a size must not be able to
+   * read each other's.
+   */
+  const sizeSource = input.replace(DEGREES_KEYWORD_RE, " ");
+
   // Extract "midi note names" / "with midi names" (check before regular note names)
-  const midiNamesMatch = input.match(MIDI_NAMES_RE);
+  const midiNamesMatch = sizeSource.match(MIDI_NAMES_RE);
   if (midiNamesMatch) {
     result.showNoteNames = true;
     result.noteNameMode = "midi";
@@ -441,7 +461,7 @@ export function parseChordDescription(input: string): ParsedChordRequest {
 
   // Extract "with note names" / "note names in xl" / "xl note names"
   if (!midiNamesMatch) {
-    const noteNamesMatch = input.match(NOTE_NAMES_RE);
+    const noteNamesMatch = sizeSource.match(NOTE_NAMES_RE);
     if (noteNamesMatch) {
       result.showNoteNames = true;
       // Size can be in group 1 (before "note names"), 2 (after), or 3 ("name the notes in xl")
@@ -732,8 +752,11 @@ export function parseChordDescription(input: string): ParsedChordRequest {
       result.showNoteNames = true;
       result.noteNameMode = "degree";
     }
-    const sz = toTextSize(degMatch[1]);
-    if (sz) result.noteNameSize = sz;
+    // Its own field. Writing it to noteNameSize meant the second size in
+    // "note names in xl with degrees in lg" overwrote the first, and both rows
+    // came out at lg — the note names silently demoted to the degrees' size.
+    const sz = toTextSize(degMatch[1]) ?? toTextSize(degMatch[2]);
+    if (sz) result.degreeSize = sz;
   }
 
   // Extract scale direction

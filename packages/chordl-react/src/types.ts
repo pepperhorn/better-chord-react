@@ -66,6 +66,13 @@ export interface KeyboardProps {
   fingeringSize?: TextSize;
   /** Jazz roman numeral degree labels aligned with highlightKeys (e.g. ["I","III","#V","bVII"]). */
   degreeLabels?: string[];
+  /**
+   * Text size for the degree row. Its own size because the two are asked for
+   * separately — "note names in xl with degrees in lg". Falls back to
+   * `noteNameSize` when absent, which is what every caller did before it
+   * existed.
+   */
+  degreeSize?: TextSize;
   /** UI chrome theme: "light" (default) or "dark". */
   uiTheme?: UIThemeMode;
   /** Crop half a white key on the left edge (black-key context padding). */

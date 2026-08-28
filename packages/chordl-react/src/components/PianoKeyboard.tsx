@@ -144,6 +144,7 @@ export function PianoKeyboard({
   fingering,
   fingeringSize = "lg",
   degreeLabels,
+  degreeSize,
   clipLeft = false,
   clipRight = false,
   uiTheme,
@@ -303,7 +304,15 @@ export function PianoKeyboard({
       )
     : [];
 
-  const nameFontSize = resolveAnnotationFontSize(noteNameSize);
+  /*
+   * In degree-only mode the degree *is* the label row, so it takes the degree
+   * size directly. In the combo mode it sits under the note name as a second
+   * row, and keeps the 0.85 that has always marked it as the secondary one —
+   * the size chosen for it scales that relationship rather than replacing it.
+   */
+  const degreeOwnSize = degreeSize ?? noteNameSize;
+  const nameFontSize = resolveAnnotationFontSize(isDegreeOnly ? degreeOwnSize : noteNameSize);
+  const degreeFontSize = resolveAnnotationFontSize(degreeOwnSize) * 0.85;
   const fingerFontSize = resolveAnnotationFontSize(fingeringSize);
 
   // Stagger: if any note has an accidental (#/b), put accidentals on row 1
@@ -328,6 +337,10 @@ export function PianoKeyboard({
       isAccidental: isAccidental(h.note),
     })),
     fontSize: nameFontSize,
+    // Its own number, not derived: the export used to recompute it as
+    // fontSize * 0.85, so a chord whose degrees were sized separately drew one
+    // way on screen and another in the downloaded file.
+    degreeFontSize,
     fingerFontSize,
     hasStagger: anyAccidentals,
     staggerHeight,
@@ -379,7 +392,13 @@ export function PianoKeyboard({
           width: "100%",
           marginTop: 2,
           // Reserve space for both rows when staggering
-          minHeight: staggerHeight + nameFontSize * 1.3 + (hasFingering ? fingerFontSize * 1.3 : 0),
+          // The rows are absolutely positioned, so this height is the box. The
+          // degree row used to be capped at 0.85 of the name row and could be
+          // ignored here; with its own size it can be the tallest thing in the
+          // box, and unreserved it spills onto the footer or the next card.
+          minHeight: staggerHeight + nameFontSize * 1.3
+            + (hasDegrees && isDegreeCombo ? degreeFontSize * 1.3 : 0)
+            + (hasFingering ? fingerFontSize * 1.3 : 0),
         }}>
           {highlighted.map((h, i) => {
             const centerPct = ((h.x + h.width / 2 - vbX) / vbW) * 100;
@@ -423,7 +442,7 @@ export function PianoKeyboard({
                 )}
                 {showDeg && degree && (
                   <span className="bc-degree-label" style={{
-                    fontSize: nameFontSize * 0.85,
+                    fontSize: degreeFontSize,
                     fontWeight: 500,
                     color: uiTokens.textMuted,
                     fontFamily: "system-ui, sans-serif",

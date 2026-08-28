@@ -219,6 +219,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
           scale={scale}
           showNoteNames={parsed.showNoteNames}
           noteNameSize={parsed.noteNameSize}
+          degreeSize={parsed.degreeSize}
           noteNameMode={parsed.noteNameMode}
           midiBaseOctave={midiBase}
           degreeLabels={degreeLabels}
@@ -396,6 +397,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
               scale={scale}
               showNoteNames={parsed.showNoteNames}
               noteNameSize={parsed.noteNameSize}
+              degreeSize={parsed.degreeSize}
               noteNameMode={parsed.noteNameMode}
               midiBaseOctave={minOctave}
               fingeringSize={parsed.fingeringSize}
@@ -759,6 +761,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
         scale={scale}
         showNoteNames={parsed.showNoteNames}
         noteNameSize={parsed.noteNameSize}
+        degreeSize={parsed.degreeSize}
         noteNameMode={parsed.noteNameMode}
         midiBaseOctave={lhPlaybackOctave + 1}
         fingering={bassResolvedFingering}
@@ -968,6 +971,7 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
       scale={scale}
       showNoteNames={parsed.showNoteNames}
       noteNameSize={parsed.noteNameSize}
+      degreeSize={parsed.degreeSize}
       noteNameMode={parsed.noteNameMode}
       // Carries the shift the keys no longer do: same keys, named an octave up.
       midiBaseOctave={4 + chordShift}

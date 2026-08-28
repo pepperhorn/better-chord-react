@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+### chordl-core / chordl-react — note-name and degree sizes are independent
+
+"note names in xl with degrees in lg" is one request carrying two sizes, and the
+editor's detail panel offers a control for each — but both were written to
+`noteNameSize`, so the second overwrote the first and **the note names came out
+silently demoted to the degrees' size**. Every card written that way, including
+whole boards of them, drew at the wrong size with no way to tell.
+
+`degreeSize` is now its own field, carried from the parser through `PianoChord`
+to `PianoKeyboard`. The degree row keeps the 0.85 factor that has always marked
+it as secondary to the name row, so the size chosen for it scales that
+relationship rather than replacing it; a degree-only chord takes its size
+directly, since there the degree *is* the label row. Absent, it falls back to
+the note-name size — what every caller did before it existed.
+
+The downloaded SVG and PNG carry the size too. That path draws from a JSON
+payload rather than the DOM and recomputed the degree row as `0.85 x` the note
+names, so a chord that sized its degrees separately drew one way on screen and
+another in the file.
+
+Two clauses that each carry a size must not be able to read each other's, in
+either direction. `NOTE_NAMES_RE` accepts a size *before* its keyword ("xl note
+names"), so "with degrees in base note names in 2xl" read the degrees' "base" as
+the note-name size; the degrees clause accepts one *after* its own ("degrees
+xl"), so "degrees 2xl note names" swallowed a size that belonged to the note
+names. A bare size between the two now goes to the keyword it precedes, and only
+the explicit "degrees in xl" form binds it to the degrees.
+
 ### chordl-core — "midi note names" is no longer read as part of the chord
 
 `MIDI_NAMES_RE` was read for its mode and size but never stripped from the
