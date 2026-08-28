@@ -836,9 +836,17 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     spanTo: parsed.spanTo,
   });
 
-  // Apply octave shift: extend keyboard and offset chord highlights
   const chordShift = parsed.chordOctaveShift ?? 0;
-  const kbSize = chordShift > 0 ? layout.size + chordShift * 7 : layout.size;
+  /*
+   * The keyboard is a window onto the chord, not a ruler measuring how far it
+   * moved. Extending it by an octave per shift — eight white keys became
+   * fifteen — put the chord at the far right of a diagram twice the width of
+   * every sibling card, which a board then shrank to fit and drew as a
+   * letterboxed strip. The window moves with the chord instead, and the octave
+   * is carried where an octave belongs: the staff, the MIDI note names below
+   * the keys, and playback.
+   */
+  const kbSize = layout.size;
 
   // Use octave-qualified highlights when notes span multiple octaves or when
   // padding/clipping creates duplicate notes that would cause greedy mis-matching.
@@ -850,13 +858,15 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     // ones the staff assigns or "Both" draws two different voicings.
     const whiteIndices = notes.map(diatonicStep);
 
-    const needsOctaveQual = layout.chordOctave > 0 || chordShift !== 0 ||
+    const needsOctaveQual = layout.chordOctave > 0 ||
       whiteIndices.some((idx, i) => i > 0 && idx <= whiteIndices[i - 1]);
 
     if (needsOctaveQual) {
       // Step 1: naive ascending octave assignment — the same walk the staff
       // runs, over the same spellings, so the two views cannot disagree.
-      const octaves = ascendingOctaves(notes, Math.max(layout.chordOctave + chordShift, 0));
+      // Without the shift: these octaves index keys on the keyboard, and the
+      // keyboard no longer moves. The shift lives in the labels and the staff.
+      const octaves = ascendingOctaves(notes, Math.max(layout.chordOctave, 0));
       const assigned = keyboardNotes.map((n, i) => ({ note: n, octave: octaves[i] }));
 
       // Step 2: compact — fold notes down if span exceeds playable range
@@ -959,7 +969,8 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
       showNoteNames={parsed.showNoteNames}
       noteNameSize={parsed.noteNameSize}
       noteNameMode={parsed.noteNameMode}
-      midiBaseOctave={4}
+      // Carries the shift the keys no longer do: same keys, named an octave up.
+      midiBaseOctave={4 + chordShift}
       fingering={resolvedFingering}
       fingeringSize={parsed.fingeringSize}
       degreeLabels={chordDegreeLabels}

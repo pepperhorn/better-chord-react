@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### chordl-react — an octave shift moves the keyboard's window, not its width
+
+`chord up 1 octave` extended the keyboard by a whole octave — eight white keys
+became fifteen — and put the chord at the far right of it. On a board the
+oversized diagram was then shrunk to fit its card and drawn as a letterboxed
+strip, so a shifted card matched none of its neighbours.
+
+The keyboard is a window onto the chord, not a ruler measuring how far it
+moved: it now stays the size the chord needs and the highlights sit where the
+unshifted chord's do. The octave is carried where an octave belongs — the staff,
+the MIDI note names under the keys (`C5` becomes `C6`), and playback, all
+unchanged.
+
 ### chordl-board — a short row is centred instead of hugging the left edge
 
 With a column count set, a row holding fewer cards than the setting — the one
