@@ -2,6 +2,8 @@
 export { PianoKeyboard } from "./components/PianoKeyboard";
 export { PianoChord } from "./components/PianoChord";
 export { VoicingVariantToggle } from "./components/VoicingVariantToggle";
+export { ChordQualityPicker, QUALITY_SHORTCUTS, bareRootOf } from "./components/ChordQualityPicker";
+export type { ChordQualityPickerProps, QualityShortcut } from "./components/ChordQualityPicker";
 export { ChordGroup } from "./components/ChordGroup";
 export { ProgressionView } from "./components/ProgressionView";
 export { StaffNotation } from "./components/StaffNotation";

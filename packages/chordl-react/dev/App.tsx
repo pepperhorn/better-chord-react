@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { PianoKeyboard, PianoChord, VoicingVariantToggle, StaffNotation, ChordSheet, ProgressionView, ListenOverlay, FollowAlongOverlay, isProgressionRequest, parseProgressionRequest, resolveProgressionRequest, BRAVURA_GLYPHS, PETALUMA_GLYPHS, setDefaultGlyphs, encodeChordSheet, decodeChordSheet } from "../src";
+import { PianoKeyboard, PianoChord, VoicingVariantToggle, ChordQualityPicker, StaffNotation, ChordSheet, ProgressionView, ListenOverlay, FollowAlongOverlay, isProgressionRequest, parseProgressionRequest, resolveProgressionRequest, BRAVURA_GLYPHS, PETALUMA_GLYPHS, setDefaultGlyphs, encodeChordSheet, decodeChordSheet } from "../src";
 
 // Guitar view pulls in svguitar + the chords-db shape library (~200KB); load it
 // lazily so it only ships when the user actually switches to the Guitar display.
@@ -974,6 +974,15 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
           </svg>
         </button>
       </div>
+      )}
+
+      {/* A bare letter already renders major — this says the other qualities
+          are one click away, without a click between typing "C" and seeing it. */}
+      {!isEditingTextCard && (
+        <ChordQualityPicker
+          input={input}
+          onPick={(next) => { setInput(next); setError(null); }}
+        />
       )}
 
       <ListenOverlay

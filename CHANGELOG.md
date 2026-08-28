@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### chordl-react — quality shortcuts for a bare root
+
+Typing `A` renders A major immediately, which is the fastest path in the app,
+but a bare letter is genuinely ambiguous and nothing said that `m`, `7` or
+`maj7` were a keystroke away.
+
+`ChordQualityPicker` puts a strip of seven shortcuts — `m · 7 · maj7 · m7 ·
+dim · aug · sus4` — under the input whenever the parsed chord name is a bare
+root. Seven, chosen by how often a learner meets them rather than by theory; the
+row mixes triads and sevenths on purpose, because it is a shortcut, not a
+taxonomy. Typing still reaches everything the resolver supports.
+
+The check is on the *parsed* name, so "show me an A" gets the strip too, and a
+click rewrites the editor input (`A` → `Am`) rather than rendering in place —
+add-to-board, annotations, octave shift and board editing keep working with no
+new plumbing. Scales, progressions and note lists are excluded.
+
 ### chordl-board — a way to start a new board
 
 There was no way to empty a board short of deleting cards one at a time, which
