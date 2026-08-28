@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { PianoKeyboard, PianoChord, VoicingVariantToggle, StaffNotation, ChordSheet, ProgressionView, ListenOverlay, FollowAlongOverlay, isProgressionRequest, parseProgressionRequest, resolveProgressionRequest, BRAVURA_GLYPHS, PETALUMA_GLYPHS, setDefaultGlyphs, encodeChordSheet, decodeChordSheet } from "../src";
+import { PianoKeyboard, PianoChord, VoicingVariantToggle, ChordQualityPicker, StaffNotation, ChordSheet, ProgressionView, ListenOverlay, FollowAlongOverlay, isProgressionRequest, parseProgressionRequest, resolveProgressionRequest, BRAVURA_GLYPHS, PETALUMA_GLYPHS, setDefaultGlyphs, encodeChordSheet, decodeChordSheet } from "../src";
 
 // Guitar view pulls in svguitar + the chords-db shape library (~200KB); load it
 // lazily so it only ships when the user actually switches to the Guitar display.
@@ -8,6 +8,7 @@ const GuitarChordPanel = lazy(() =>
   import("../src/components/GuitarChordPanel").then((m) => ({ default: m.GuitarChordPanel })),
 );
 import { parseChordDescription, resolveChord } from "@pepperhorn/chordl-core";
+import { composeChordDetails, composeOctaveShift, splitChordDetails } from "../src/editor/chordDetails";
 import type { TextSize, NoteNameMode } from "@pepperhorn/chordl-core";
 import {
   ChordBoard,
@@ -624,36 +625,25 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
   const [listenOpen, setListenOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
 
-  // Serialize form annotation state to NL modifiers appended to the chord string.
-  const detailsModifiers = useMemo(() => {
-    const parts: string[] = [];
-    if (showNoteNames) {
-      const kw = noteNameMode === "midi" ? "midi note names" : "note names";
-      parts.push(`${kw} in ${noteNameSize}`);
-    }
-    if (showDegrees) {
-      parts.push(`with degrees in ${degreeSize}`);
-    }
-    if (fingeringMode === "auto") {
-      parts.push(`with fingering in ${fingeringSize}`);
-    } else if (fingeringMode === "custom") {
-      // Quoted custom-fingering syntax treats every value as a free string
-      // ("D1" for violin, "x" for skip). Comma separators preserve "-"
-      // placeholders positionally.
-      const cleaned = fingeringValues.map((v) => v.trim() || "-");
-      if (cleaned.some((v) => v !== "-")) {
-        parts.push(`custom fingering "${cleaned.join(",")}" in ${fingeringSize}`);
-      }
-    }
-    return parts.length ? " " + parts.join(" ") : "";
-  }, [showNoteNames, noteNameMode, noteNameSize, showDegrees, degreeSize, fingeringMode, fingeringValues, fingeringSize]);
+  // Serialize form annotation state to NL modifiers appended to the chord
+  // string. `splitChordDetails` is the inverse, and card editing depends on the
+  // two staying exactly that — hence one shared module rather than a regex here
+  // and another one there.
+  const detailsModifiers = useMemo(
+    () => composeChordDetails({
+      showNoteNames, noteNameMode, noteNameSize,
+      showDegrees, degreeSize,
+      fingeringMode, fingeringValues, fingeringSize,
+      octaveShift,
+    }),
+    [showNoteNames, noteNameMode, noteNameSize, showDegrees, degreeSize,
+     fingeringMode, fingeringValues, fingeringSize, octaveShift],
+  );
 
   // One definition of "what the current editor state means as a card", used by
   // both add and live-edit. Two copies is how `display` went missing before.
   const chordCardFields = useMemo(() => {
-    const withOctave = octaveShift === 0
-      ? input
-      : `${input} chord ${octaveShift > 0 ? "up" : "down"} ${Math.abs(octaveShift)} octave${Math.abs(octaveShift) > 1 ? "s" : ""}`;
+    const withOctave = input + composeOctaveShift(octaveShift);
     const isGuitar = displayMode === "guitar";
     return {
       // The guitar panel renders the raw input — octave shifts and annotation
@@ -711,6 +701,17 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     // card's chord in the box and "+ Add to board" quietly duplicates it.
     setInput("");
     board.clearSelection();
+  };
+
+  /**
+   * A genuinely blank board: `replaceState` resets cards and meta together, so
+   * the old title does not outlive the cards it described. Any edit in progress
+   * ends too — its card is gone, and the form would otherwise be bound to an id
+   * that no longer exists. ChordBoard owns the confirmation.
+   */
+  const handleNewBoard = () => {
+    board.replaceState({ items: [], meta: {} });
+    if (editingItemId) stopEditing();
   };
 
   const handleAddToBoard = () => {
@@ -795,7 +796,12 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
   const handleEditBoardItem = (item: BoardItem) => {
     // A text card carries no chord — editing one must clear the input rather
     // than push `undefined` through the parser.
-    setInput(item.nl ?? "");
+    // A card stores chord text and annotation modifiers in one string. Putting
+    // the whole thing in the input while resetting the toggles left the detail
+    // panel blank on a card that plainly had details — and the next toggle
+    // appended a clause the string already carried.
+    const details = splitChordDetails(item.nl ?? "");
+    setInput(details.input);
     setTitle(item.title ?? "");
     setSubheading(item.subheading ?? "");
     setFooterText(item.footerText ?? "");
@@ -803,10 +809,15 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
     setCardIcon(item.icon ?? "");
     setCardImage(item.image ?? "");
     setImageError(null);
-    setShowNoteNames(false);
-    setShowDegrees(false);
-    setFingeringMode("none");
-    setOctaveShift(0);
+    setShowNoteNames(details.showNoteNames);
+    setNoteNameMode(details.noteNameMode);
+    setNoteNameSize(details.noteNameSize);
+    setShowDegrees(details.showDegrees);
+    setDegreeSize(details.degreeSize);
+    setFingeringMode(details.fingeringMode);
+    setFingeringValues(details.fingeringValues);
+    setFingeringSize(details.fingeringSize);
+    setOctaveShift(details.octaveShift);
     // Come back to the view the card was made in, including its exact shape.
     setDisplayMode(item.display ?? "keyboard");
     setGuitarInstrument((item.instrument as InstrumentId | undefined) ?? "guitar");
@@ -963,6 +974,15 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
           </svg>
         </button>
       </div>
+      )}
+
+      {/* A bare letter already renders major — this says the other qualities
+          are one click away, without a click between typing "C" and seeing it. */}
+      {!isEditingTextCard && (
+        <ChordQualityPicker
+          input={input}
+          onPick={(next) => { setInput(next); setError(null); }}
+        />
       )}
 
       <ListenOverlay
@@ -1316,7 +1336,6 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             onMetaChange={board.setMeta}
             clipboard={board.clipboard}
             onEdit={handleEditBoardItem}
-            onCopy={board.copyItem}
             onCut={handleRemoveBoardItem(board.cutItem)}
             onDelete={handleRemoveBoardItem(board.removeItem)}
             onPaste={board.pasteItem}
@@ -1325,9 +1344,24 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             onDuplicate={board.duplicateItem}
             onAddTextCard={handleAddTextCard}
             onToggleBreak={handleToggleBreak}
+            onResize={(id, size) => board.updateItem(id, { size })}
             selectedId={board.selectedId}
-            onSelect={board.selectItem}
-            onClearSelection={board.clearSelection}
+            // Deselecting also leaves edit mode: the highlight is what says
+            // "your edits land here", so a form still bound to a card with no
+            // highlight is the same bug seen from the other side.
+            onSelect={(id) => {
+              board.selectItem(id);
+              if (id === null && editingItemId) stopEditing();
+            }}
+            // Same reasoning as `onSelect(null)` above, for the routes that do
+            // not go through a card: Escape and a click on the board
+            // background. Leaving one of them wired to a bare clearSelection is
+            // how the form stayed bound to a card with no highlight.
+            onClearSelection={() => {
+              board.clearSelection();
+              if (editingItemId) stopEditing();
+            }}
+            onNew={handleNewBoard}
             onImport={(state) => {
               // An import replaces every id on the board, so any editor —
               // chord or text — would otherwise be writing into a card that is

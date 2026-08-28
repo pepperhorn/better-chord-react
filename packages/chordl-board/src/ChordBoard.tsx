@@ -2,8 +2,8 @@ import { Component, Fragment, useState, useEffect, useRef, useCallback } from "r
 import type { CSSProperties, ReactNode, SVGProps } from "react";
 import { PianoChord, GuitarChordPanel, CardHeading, CardFooter, resolveUITheme } from "@pepperhorn/chordl-react";
 import type { InstrumentId, UIThemeMode } from "@pepperhorn/chordl-react";
-import type { BoardItem, BoardMeta, BoardState, StorageAdapter } from "./types.js";
-import { isTextCard } from "./types.js";
+import type { BoardCardSize, BoardItem, BoardMeta, BoardState, StorageAdapter } from "./types.js";
+import { BOARD_CARD_SIZES, BOARD_CARD_SIZE_FACTORS, isTextCard } from "./types.js";
 import { BoardIcon } from "./icons.js";
 import { localStorageAdapter } from "./storage.js";
 import { exportBoardJson, importBoardJson } from "./io.js";
@@ -418,6 +418,20 @@ export function useChordBoard(opts?: {
 
 // ── Stateless renderer ────────────────────────────────────────────
 
+/**
+ * Track count for the fixed-column grid.
+ *
+ * Every card width has to land on a whole track, at every column count the
+ * board offers (1–6) and every card size (½, ¾, 1, 1½, 2 and 3 columns) — and
+ * so does *half* the width left over at the end of a row, which is what centres
+ * a short row exactly. 480 is the smallest count that satisfies all three:
+ * `480 · size / columns` and `240 · size / columns` are whole for every pair.
+ */
+const GRID_TRACKS = 480;
+
+/** Half the 12px gutter, carried by each card. See `columnGap: 0` below. */
+const CARD_GUTTER = 6;
+
 export interface ChordBoardProps {
   items: BoardItem[];
   clipboard?: BoardItem | null;
@@ -425,7 +439,6 @@ export interface ChordBoardProps {
   meta?: BoardMeta;
   onMetaChange?: (patch: Partial<BoardMeta>) => void;
   onEdit?: (item: BoardItem) => void;
-  onCopy?: (id: string) => void;
   onCut?: (id: string) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
@@ -443,10 +456,20 @@ export interface ChordBoardProps {
   onToggleBreak?: (id: string) => void;
   /** Currently selected card — gets a sticky ring and visible chrome. */
   selectedId?: string | null;
-  onSelect?: (id: string) => void;
+  /** Called when a user picks a size for a card. */
+  onResize?: (id: string, size: BoardCardSize) => void;
+  /** Called with a card id to select it, or null when the user deselects. */
+  onSelect?: (id: string | null) => void;
   onClearSelection?: () => void;
   /** Called with the parsed BoardState when a user imports JSON. */
   onImport?: (state: BoardState) => void;
+  /**
+   * Called when a user confirms starting a fresh board. The host resets its own
+   * state — `useChordBoard`'s `replaceState` clears cards and meta together,
+   * which is what "new board" means. The overlay that guards this lives here,
+   * so a host only has to say what an empty board is.
+   */
+  onNew?: () => void;
   uiTheme?: UIThemeMode;
   /** Render scale forwarded to each card's PianoChord. */
   scale?: number;
@@ -464,7 +487,6 @@ export function ChordBoard({
   meta,
   onMetaChange,
   onEdit,
-  onCopy,
   onCut,
   onDelete,
   onDuplicate,
@@ -474,9 +496,11 @@ export function ChordBoard({
   onAddTextCard,
   onToggleBreak,
   selectedId,
+  onResize,
   onSelect,
   onClearSelection,
   onImport,
+  onNew,
   uiTheme,
   scale = 0.6,
   editingId,
@@ -487,6 +511,8 @@ export function ChordBoard({
   const [dragId, setDragId] = useState<string | null>(null);
   const [pulseId, setPulseId] = useState<string | null>(null);
   const [exporting, setExporting] = useState<"png" | "pdf" | null>(null);
+  const [confirmNew, setConfirmNew] = useState(false);
+  const newCancelRef = useRef<HTMLButtonElement>(null);
   const lastPulseRef = useRef<number | undefined>(undefined);
   const exportRef = useRef<HTMLDivElement | null>(null);
   // Drag is armed when the user mousedowns on a card's handle. State (not ref)
@@ -573,6 +599,33 @@ export function ChordBoard({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  /**
+   * Clearing is unrecoverable — no undo, and localStorage holds the only copy —
+   * so every path to it goes through the overlay. `hasMeta` is why an empty but
+   * titled board still offers the button: the title is board content too.
+   */
+  const hasTitles = Boolean(safeMeta.title || safeMeta.subtitle || safeMeta.footer);
+  const hasLayout = safeMeta.columns !== undefined && safeMeta.columns !== "auto";
+  const hasBoard = items.length > 0 || hasTitles || hasLayout;
+
+  const handleSaveAndNew = async () => {
+    // Save first, and only clear if it worked: the whole point of this path is
+    // that the board leaves with a copy. A failed download keeps the overlay
+    // open on a board that is still there, rather than clearing it anyway.
+    try {
+      await handleExportJson();
+    } catch {
+      return;
+    }
+    setConfirmNew(false);
+    onNew?.();
+  };
+
+  const handleClearWithoutSaving = () => {
+    setConfirmNew(false);
+    onNew?.();
+  };
+
   const handleImportClick = () => fileInputRef.current?.click();
 
   const handleImportFile: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
@@ -604,7 +657,14 @@ export function ChordBoard({
   const isExporting = exporting !== null;
 
   const columns = safeMeta.columns;
-  const useGrid = typeof columns === "number" && columns > 0;
+  /*
+   * 1–6 is what the settings offer and what GRID_TRACKS divides evenly. A count
+   * from anywhere else — an imported board, a host setting `columns` directly —
+   * would give a fractional span, which the CSS parser drops entirely, leaving
+   * every card a one-track sliver. The wrapping layout handles it instead.
+   */
+  const useGrid = typeof columns === "number" && Number.isInteger(columns)
+    && columns >= 1 && columns <= 6;
 
   const cardStyle: CSSProperties = {
     position: "relative",
@@ -646,8 +706,66 @@ export function ChordBoard({
   };
 
   const gridStyle: CSSProperties = useGrid
-    ? { display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 12, alignItems: "flex-start" }
+    ? {
+        display: "grid",
+        gridTemplateColumns: `repeat(${GRID_TRACKS}, minmax(0, 1fr))`,
+        // Column gutters live on the cards, not on the grid: 120 tracks means
+        // 119 gutters, and at 12px each they would consume more than the board
+        // is wide. Tracks stay pure width, so a span is exactly one column and
+        // a centring offset is exact.
+        columnGap: 0,
+        rowGap: 12,
+        alignItems: "flex-start",
+      }
     : { display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-start", justifyContent: "center" };
+
+  /**
+   * Where each card sits on the track grid, and how big it draws.
+   *
+   * A row holds one board-width of cards. Sizes make cards wider, so a row is
+   * packed by width rather than by count: cards join the current row until the
+   * next one would not fit, and a break ends a row wherever it falls. Whatever
+   * width is left over is split evenly either side, so a row that does not fill
+   * the board is centred rather than hugging the left edge.
+   */
+  const trackWidth = (item: BoardItem) =>
+    (GRID_TRACKS * BOARD_CARD_SIZE_FACTORS[item.size ?? "rg"]) / (columns as number);
+
+  const spans: number[] = [];
+  const rowStarts: Record<number, number> = {};
+  /** Tracks used by every card sharing a row with this one, itself excluded. */
+  const rowOthers: number[] = [];
+  if (useGrid) {
+    let rowStart = 0;
+    let used = 0;
+    const closeRow = (endIndex: number) => {
+      const leftover = GRID_TRACKS - used;
+      if (leftover > 0) rowStarts[rowStart] = leftover / 2 + 1;
+      for (let j = rowStart; j <= endIndex; j++) rowOthers[j] = used - spans[j];
+      rowStart = endIndex + 1;
+      used = 0;
+    };
+
+    for (let i = 0; i < items.length; i++) {
+      spans[i] = Math.min(trackWidth(items[i]), GRID_TRACKS);
+      // A card too wide for what is left starts the row it fits in.
+      if (used > 0 && used + spans[i] > GRID_TRACKS) closeRow(i - 1);
+      used += spans[i];
+      if (items[i].breakAfter || used >= GRID_TRACKS || i === items.length - 1) closeRow(i);
+    }
+  }
+
+  /**
+   * A size is offered only if the card's row can hold it. Growing past the row
+   * would push a neighbour onto the next line — a size control that silently
+   * reflowed the board is not a size control, so the ones that do not fit are
+   * shown greyed instead.
+   */
+  const sizeFits = (index: number, factor: number): boolean => {
+    if (!useGrid) return true;
+    const width = (GRID_TRACKS * factor) / (columns as number);
+    return width <= GRID_TRACKS && (rowOthers[index] ?? 0) + width <= GRID_TRACKS;
+  };
 
   /**
    * A `breakAfter` card is followed by this: a rendered sibling that fills the
@@ -673,6 +791,57 @@ export function ChordBoard({
     outline: "none",
   };
 
+  /**
+   * Escape backs out of whatever the board has the user in — a selection, or a
+   * card open for editing. The pointer routes are a second click on the card
+   * and the board background around the grid; a keyboard user has neither, and
+   * on a full board the background is a few pixels wide.
+   *
+   * Editing counts even with nothing selected: a card can be opened for edit
+   * without being selected, and leaving the keyboard no way out of *that* is
+   * the same trap from the other side.
+   *
+   * Skipped while the new-board overlay is up: Escape there means "cancel that",
+   * and the overlay handles it.
+   */
+  useEffect(() => {
+    if ((!selectedId && !editingId) || confirmNew) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClearSelection?.();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selectedId, editingId, confirmNew, onClearSelection]);
+
+  /**
+   * Cancel takes focus the moment the overlay opens, so an Enter left over from
+   * typing lands on the harmless choice rather than on a clear.
+   */
+  useEffect(() => {
+    if (confirmNew) newCancelRef.current?.focus();
+  }, [confirmNew]);
+
+  /* The count comes from the live list, so the sentence can never promise to
+     clear a different board than the one on screen. */
+  const cardPart = items.length === 1 ? "1 card" : `${items.length} cards`;
+  /* Named separately because they are not the same loss: a title is content the
+     user wrote, a column count is a setting. Saying "title" for a board that has
+     none is the sentence promising something it cannot deliver. */
+  const metaPart = hasTitles ? "the board title" : hasLayout ? "the board settings" : null;
+  const clearedParts = [items.length > 0 ? cardPart : null, metaPart].filter(Boolean);
+  const newBoardMessage = `This clears ${clearedParts.join(" and ")}. It can't be undone.`;
+
+  const dialogBtnStyle: CSSProperties = {
+    padding: "8px 14px",
+    fontSize: "0.85rem",
+    fontFamily: "inherit",
+    border: "1px solid var(--btn-border, #ddd)",
+    borderRadius: 10,
+    background: "#fff",
+    color: "inherit",
+    cursor: "pointer",
+  };
+
   const actionBtnStyle: CSSProperties = {
     padding: "6px 12px",
     fontSize: "0.8rem",
@@ -688,6 +857,56 @@ export function ChordBoard({
   return (
     <div className={`chordl-board ${className ?? ""}`.trim()} style={style}>
       <style>{BOARD_STYLES}</style>
+
+      {confirmNew && (
+        <div
+          className="chordl-board-new-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="chordl-board-new-heading"
+          tabIndex={-1}
+          onKeyDown={(e) => { if (e.key === "Escape") setConfirmNew(false); }}
+          // A click that reaches the backdrop itself never started inside the
+          // dialog, so it is a click *away* — the same as Cancel.
+          onClick={(e) => { if (e.target === e.currentTarget) setConfirmNew(false); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 20, background: "rgba(15,23,42,0.45)",
+          }}
+        >
+          <div
+            className="chordl-board-new-dialog"
+            style={{
+              width: "100%", maxWidth: 380,
+              padding: 20,
+              borderRadius: 14,
+              background: "#fff",
+              color: "inherit",
+              boxShadow: "0 18px 48px rgba(15,23,42,0.28)",
+              display: "flex", flexDirection: "column", gap: 8,
+            }}
+          >
+            <h2 id="chordl-board-new-heading" className="chordl-board-new-heading" style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>
+              Start a new board?
+            </h2>
+            <p className="chordl-board-new-message" style={{ margin: 0, fontSize: "0.85rem", lineHeight: 1.5, color: "var(--text-muted, #666)" }}>
+              {newBoardMessage}
+            </p>
+            <div className="chordl-board-new-actions" style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+              <button type="button" className="chordl-board-new-save" style={dialogBtnStyle} onClick={handleSaveAndNew}>
+                Download JSON &amp; clear
+              </button>
+              <button type="button" className="chordl-board-new-clear" style={dialogBtnStyle} onClick={handleClearWithoutSaving}>
+                Clear without saving
+              </button>
+              <button type="button" className="chordl-board-new-cancel" ref={newCancelRef} style={{ ...dialogBtnStyle, fontWeight: 600 }} onClick={() => setConfirmNew(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Settings + download toolbar */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -733,6 +952,18 @@ export function ChordBoard({
         </details>
 
         <div className="chordl-board-toolbar" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {onNew && (
+            <button
+              type="button"
+              className="chordl-board-new"
+              style={actionBtnStyle}
+              onClick={() => setConfirmNew(true)}
+              disabled={!!exporting || !hasBoard}
+              title={hasBoard ? "Start a new board" : "The board is already empty"}
+            >
+              NEW
+            </button>
+          )}
           {onAddTextCard && (
             <button
               type="button"
@@ -801,7 +1032,7 @@ export function ChordBoard({
               : "No cards yet — click the add button to capture the current chord."}
           </div>
         )}
-        {items.map((item) => {
+        {items.map((item, index) => {
           const isDragging = dragId === item.id;
           const isEditing = editingId === item.id;
           const isSelected = selectedId === item.id;
@@ -819,9 +1050,24 @@ export function ChordBoard({
                 data-board-id={item.id}
                 data-selected={isSelected ? "true" : "false"}
                 className={cardClass}
-                style={{ ...cardStyle, opacity: isDragging ? 0.7 : 1 }}
+                style={{
+                  ...cardStyle,
+                  opacity: isDragging ? 0.7 : 1,
+                  ...(useGrid
+                    ? {
+                        gridColumn: rowStarts[index] !== undefined
+                          ? `${rowStarts[index]} / span ${spans[index]}`
+                          : `span ${spans[index]}`,
+                        marginLeft: CARD_GUTTER,
+                        marginRight: CARD_GUTTER,
+                      }
+                    : null),
+                }}
                 draggable={armedDragId === item.id}
-                onClick={() => onSelect?.(item.id)}
+                // Clicking the selected card again deselects it. Without this
+                // the only way out of a selection is the strip of board
+                // background around the grid, which a full board barely has.
+                onClick={() => onSelect?.(isSelected ? null : item.id)}
                 onDragStart={(e) => {
                   if (armedDragId !== item.id) {
                     e.preventDefault();
@@ -872,15 +1118,26 @@ export function ChordBoard({
                   key={`${item.kind ?? "chord"}|${item.nl ?? item.title ?? ""}|${item.display ?? "keyboard"}`}
                   label={cardLabel(item)}
                 >
-                  <BoardCardContent item={item} scale={scale} uiTheme={uiTheme} />
+                  <BoardCardContent
+                    item={item}
+                    scale={(scale ?? 1) * BOARD_CARD_SIZE_FACTORS[item.size ?? "rg"]}
+                    uiTheme={uiTheme}
+                  />
                 </CardErrorBoundary>
                 {!isExporting && (
                   <div
                     className="chordl-board-actions"
                     style={{
                       display: "flex",
+                      // Six controls are wider than a card at small scales and
+                      // in a many-column layout. A flex row without this does
+                      // not shrink to fit — it spills past the card border.
+                      flexWrap: "wrap",
+                      // Centred rather than right-aligned: once the row can
+                      // wrap, a short second line hanging off one edge reads as
+                      // a mistake.
+                      justifyContent: "center",
                       gap: 4,
-                      justifyContent: "flex-end",
                       marginTop: 2,
                       borderTop: "1px solid var(--btn-border, #eee)",
                       paddingTop: 6,
@@ -888,9 +1145,12 @@ export function ChordBoard({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button className="chordl-board-action-edit" style={iconBtnStyle} onClick={() => onEdit?.(item)} title="Edit">edit</button>
-                    <button className="chordl-board-action-copy" style={iconBtnStyle} onClick={() => onCopy?.(item.id)} title="Copy">copy</button>
+                    {/* One control, not two. "copy" put a card on a clipboard
+                        the user then had to paste, and "repeat" did the whole
+                        job in a click — so the clipboard round-trip was a
+                        longer road to the same card. */}
+                    <button className="chordl-board-action-duplicate" style={iconBtnStyle} onClick={() => onDuplicate?.(item.id)} title="Duplicate">duplicate</button>
                     <button className="chordl-board-action-cut" style={iconBtnStyle} onClick={() => onCut?.(item.id)} title="Cut">cut</button>
-                    <button className="chordl-board-action-repeat" style={iconBtnStyle} onClick={() => onDuplicate?.(item.id)} title="Repeat (duplicate)">repeat</button>
                     {/* The only card state in this row with a value to read back,
                         so it has to look different when on — a break is invisible
                         otherwise, and an invisible toggle gets pressed twice. */}
@@ -904,6 +1164,44 @@ export function ChordBoard({
                       break
                     </button>
                     <button className="chordl-board-action-delete" style={iconBtnStyle} onClick={() => onDelete?.(item.id)} title="Delete">delete</button>
+                    {onResize && (
+                      <div
+                        className="chordl-board-sizes"
+                        role="group"
+                        aria-label="Card size"
+                        style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 2, width: "100%" }}
+                      >
+                        {BOARD_CARD_SIZES.map((size) => {
+                          const current = (item.size ?? "rg") === size;
+                          const fits = sizeFits(index, BOARD_CARD_SIZE_FACTORS[size]);
+                          return (
+                            <button
+                              key={size}
+                              type="button"
+                              className={`chordl-board-action-size chordl-board-action-size--${size}${current ? " chordl-board-action-size--on" : ""}`}
+                              style={{
+                                ...(current ? activeIconBtnStyle : iconBtnStyle),
+                                padding: "2px 5px",
+                                // Greyed, not hidden: which sizes exist should
+                                // not change with where a card happens to sit.
+                                opacity: fits || current ? 1 : 0.35,
+                                cursor: fits && !current ? "pointer" : "default",
+                              }}
+                              aria-pressed={current ? "true" : "false"}
+                              disabled={!fits && !current}
+                              onClick={() => onResize(item.id, size)}
+                              title={
+                                current ? `Size ${size} (current)`
+                                : fits ? `Size ${size}`
+                                : `${size} is wider than the room left on this row`
+                              }
+                            >
+                              {size}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -2,6 +2,152 @@
 
 ## Unreleased
 
+### chordl-board — cards can be resized on the board
+
+A card's hover controls gain a size strip — `sm md rg lg xl 2xl` — where `rg` is
+one column and the size every card was before this existed. A size decides two
+things at once: how much of the row the card takes (½, ¾, 1, 1½, 2 or 3
+columns) and how big its diagram draws. They cannot come apart, or the extra
+width would be empty paper.
+
+Rows are packed by width rather than by card count, so a card too wide for what
+is left starts the row it fits in, and a row that does not fill the board is
+centred. A size the card's row cannot hold is shown greyed rather than hidden —
+which sizes exist should not change with where a card happens to sit, and a
+size control that silently reflowed the board is not a size control. The size a
+card already is is never greyed, so a card can always show what it is.
+
+The grid runs on 480 tracks: the smallest count where every size at every
+column count, and half of every row's leftover width, lands on a whole track.
+
+`size` rides along in exported JSON and is part of a card's cache key — the same
+chord at `sm` and at `xl` is a different image.
+
+### chordl-react — editing a card restores the detail panel it was made with
+
+A chord card stores its annotations inside its own string: "C note names in xl
+with degrees in lg". Opening one for edit put that whole string in the input box
+and reset every toggle, so the detail panel read empty for a card that plainly
+had details — and the first toggle touched appended a clause the string already
+carried, giving "note names in lg note names in lg".
+
+`splitChordDetails` is now the exact inverse of the composer that writes those
+modifiers, and both live in one module (`src/editor/chordDetails.ts`) so they
+cannot drift. Editing a card fills the input with the chord alone and restores
+note names, degrees, fingering and octave shift — mode and size included — to
+what the card was made with.
+
+A clause only sets a toggle if it was removed from the text, so the two can
+never both claim it. Anything the split does not recognise stays in the input:
+"Cmaj7#5 starting on G#" belongs to the user, not to the form.
+
+### chordl-react — an octave shift moves the keyboard's window, not its width
+
+`chord up 1 octave` extended the keyboard by a whole octave — eight white keys
+became fifteen — and put the chord at the far right of it. On a board the
+oversized diagram was then shrunk to fit its card and drawn as a letterboxed
+strip, so a shifted card matched none of its neighbours.
+
+The keyboard is a window onto the chord, not a ruler measuring how far it
+moved: it now stays the size the chord needs and the highlights sit where the
+unshifted chord's do. The octave is carried where an octave belongs — the staff,
+the MIDI note names under the keys (`C5` becomes `C6`), and playback, all
+unchanged.
+
+### chordl-board — a short row is centred instead of hugging the left edge
+
+With a column count set, a row holding fewer cards than the setting — the one
+before a break, or the last one — sat in the grid's leftmost tracks. Two cards
+on a four-per-row board read as "a full row missing two" rather than as a row
+of two.
+
+The leftover columns are now split evenly either side, so a short row is
+centred. Cards keep the width their column count gives them: a card is the same
+size wherever it lands.
+
+Column gutters moved onto the cards rather than the grid: at this track count
+the grid's own gutters would be wider than the board.
+
+### chordl-board — a selected card can be deselected
+
+Selecting a card was one click; leaving the selection needed the strip of board
+background around the grid, which a full board barely has, and a keyboard user
+had no route at all. Clicking the selected card now deselects it, and Escape
+clears the selection (except while the new-board overlay is up, where Escape
+means "cancel that"). `onSelect` is called with `null` on the way out, so a
+host can tell a deselect from a selection.
+
+In the app, deselecting also leaves card editing: the highlight is what says
+"your edits land here", and a form still bound to a card with no highlight is
+the same bug seen from the other side.
+
+### chordl-board — card controls stay inside the card, and duplicate replaces copy
+
+Six controls in one non-wrapping row is wider than a card at small scales or in
+a many-column layout, and a flex row does not shrink to fit — it spilled past
+the card border. The row now wraps, and is centred rather than right-aligned so
+a short second line does not hang off one edge.
+
+`copy` and `repeat` are replaced by a single `duplicate`. `copy` only filled a
+clipboard the user then had to paste; `repeat` did the whole job in one click,
+so the clipboard round-trip was a longer road to the same card. `cut` still
+fills the clipboard for a move, and `ChordBoard`'s `onCopy` prop is gone with
+the control that drove it — `useChordBoard().copyItem` remains for hosts that
+want their own.
+
+### chordl-react — quality shortcuts for a bare root
+
+Typing `A` renders A major immediately, which is the fastest path in the app,
+but a bare letter is genuinely ambiguous and nothing said that `m`, `7` or
+`maj7` were a keystroke away.
+
+`ChordQualityPicker` puts a strip of seven shortcuts — `m · 7 · maj7 · m7 ·
+dim · aug · sus4` — under the input whenever the parsed chord name is a bare
+root. Seven, chosen by how often a learner meets them rather than by theory; the
+row mixes triads and sevenths on purpose, because it is a shortcut, not a
+taxonomy. Typing still reaches everything the resolver supports.
+
+The check is on the *parsed* name, so "show me an A" gets the strip too, and a
+click rewrites the editor input (`A` → `Am`) rather than rendering in place —
+add-to-board, annotations, octave shift and board editing keep working with no
+new plumbing. Scales, progressions and note lists are excluded.
+
+### chordl-board — a way to start a new board
+
+There was no way to empty a board short of deleting cards one at a time, which
+the app's own image-quota error already assumed there was: it told users to
+"start a new board" and left them no button for it.
+
+`ChordBoard` gains an `onNew` prop and a **NEW** control beside PNG / PDF /
+JSON / Import, disabled when there is nothing to clear. Clearing is
+unrecoverable — no undo, and localStorage holds the only copy — so it goes
+through an overlay offering *Download JSON & clear*, *Clear without saving* and
+*Cancel*. Cancel takes focus on open, so an Enter left over from typing lands on
+the harmless choice; Escape and a backdrop click cancel too.
+
+The message counts the live cards and names what else goes, distinguishing a
+board title (content the user wrote) from board settings (a column count), so it
+never promises to clear something that is not there. The host clears via
+`replaceState`, which resets cards and meta together — a title outliving the
+cards it described is not a new board.
+
+### chordl-voicings — inversions are the first alternatives offered
+
+The A/B/C toggle mixed three tiers of voicings, and the library tier came
+first: after the default, a learner's next two options for `Cmaj7` were a Shell
+and a Rootless Type B — different sets of notes, not different arrangements of
+the notes they had just asked for.
+
+Inversions now fill the slots directly after the default, and the library and
+algorithmic tiers follow. An inversion keeps every note the chord already has
+and only moves the bass, so it is the smallest step away from what the user
+typed, and the one worth meeting first. A style hint still owns slot A: asking
+for a voicing by name is asking for that voicing.
+
+For a four-note chord that is `Root position · 1st inv · 2nd inv · 3rd inv`
+before anything else appears; the default count of three fills exactly with a
+triad's root position and its two inversions.
+
 ### chordl-react — ship dependencies instead of inlining them
 
 The Vite build externalised only `react`, `react-dom` and `react/jsx-runtime`,

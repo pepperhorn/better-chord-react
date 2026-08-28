@@ -536,12 +536,14 @@ function MyBoard() {
         items={board.items}
         clipboard={board.clipboard}
         onEdit={(item) => /* hydrate your editor with item.nl */}
-        onCopy={board.copyItem}
         onCut={board.cutItem}
         onDelete={board.removeItem}
+        onDuplicate={board.duplicateItem}
         onPaste={board.pasteItem}
         onClearClipboard={board.clearClipboard}
         onReorder={board.reorder}
+        onResize={(id, size) => board.updateItem(id, { size })}
+        onNew={() => board.replaceState({ items: [], meta: {} })}
       />
     </>
   );

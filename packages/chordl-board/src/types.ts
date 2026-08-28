@@ -27,6 +27,33 @@ export const BOARD_ITEM_KINDS: readonly BoardItemKind[] = ["chord", "text"];
  */
 export const BOARD_ICON_PREFIXES: readonly string[] = ["music:", "obj:"];
 
+/**
+ * How much room a card takes, and how big it draws. `"rg"` is one column of the
+ * board's grid — the size every card was before this existed, and the size a
+ * card with no `size` still is.
+ */
+export type BoardCardSize = "sm" | "md" | "rg" | "lg" | "xl" | "2xl";
+
+export const BOARD_CARD_SIZES: readonly BoardCardSize[] = ["sm", "md", "rg", "lg", "xl", "2xl"];
+
+/**
+ * Width of each size as a fraction of one column, which is also the factor its
+ * diagram is drawn at — a card that takes twice the room draws twice the size,
+ * or the extra width would be empty paper.
+ *
+ * The values are eighths and quarters on purpose: see `GRID_TRACKS`, which is
+ * chosen so every one of them lands on a whole track at every column count the
+ * board offers.
+ */
+export const BOARD_CARD_SIZE_FACTORS: Record<BoardCardSize, number> = {
+  sm: 0.5,
+  md: 0.75,
+  rg: 1,
+  lg: 1.5,
+  xl: 2,
+  "2xl": 3,
+};
+
 /** A single card on the board — a chord diagram, or text with an icon/image. */
 export interface BoardItem {
   /** Stable identifier for keys and drag-drop. */
@@ -40,6 +67,8 @@ export interface BoardItem {
    * chord path for a text card, rather than null-checking `nl` everywhere.
    */
   nl?: string;
+  /** How much room this card takes and how big it draws. Absent means `"rg"`. */
+  size?: BoardCardSize;
   /** Optional title override (defaults to the resolved chord name). */
   title?: string;
   /** Optional muted subheading below the title. */

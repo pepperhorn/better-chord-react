@@ -323,3 +323,29 @@ describe("schema versioning", () => {
     expect(back.items[1]).toMatchObject({ kind: "text", title: "Verse", breakAfter: true });
   });
 });
+
+describe("importBoardJson — board meta", () => {
+  const board = (meta: unknown) => JSON.stringify({
+    schema: "chordl.board/v2",
+    meta,
+    items: [{ id: "a", nl: "C" }],
+  });
+
+  it("keeps a column count the settings offer", () => {
+    expect(importBoardJson(board({ columns: 4 })).meta.columns).toBe(4);
+    expect(importBoardJson(board({ columns: "auto" })).meta.columns).toBe("auto");
+  });
+
+  /** It reaches a CSS grid, where an unusable count renders cards as slivers. */
+  it("drops a column count the layout cannot use", () => {
+    for (const columns of [7, 0, -1, 2.5, "four", null]) {
+      expect(importBoardJson(board({ columns })).meta.columns, String(columns)).toBeUndefined();
+    }
+  });
+
+  it("keeps the rest of the meta when the count is dropped", () => {
+    const meta = importBoardJson(board({ columns: 99, title: "Practice" })).meta;
+    expect(meta.title).toBe("Practice");
+    expect(meta.columns).toBeUndefined();
+  });
+});
