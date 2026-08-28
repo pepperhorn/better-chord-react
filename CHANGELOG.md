@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### chordl-board — cards can be resized on the board
+
+A card's hover controls gain a size strip — `sm md rg lg xl 2xl` — where `rg` is
+one column and the size every card was before this existed. A size decides two
+things at once: how much of the row the card takes (½, ¾, 1, 1½, 2 or 3
+columns) and how big its diagram draws. They cannot come apart, or the extra
+width would be empty paper.
+
+Rows are packed by width rather than by card count, so a card too wide for what
+is left starts the row it fits in, and a row that does not fill the board is
+centred. A size the card's row cannot hold is shown greyed rather than hidden —
+which sizes exist should not change with where a card happens to sit, and a
+size control that silently reflowed the board is not a size control. The size a
+card already is is never greyed, so a card can always show what it is.
+
+The grid runs on 480 tracks: the smallest count where every size at every
+column count, and half of every row's leftover width, lands on a whole track.
+
+`size` rides along in exported JSON and is part of a card's cache key — the same
+chord at `sm` and at `xl` is a different image.
+
 ### chordl-react — editing a card restores the detail panel it was made with
 
 A chord card stores its annotations inside its own string: "C note names in xl

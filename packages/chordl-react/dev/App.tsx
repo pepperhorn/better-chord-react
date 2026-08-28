@@ -1344,6 +1344,7 @@ function InteractiveInput({ uiTheme, showOptions, onToggleOptions, onExportStatu
             onDuplicate={board.duplicateItem}
             onAddTextCard={handleAddTextCard}
             onToggleBreak={handleToggleBreak}
+            onResize={(id, size) => board.updateItem(id, { size })}
             selectedId={board.selectedId}
             // Deselecting also leaves edit mode: the highlight is what says
             // "your edits land here", so a form still bound to a card with no

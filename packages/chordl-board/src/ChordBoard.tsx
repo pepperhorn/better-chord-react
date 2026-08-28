@@ -2,8 +2,8 @@ import { Component, Fragment, useState, useEffect, useRef, useCallback } from "r
 import type { CSSProperties, ReactNode, SVGProps } from "react";
 import { PianoChord, GuitarChordPanel, CardHeading, CardFooter, resolveUITheme } from "@pepperhorn/chordl-react";
 import type { InstrumentId, UIThemeMode } from "@pepperhorn/chordl-react";
-import type { BoardItem, BoardMeta, BoardState, StorageAdapter } from "./types.js";
-import { isTextCard } from "./types.js";
+import type { BoardCardSize, BoardItem, BoardMeta, BoardState, StorageAdapter } from "./types.js";
+import { BOARD_CARD_SIZES, BOARD_CARD_SIZE_FACTORS, isTextCard } from "./types.js";
 import { BoardIcon } from "./icons.js";
 import { localStorageAdapter } from "./storage.js";
 import { exportBoardJson, importBoardJson } from "./io.js";
@@ -421,12 +421,13 @@ export function useChordBoard(opts?: {
 /**
  * Track count for the fixed-column grid.
  *
- * 120 is twice the lowest common multiple of 1 through 6 — every column count
- * the board offers. A card therefore spans a whole number of tracks at any
- * column count, and the doubling makes the *half* of a leftover column whole
- * too, which is what centres a short row exactly.
+ * Every card width has to land on a whole track, at every column count the
+ * board offers (1–6) and every card size (½, ¾, 1, 1½, 2 and 3 columns) — and
+ * so does *half* the width left over at the end of a row, which is what centres
+ * a short row exactly. 480 is the smallest count that satisfies all three:
+ * `480 · size / columns` and `240 · size / columns` are whole for every pair.
  */
-const GRID_TRACKS = 120;
+const GRID_TRACKS = 480;
 
 /** Half the 12px gutter, carried by each card. See `columnGap: 0` below. */
 const CARD_GUTTER = 6;
@@ -455,6 +456,8 @@ export interface ChordBoardProps {
   onToggleBreak?: (id: string) => void;
   /** Currently selected card — gets a sticky ring and visible chrome. */
   selectedId?: string | null;
+  /** Called when a user picks a size for a card. */
+  onResize?: (id: string, size: BoardCardSize) => void;
   /** Called with a card id to select it, or null when the user deselects. */
   onSelect?: (id: string | null) => void;
   onClearSelection?: () => void;
@@ -493,6 +496,7 @@ export function ChordBoard({
   onAddTextCard,
   onToggleBreak,
   selectedId,
+  onResize,
   onSelect,
   onClearSelection,
   onImport,
@@ -704,31 +708,52 @@ export function ChordBoard({
     : { display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-start", justifyContent: "center" };
 
   /**
-   * Where each card sits on the track grid.
+   * Where each card sits on the track grid, and how big it draws.
    *
-   * Cards keep the width their column count gives them — a card is the same
-   * size wherever it lands. A row holding fewer cards than the setting is
-   * centred instead, with the leftover columns split evenly either side, so a
-   * row cut short by a break reads as a deliberate short row rather than as a
-   * full row missing its right-hand cards.
+   * A row holds one board-width of cards. Sizes make cards wider, so a row is
+   * packed by width rather than by count: cards join the current row until the
+   * next one would not fit, and a break ends a row wherever it falls. Whatever
+   * width is left over is split evenly either side, so a row that does not fill
+   * the board is centred rather than hugging the left edge.
    */
-  const span = useGrid ? GRID_TRACKS / (columns as number) : 0;
+  const trackWidth = (item: BoardItem) =>
+    (GRID_TRACKS * BOARD_CARD_SIZE_FACTORS[item.size ?? "rg"]) / (columns as number);
+
+  const spans: number[] = [];
   const rowStarts: Record<number, number> = {};
+  /** Tracks used by every card sharing a row with this one, itself excluded. */
+  const rowOthers: number[] = [];
   if (useGrid) {
-    const perRow = columns as number;
     let rowStart = 0;
+    let used = 0;
+    const closeRow = (endIndex: number) => {
+      const leftover = GRID_TRACKS - used;
+      if (leftover > 0) rowStarts[rowStart] = leftover / 2 + 1;
+      for (let j = rowStart; j <= endIndex; j++) rowOthers[j] = used - spans[j];
+      rowStart = endIndex + 1;
+      used = 0;
+    };
+
     for (let i = 0; i < items.length; i++) {
-      const rowLength = i - rowStart + 1;
-      const rowEnds = Boolean(items[i].breakAfter) || rowLength === perRow || i === items.length - 1;
-      if (!rowEnds) continue;
-      if (rowLength < perRow) {
-        // Half the leftover columns, in tracks. Whole because GRID_TRACKS is
-        // twice a multiple of every column count the board offers.
-        rowStarts[rowStart] = ((perRow - rowLength) * span) / 2 + 1;
-      }
-      rowStart = i + 1;
+      spans[i] = Math.min(trackWidth(items[i]), GRID_TRACKS);
+      // A card too wide for what is left starts the row it fits in.
+      if (used > 0 && used + spans[i] > GRID_TRACKS) closeRow(i - 1);
+      used += spans[i];
+      if (items[i].breakAfter || used >= GRID_TRACKS || i === items.length - 1) closeRow(i);
     }
   }
+
+  /**
+   * A size is offered only if the card's row can hold it. Growing past the row
+   * would push a neighbour onto the next line — a size control that silently
+   * reflowed the board is not a size control, so the ones that do not fit are
+   * shown greyed instead.
+   */
+  const sizeFits = (index: number, factor: number): boolean => {
+    if (!useGrid) return true;
+    const width = (GRID_TRACKS * factor) / (columns as number);
+    return width <= GRID_TRACKS && (rowOthers[index] ?? 0) + width <= GRID_TRACKS;
+  };
 
   /**
    * A `breakAfter` card is followed by this: a rendered sibling that fills the
@@ -1015,8 +1040,8 @@ export function ChordBoard({
                   ...(useGrid
                     ? {
                         gridColumn: rowStarts[index] !== undefined
-                          ? `${rowStarts[index]} / span ${span}`
-                          : `span ${span}`,
+                          ? `${rowStarts[index]} / span ${spans[index]}`
+                          : `span ${spans[index]}`,
                         marginLeft: CARD_GUTTER,
                         marginRight: CARD_GUTTER,
                       }
@@ -1077,7 +1102,11 @@ export function ChordBoard({
                   key={`${item.kind ?? "chord"}|${item.nl ?? item.title ?? ""}|${item.display ?? "keyboard"}`}
                   label={cardLabel(item)}
                 >
-                  <BoardCardContent item={item} scale={scale} uiTheme={uiTheme} />
+                  <BoardCardContent
+                    item={item}
+                    scale={(scale ?? 1) * BOARD_CARD_SIZE_FACTORS[item.size ?? "rg"]}
+                    uiTheme={uiTheme}
+                  />
                 </CardErrorBoundary>
                 {!isExporting && (
                   <div
@@ -1119,6 +1148,44 @@ export function ChordBoard({
                       break
                     </button>
                     <button className="chordl-board-action-delete" style={iconBtnStyle} onClick={() => onDelete?.(item.id)} title="Delete">delete</button>
+                    {onResize && (
+                      <div
+                        className="chordl-board-sizes"
+                        role="group"
+                        aria-label="Card size"
+                        style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 2, width: "100%" }}
+                      >
+                        {BOARD_CARD_SIZES.map((size) => {
+                          const current = (item.size ?? "rg") === size;
+                          const fits = sizeFits(index, BOARD_CARD_SIZE_FACTORS[size]);
+                          return (
+                            <button
+                              key={size}
+                              type="button"
+                              className={`chordl-board-action-size chordl-board-action-size--${size}${current ? " chordl-board-action-size--on" : ""}`}
+                              style={{
+                                ...(current ? activeIconBtnStyle : iconBtnStyle),
+                                padding: "2px 5px",
+                                // Greyed, not hidden: which sizes exist should
+                                // not change with where a card happens to sit.
+                                opacity: fits || current ? 1 : 0.35,
+                                cursor: fits && !current ? "pointer" : "default",
+                              }}
+                              aria-pressed={current ? "true" : "false"}
+                              disabled={!fits && !current}
+                              onClick={() => onResize(item.id, size)}
+                              title={
+                                current ? `Size ${size} (current)`
+                                : fits ? `Size ${size}`
+                                : `${size} is wider than the room left on this row`
+                              }
+                            >
+                              {size}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

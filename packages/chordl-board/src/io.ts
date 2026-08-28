@@ -1,5 +1,6 @@
-import { BOARD_DISPLAY_MODES, BOARD_ICON_PREFIXES, BOARD_ITEM_KINDS, isTextCard } from "./types.js";
+import { BOARD_CARD_SIZES, BOARD_DISPLAY_MODES, BOARD_ICON_PREFIXES, BOARD_ITEM_KINDS, isTextCard } from "./types.js";
 import type {
+  BoardCardSize,
   BoardDisplayMode,
   BoardItem,
   BoardItemKind,
@@ -76,6 +77,10 @@ export async function exportBoardJson(state: BoardState): Promise<string> {
       // guitar frame and as a keyboard are different images, and a key that
       // ignored `display` would serve one for the other.
       if (it.display !== undefined) renderConfig.display = it.display;
+      // Size is drawn, not just laid out: the same chord at "sm" and at "xl" is
+      // a different image, so a key that ignored it would serve one for the
+      // other.
+      if (it.size !== undefined) renderConfig.size = it.size;
       if (it.instrument !== undefined) renderConfig.instrument = it.instrument;
       if (it.position !== undefined) renderConfig.position = it.position;
       let cacheKey: string | undefined;
@@ -109,6 +114,10 @@ function parseDisplayMode(value: unknown): BoardDisplayMode | undefined {
 
 function parsePosition(value: unknown): number | undefined {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+function parseSize(value: unknown): BoardCardSize | undefined {
+  return BOARD_CARD_SIZES.includes(value as BoardCardSize) ? (value as BoardCardSize) : undefined;
 }
 
 function parseKind(value: unknown): BoardItemKind | undefined {
@@ -166,6 +175,7 @@ export function importBoardJson(text: string): BoardState {
       position: parsePosition(raw.position),
       icon: parseIcon(raw.icon),
       image: parseImage(raw.image),
+      size: parseSize(raw.size),
       breakAfter: parseBreakAfter(raw.breakAfter),
     };
   });
