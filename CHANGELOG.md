@@ -17,11 +17,18 @@ relationship rather than replacing it; a degree-only chord takes its size
 directly, since there the degree *is* the label row. Absent, it falls back to
 the note-name size — what every caller did before it existed.
 
-Two clauses that each carry a size must not be able to read each other's:
-`NOTE_NAMES_RE` accepts a size *before* its keyword ("xl note names"), so
-"with degrees in base note names in 2xl" read the degrees' own "base" as the
-note-name size. Note-name sizes are now read from the input with the degrees
-clause removed.
+The downloaded SVG and PNG carry the size too. That path draws from a JSON
+payload rather than the DOM and recomputed the degree row as `0.85 x` the note
+names, so a chord that sized its degrees separately drew one way on screen and
+another in the file.
+
+Two clauses that each carry a size must not be able to read each other's, in
+either direction. `NOTE_NAMES_RE` accepts a size *before* its keyword ("xl note
+names"), so "with degrees in base note names in 2xl" read the degrees' "base" as
+the note-name size; the degrees clause accepts one *after* its own ("degrees
+xl"), so "degrees 2xl note names" swallowed a size that belonged to the note
+names. A bare size between the two now goes to the keyword it precedes, and only
+the explicit "degrees in xl" form binds it to the degrees.
 
 ### chordl-core — "midi note names" is no longer read as part of the chord
 

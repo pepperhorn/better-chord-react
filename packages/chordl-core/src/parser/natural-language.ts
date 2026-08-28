@@ -194,7 +194,18 @@ const OCTAVES_RE = /\b(?:in\s+)?(\d+)\s+octaves?\b/i;
 // "degrees" anywhere — combined with note names if present, standalone otherwise.
 // The literal word "degree(s)" isn't used by any other parser rule
 // (bass-degree / starting-degree use "5th", "9th", etc.), so a broad match is safe.
-const DEGREES_KEYWORD_RE = /\bdegrees?(?:\s+(?:in\s+)?(base|lg|xl|2xl))?\b/i;
+/*
+ * Two forms, because only one of them is unambiguous.
+ *
+ * "degrees in lg" names the degrees' own size and always keeps it. "degrees lg"
+ * is a bare size between two keywords, and NOTE_NAMES_RE accepts exactly that
+ * shape in front of its own keyword ("lg note names") — so in "degrees 2xl note
+ * names" the size belongs to what follows it, not to what precedes it. Without
+ * the lookahead the degrees clause swallowed it and the note names silently
+ * fell back to the default.
+ */
+const DEGREES_KEYWORD_RE =
+  /\bdegrees?(?:\s+(?:in\s+(base|lg|xl|2xl)|(base|lg|xl|2xl)(?!\s+(?:midi\s+)?note\s*names?)))?\b/i;
 
 // "with heading" / "with a heading" / "show heading"
 const HEADING_RE = /\b(?:with\s+)?(?:a\s+)?(?:show\s+)?heading\b/i;
@@ -744,7 +755,7 @@ export function parseChordDescription(input: string): ParsedChordRequest {
     // Its own field. Writing it to noteNameSize meant the second size in
     // "note names in xl with degrees in lg" overwrote the first, and both rows
     // came out at lg — the note names silently demoted to the degrees' size.
-    const sz = toTextSize(degMatch[1]);
+    const sz = toTextSize(degMatch[1]) ?? toTextSize(degMatch[2]);
     if (sz) result.degreeSize = sz;
   }
 

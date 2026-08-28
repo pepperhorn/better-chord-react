@@ -816,3 +816,31 @@ describe("note-name and degree sizes are independent", () => {
     expect(parsed.degreeSize).toBeUndefined();
   });
 })
+
+/**
+ * The guard has to run both ways. `NOTE_NAMES_RE` accepts a size before its
+ * keyword ("xl note names") and the degrees clause accepts one after its own
+ * ("degrees xl"), so a bare size sitting between them can be claimed by either.
+ * It belongs to the keyword it precedes; only the explicit "degrees in xl" form
+ * binds it to the degrees.
+ */
+describe("a size between the two clauses", () => {
+  it("goes to the note names it sits in front of", () => {
+    for (const input of ["C with degrees 2xl note names", "C degrees 2xl note names"]) {
+      const parsed = parseChordDescription(input);
+      expect(parsed.noteNameSize, input).toBe("2xl");
+      expect(parsed.degreeSize, input).toBeUndefined();
+    }
+  });
+
+  it("stays with the degrees when they name it explicitly", () => {
+    const parsed = parseChordDescription("C with degrees in 2xl note names");
+    expect(parsed.degreeSize).toBe("2xl");
+    expect(parsed.noteNameSize).toBeUndefined();
+  });
+
+  it("still reads a trailing bare size as the degrees'", () => {
+    // Nothing follows it to claim it.
+    expect(parseChordDescription("C with degrees xl").degreeSize).toBe("xl");
+  });
+})

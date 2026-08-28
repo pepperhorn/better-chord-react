@@ -32,6 +32,8 @@ function injectAnnotations(clone: SVGSVGElement, vb: DOMRect): void {
       isAccidental: boolean;
     }>;
     fontSize: number;
+    /** Degree row size. Older payloads have none; fall back to the old derivation. */
+    degreeFontSize?: number;
     fingerFontSize: number;
     hasStagger: boolean;
     staggerHeight: number;
@@ -46,11 +48,15 @@ function injectAnnotations(clone: SVGSVGElement, vb: DOMRect): void {
   const { items, fontSize, fingerFontSize, hasStagger, staggerHeight, textColor, mutedColor, keyboardHeight, controlsHeight } = data;
   if (!items || items.length === 0) return;
 
+  // Degrees carry their own size now. Deriving it here made the export disagree
+  // with the screen for any chord that sized its degrees separately.
+  const degFontSize = data.degreeFontSize ?? fontSize * 0.85;
+
   // Calculate annotation area height
   const nameRowH = fontSize + 3;
   const staggerH = hasStagger ? staggerHeight : 0;
   const hasAnyDegree = items.some((it) => it.degree);
-  const degreeRowH = hasAnyDegree ? fontSize * 0.85 + 3 : 0;
+  const degreeRowH = hasAnyDegree ? degFontSize + 3 : 0;
   const hasAnyFinger = items.some((it) => it.finger);
   const fingerRowH = hasAnyFinger ? fingerFontSize + 3 : 0;
   const annotationTotalH = staggerH + nameRowH + degreeRowH + fingerRowH + 4;
@@ -100,7 +106,6 @@ function injectAnnotations(clone: SVGSVGElement, vb: DOMRect): void {
 
     // Degree label (combo mode — separate row below note name)
     if (item.degree) {
-      const degFontSize = fontSize * 0.85;
       const text = document.createElementNS(SVG_NS, "text");
       text.setAttribute("x", String(x));
       text.setAttribute("y", String(rowY + staggerH + nameRowH + degFontSize));

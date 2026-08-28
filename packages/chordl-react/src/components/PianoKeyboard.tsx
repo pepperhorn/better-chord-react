@@ -337,6 +337,10 @@ export function PianoKeyboard({
       isAccidental: isAccidental(h.note),
     })),
     fontSize: nameFontSize,
+    // Its own number, not derived: the export used to recompute it as
+    // fontSize * 0.85, so a chord whose degrees were sized separately drew one
+    // way on screen and another in the downloaded file.
+    degreeFontSize,
     fingerFontSize,
     hasStagger: anyAccidentals,
     staggerHeight,
@@ -388,7 +392,13 @@ export function PianoKeyboard({
           width: "100%",
           marginTop: 2,
           // Reserve space for both rows when staggering
-          minHeight: staggerHeight + nameFontSize * 1.3 + (hasFingering ? fingerFontSize * 1.3 : 0),
+          // The rows are absolutely positioned, so this height is the box. The
+          // degree row used to be capped at 0.85 of the name row and could be
+          // ignored here; with its own size it can be the tallest thing in the
+          // box, and unreserved it spills onto the footer or the next card.
+          minHeight: staggerHeight + nameFontSize * 1.3
+            + (hasDegrees && isDegreeCombo ? degreeFontSize * 1.3 : 0)
+            + (hasFingering ? fingerFontSize * 1.3 : 0),
         }}>
           {highlighted.map((h, i) => {
             const centerPct = ((h.x + h.width / 2 - vbX) / vbW) * 100;
