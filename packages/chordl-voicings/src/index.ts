@@ -1,4 +1,4 @@
-export { VOICING_LIBRARY } from "./library";
+export { VOICING_LIBRARY } from "./library.js";
 export {
   queryVoicings,
   findVoicing,
@@ -8,12 +8,12 @@ export {
   getAlternativeVoicings,
   inferStyle,
   mapToVoicingQuality,
-} from "./query";
-export { selectByRange, autoSelectVoicing } from "./range-algorithm";
-export { generateLockedHands } from "./locked-hands";
-export { solvePolychord, solveSlashChord } from "./polychord";
-export type { ChordDescriptor } from "./polychord";
-export { generateVariants } from "./variant-generator";
+} from "./query.js";
+export { selectByRange, autoSelectVoicing } from "./range-algorithm.js";
+export { generateLockedHands } from "./locked-hands.js";
+export { solvePolychord, solveSlashChord } from "./polychord.js";
+export type { ChordDescriptor } from "./polychord.js";
+export { generateVariants } from "./variant-generator.js";
 export type {
   VoicingEntry,
   VoicingQuery,
@@ -23,4 +23,4 @@ export type {
   Hand,
   RealizedNote,
   VoicingVariant,
-} from "./types";
+} from "./types.js";

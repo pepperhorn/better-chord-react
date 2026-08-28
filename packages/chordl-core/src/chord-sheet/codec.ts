@@ -1,5 +1,5 @@
-import type { ChordSheetData } from "../types";
-import { CHORD_SHEET_SCHEMA_VERSION, validateVersion } from "./schema";
+import type { ChordSheetData } from "../types.js";
+import { CHORD_SHEET_SCHEMA_VERSION, validateVersion } from "./schema.js";
 
 const TOKEN_PREFIX = "bcs1.";
 

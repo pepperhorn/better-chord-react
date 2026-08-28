@@ -1,7 +1,7 @@
 import { ChordType, Interval, Note } from "tonal";
-import type { VoicingEntry, VoicingQuery, VoicingQuality, VoicingStyle, RealizedNote, Hand } from "./types";
-import { VOICING_LIBRARY } from "./library";
-import { normalizeToSharps, spellForKey } from "./spelling";
+import type { VoicingEntry, VoicingQuery, VoicingQuality, VoicingStyle, RealizedNote, Hand } from "./types.js";
+import { VOICING_LIBRARY } from "./library.js";
+import { normalizeToSharps, spellForKey } from "./spelling.js";
 
 /** Map artist names / keywords to voicing styles */
 const ARTIST_STYLE_MAP: Record<string, { style?: VoicingStyle; era?: string }> = {

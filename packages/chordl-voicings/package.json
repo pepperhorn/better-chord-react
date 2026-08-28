@@ -3,14 +3,14 @@
   "version": "0.4.0",
   "description": "Jazz piano voicing library with shell, rootless, quartal, upper structure, and drop 2 voicings",
   "type": "module",
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "default": "./dist/index.js"
     }
   },
   "files": [

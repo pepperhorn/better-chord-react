@@ -4,8 +4,8 @@
  * This module states facts; it never decides which shape a product should
  * display. Selection lives in src/voicingSelect.ts.
  */
-import type { ChordsDbPosition } from "./instruments";
-import { positionToMidi } from "./pitch";
+import type { ChordsDbPosition } from "./instruments.js";
+import { positionToMidi } from "./pitch.js";
 
 export type Inversion = "root" | "1st" | "2nd" | "3rd" | "other";
 

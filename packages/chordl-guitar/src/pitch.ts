@@ -6,7 +6,7 @@
  * reviving keeps one pitch code path: the candidate szaza merge source ships
  * no midi field at all, so derivation is required regardless.
  */
-import type { ChordsDbPosition } from "./instruments";
+import type { ChordsDbPosition } from "./instruments.js";
 
 /**
  * Sounding MIDI pitches for a chords-db position.

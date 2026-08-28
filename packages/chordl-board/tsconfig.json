@@ -3,6 +3,10 @@
     "target": "ES2020",
     "module": "ESNext",
     "lib": ["ES2020", "DOM"],
+    // Deliberately not NodeNext: html2canvas and jspdf are CJS browser libs whose
+    // .d.ts files use ESM "export default", which NodeNext types as non-callable.
+    // chordl-board is DOM-only and always consumed through a bundler. Emit is still
+    // valid Node ESM because relative imports carry explicit .js extensions.
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": true,

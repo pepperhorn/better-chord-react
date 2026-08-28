@@ -7,9 +7,9 @@
  */
 import { generateVariants } from "@pepperhorn/chordl-voicings";
 import type { VoicingQuality, VoicingVariant } from "@pepperhorn/chordl-voicings";
-import { classifyTones, dropOrder } from "./chord-tones";
-import { constrainVoicing, pcSemitone } from "./hand-constraints";
-import type { ConstrainedVoicing, HandConstraints } from "./hand-constraints";
+import { classifyTones, dropOrder } from "./chord-tones.js";
+import { constrainVoicing, pcSemitone } from "./hand-constraints.js";
+import type { ConstrainedVoicing, HandConstraints } from "./hand-constraints.js";
 
 /**
  * A source voicing refitted to a hand.

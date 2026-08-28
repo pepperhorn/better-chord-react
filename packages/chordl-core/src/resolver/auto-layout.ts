@@ -1,6 +1,6 @@
-import type { WhiteNote } from "../types";
-import { WHITE_NOTE_ORDER } from "../engine/svg-constants";
-import { normalizeToSharps } from "../engine/note-spelling";
+import type { WhiteNote } from "../types.js";
+import { WHITE_NOTE_ORDER } from "../engine/svg-constants.js";
+import { normalizeToSharps } from "../engine/note-spelling.js";
 
 // White notes that have a sharp (black key to their right)
 const HAS_SHARP = new Set<string>(["C", "D", "F", "G", "A"]);

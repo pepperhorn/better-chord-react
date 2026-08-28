@@ -1,7 +1,7 @@
-import type { VoicingVariant, VoicingQuality, VoicingEntry, Hand } from "./types";
-import { VOICING_LIBRARY } from "./library";
-import { voicingPitchClasses, findVoicing } from "./query";
-import { normalizeToSharps } from "./spelling";
+import type { VoicingVariant, VoicingQuality, VoicingEntry, Hand } from "./types.js";
+import { VOICING_LIBRARY } from "./library.js";
+import { voicingPitchClasses, findVoicing } from "./query.js";
+import { normalizeToSharps } from "./spelling.js";
 
 /** Check if the lowest note (first in array) is the root/tonic. */
 function isRootPosition(notes: string[], root: string): boolean {

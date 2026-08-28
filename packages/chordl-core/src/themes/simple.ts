@@ -1,5 +1,5 @@
-import type { ColorTheme } from "../types";
-import { DEFAULT_WHITE_FILL, DEFAULT_BLACK_FILL } from "../engine/svg-constants";
+import type { ColorTheme } from "../types.js";
+import { DEFAULT_WHITE_FILL, DEFAULT_BLACK_FILL } from "../engine/svg-constants.js";
 
 const DEFAULT_HIGHLIGHT = "#a0c6e8";
 const DEFAULT_BLACK_HIGHLIGHT = "#5a8ab5";

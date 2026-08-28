@@ -1,4 +1,4 @@
-import type { DisplayDefaults } from "../types";
+import type { DisplayDefaults } from "../types.js";
 
 /** System-level defaults when nothing is specified. */
 export const SYSTEM_DEFAULTS: Required<DisplayDefaults> = {

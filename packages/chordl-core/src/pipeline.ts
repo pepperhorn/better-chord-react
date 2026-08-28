@@ -1,19 +1,19 @@
-import { parseChordDescription } from "./parser/natural-language";
-import { resolveChord } from "./resolver/chord-resolver";
-import { resolveScale } from "./resolver/scale-resolver";
-import { calculateLayout } from "./resolver/auto-layout";
-import { computeKeyboard, computeSvgDimensions } from "./engine/keyboard-layout";
-import { mapHighlights, normalizeNote } from "./engine/highlight-mapper";
-import { generateMidiFile } from "./audio/midi-export";
-import { logChordRequest } from "./logging";
-import type { LogConfig, ChordLogEntry } from "./logging";
-import type { Format, KeyDescriptor } from "./types";
+import { parseChordDescription } from "./parser/natural-language.js";
+import { resolveChord } from "./resolver/chord-resolver.js";
+import { resolveScale } from "./resolver/scale-resolver.js";
+import { calculateLayout } from "./resolver/auto-layout.js";
+import { computeKeyboard, computeSvgDimensions } from "./engine/keyboard-layout.js";
+import { mapHighlights, normalizeNote } from "./engine/highlight-mapper.js";
+import { generateMidiFile } from "./audio/midi-export.js";
+import { logChordRequest } from "./logging.js";
+import type { LogConfig, ChordLogEntry } from "./logging.js";
+import type { Format, KeyDescriptor } from "./types.js";
 import {
   WHITE_KEY_RY,
   BLACK_KEY_RY,
   DEFAULT_STROKE,
   DEFAULT_STROKE_WIDTH,
-} from "./engine/svg-constants";
+} from "./engine/svg-constants.js";
 
 // ── Public types ──────────────────────────────────────────────────
 
@@ -84,7 +84,7 @@ function buildSvgString(
   ].join("\n");
 }
 
-import { PC_SEMITONES as NOTE_SEMITONES } from "./engine/note-spelling";
+import { PC_SEMITONES as NOTE_SEMITONES } from "./engine/note-spelling.js";
 
 // ── Main pipeline ─────────────────────────────────────────────────
 

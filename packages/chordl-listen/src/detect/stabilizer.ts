@@ -7,7 +7,7 @@
  * differs from the last emitted chord — so a held chord fires once, not every
  * frame, and passing/misread frames are ignored.
  */
-import type { ChordCandidate } from "./templateMatch";
+import type { ChordCandidate } from "./templateMatch.js";
 
 export interface StabilizerConfig {
   /** Consecutive agreeing frames required before emitting (default 3). */

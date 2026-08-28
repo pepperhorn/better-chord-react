@@ -1,4 +1,4 @@
-import { normalizeToSharps, PC_SEMITONES as NOTE_SEMITONE } from "./note-spelling";
+import { normalizeToSharps, PC_SEMITONES as NOTE_SEMITONE } from "./note-spelling.js";
 
 /**
  * Auto-fingering engine for piano chord voicings.

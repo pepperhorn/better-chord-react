@@ -9,8 +9,12 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
+  },
+  "engines": {
+    "node": ">=20.10"
   },
   "sideEffects": false,
   "files": [

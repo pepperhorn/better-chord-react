@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+### All packages — valid Node ESM
+
+Every `tsc`-built package declared `"type": "module"` but was compiled with
+`moduleResolution: "bundler"`, so none of them actually loaded under Node's
+ESM resolver. This was invisible because `chordl-react` inlined its workspace
+dependencies at build time and every consumer went through a bundler, both of
+which resolve what Node rejects. Three distinct faults:
+
+- **Relative imports carried no file extension** — 126 specifiers across core,
+  guitar, voicings, board and listen emitted as `from "./engine/keyboard-layout"`,
+  which is `ERR_MODULE_NOT_FOUND` in Node. Source now writes explicit `.js`, and
+  core, voicings, guitar and listen moved to `moduleResolution: "nodenext"` so
+  tsc enforces it rather than leaving it to convention. `chordl-board` stays on
+  `bundler` — it is DOM-only and its CJS deps (`html2canvas`, `jspdf`) declare
+  ESM-style default exports that nodenext types as non-callable — but its emit is
+  equally correct, since the extensions are in the source.
+- **`chordl-guitar` imported JSON with no import attribute**, which Node rejects
+  with `ERR_IMPORT_ATTRIBUTE_MISSING`. Both now carry `with { type: "json" }`.
+- **`chordl-core`, `chordl-voicings` and `chordl-listen` advertised
+  `"main"`/`"require": "./dist/index.cjs"` — a file their build never produced.**
+  `require()` of `chordl-core` and `chordl-voicings` has been broken in every
+  published version since 0.3.0; `chordl-listen` has never been published, so it
+  carried the same fault unreleased. They are ESM-only, and now say so, matching
+  `chordl-guitar` and `chordl-board`. Every package also gained a terminal
+  `"default"` export condition, so a resolver using a condition set without
+  `"import"` falls back instead of failing outright.
+
+`chordl-guitar` declares `"engines": { "node": ">=20.10" }`, the floor for the
+import-attribute syntax its JSON imports now use — a parse error below that, and
+better surfaced at install than at bundle time.
+
+`chordl-board` carries a test asserting every relative specifier in its source
+has an explicit extension. It is the one package tsc does not enforce this for,
+and build, lint and the rest of the suite all resolve extensionless specifiers
+happily — so nothing else would catch a regression before it shipped.
+
+Verified by installing the packed tarballs into a clean consumer and importing
+each package under plain Node ESM — previously three separate hard failures.
+
 ### chordl-guitar 0.2.0
 
 **Breaking:** `OPEN_STRING_MIDI` is removed. Use `INSTRUMENTS[id].openMidi`,

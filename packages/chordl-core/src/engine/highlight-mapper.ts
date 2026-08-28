@@ -1,6 +1,6 @@
-import type { KeyDescriptor, ColorTheme } from "../types";
-import { DEFAULT_WHITE_FILL, DEFAULT_BLACK_FILL } from "./svg-constants";
-import { normalizeToSharps } from "./note-spelling";
+import type { KeyDescriptor, ColorTheme } from "../types.js";
+import { DEFAULT_WHITE_FILL, DEFAULT_BLACK_FILL } from "./svg-constants.js";
+import { normalizeToSharps } from "./note-spelling.js";
 
 export function normalizeNote(note: string): string {
   return normalizeToSharps(note);

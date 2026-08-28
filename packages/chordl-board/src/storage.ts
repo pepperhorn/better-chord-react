@@ -1,4 +1,4 @@
-import type { BoardItem, BoardState, StorageAdapter } from "./types";
+import type { BoardItem, BoardState, StorageAdapter } from "./types.js";
 
 export interface LocalStorageAdapterOptions {
   /**

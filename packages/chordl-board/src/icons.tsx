@@ -23,7 +23,7 @@
  *   house style for a stroke icon, but no Lucide path data is copied.
  */
 import type { ReactElement } from "react";
-import { BOARD_ICON_PREFIXES } from "./types";
+import { BOARD_ICON_PREFIXES } from "./types.js";
 
 /** Stable icon id, e.g. "music:trebleClef". Ids survive a redraw; path data does not. */
 export type BoardIconId = string;
