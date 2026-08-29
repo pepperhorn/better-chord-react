@@ -65,7 +65,7 @@ export interface KeyboardProps {
   /** Text size for fingering numbers (default "base"). */
   fingeringSize?: TextSize;
   /** Jazz roman numeral degree labels aligned with highlightKeys (e.g. ["I","III","#V","bVII"]). */
-  degreeLabels?: string[];
+  degreeLabels?: (string | undefined)[];
   /**
    * Text size for the degree row. Its own size because the two are asked for
    * separately — "note names in xl with degrees in lg". Falls back to

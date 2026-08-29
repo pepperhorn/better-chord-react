@@ -80,7 +80,10 @@ function annotationRowHeight(size: TextSize = "base"): number {
 function matchHighlightsToKeys(
   keys: { note: string; octave: number; isBlack: boolean; x: number; width: number }[],
   highlightKeys: string[],
-  displayNoteNames: string[] | undefined,
+  // Widened for degree-only mode, which passes `degreeLabels` here as the label
+  // row (see the call site below). A note with no degree falls back to its own
+  // name, so an undefined entry is a gap in the row, not a bug.
+  displayNoteNames: (string | undefined)[] | undefined,
   noteNameMode: NoteNameMode = "pitch-class",
   midiBaseOctave: number = 4,
 ): Array<{ x: number; width: number; note: string; index: number }> {

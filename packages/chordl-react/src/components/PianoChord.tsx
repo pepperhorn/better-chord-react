@@ -7,7 +7,7 @@ import { StaffNotation } from "./StaffNotation";
 import {
   parseChordDescription, resolveChord, resolveScale, calculateLayout, whiteIdxHasSharp,
   computeKeyboard, normalizeNote, autoFingering, assignFingering,
-  scaleAutoFingering, degreesForIntervals,
+  scaleAutoFingering, degreesForIntervals, degreeLabelsForNotes,
   FLAT_TO_SHARP, WHITE_NOTE_ORDER, PC_SEMITONES,
 } from "@pepperhorn/chordl-core";
 import type { ProgressionChord } from "@pepperhorn/chordl-core";
@@ -530,15 +530,17 @@ export function PianoChord(props: ChordProps | KeyboardProps) {
     notes = expanded;
   }
 
-  // Compute degree labels for chords (jazz roman numerals)
-  const chordDegreeLabels: string[] | undefined = (() => {
+  // Compute degree labels for chords (jazz roman numerals).
+  // Must stay below the rotation and the arpeggio expansion above: the result
+  // is index-parallel to `notes`, which is what the highlight rows index into.
+  const chordDegreeLabels: (string | undefined)[] | undefined = (() => {
     const mode = parsed.noteNameMode;
     if (mode !== "degree" && mode !== "pitch-class+degree" && mode !== "midi+degree") return undefined;
     const intervals = resolved.intervals;
     if (!intervals || intervals.length === 0) return undefined;
-    const singleDegrees = degreesForIntervals(intervals);
-    // For arpeggios, repeat the degree pattern
-    return notes.map((_, i) => singleDegrees[i % singleDegrees.length]);
+    // Keyed by pitch, not position — `notes` has been rotated and repeated by
+    // now, while `intervals` is still the chord's canonical list.
+    return degreeLabelsForNotes(resolved.root, intervals, notes);
   })();
 
   const layoutPadding = parsed.padding ?? padding ?? 1;

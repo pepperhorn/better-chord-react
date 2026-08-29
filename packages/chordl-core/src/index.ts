@@ -63,7 +63,7 @@ export type { ChordLogEntry, LogConfig } from "./logging.js";
 // Theory
 export { classifyTones, parseInterval, minimalVoicing, dropOrder } from "./theory/chord-tones.js";
 export type { ChordTone, ChordToneRole, ChordToneAnalysis } from "./theory/chord-tones.js";
-export { intervalToDegreeLabel, degreesForIntervals } from "./theory/degree-labels.js";
+export { intervalToDegreeLabel, degreesForIntervals, degreeLabelsForNotes } from "./theory/degree-labels.js";
 
 // Scale resolver
 export { resolveScale } from "./resolver/scale-resolver.js";

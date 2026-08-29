@@ -44,7 +44,14 @@ describe("variant switching keeps the degree row", () => {
 
     selectSecondVariant(container);
 
-    expect(degrees(container).length).toBeGreaterThan(0);
+    // A count is not enough: a rotated variant used to keep three labels and
+    // hand them to the wrong notes. Check the pairing, which holds whatever
+    // order the variant puts the notes in.
+    const expected: Record<string, string> = { C: "I", E: "III", G: "V" };
+    const paired = names(container).map((n, i) => [n, degrees(container)[i]]);
+    expect(paired.length).toBeGreaterThan(0);
+    expect(degrees(container).length).toBe(names(container).length);
+    for (const [name, degree] of paired) expect([name, degree]).toEqual([name, expected[name]]);
   });
 
   it("keeps the degree row at the size it was asked for", () => {
