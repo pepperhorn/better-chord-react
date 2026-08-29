@@ -104,6 +104,19 @@ describe("degree labels follow the rotation", () => {
     expect(degrees(six.container)).toEqual(["I", "III", "V", "VI"]);
   });
 
+  it("draws no question mark under a bass note below the root", () => {
+    const overF = render(<PianoChord chord="C/F note names with degrees" />);
+    expect(degrees(overF.container)).toEqual(["XI", "I", "III", "V"]);
+
+    const overBb = render(<PianoChord chord="C/Bb note names with degrees" />);
+    expect(degrees(overBb.container)).toEqual(["bVII", "I", "III", "V"]);
+
+    // Degree-only mode puts the labels in the note-name row, which is where
+    // the stray "?" was actually visible.
+    const only = render(<PianoChord chord="C/F with degrees" />);
+    expect(names(only.container)).not.toContain("?");
+  });
+
   it("carries the rotated degrees into the export payload", () => {
     const { container } = render(<PianoChord chord="C starting on E note names with degrees" />);
     const svg = container.querySelector("svg.bc-keyboard")!;

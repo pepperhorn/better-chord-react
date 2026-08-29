@@ -150,6 +150,13 @@ export function degreeLabelsForNotes(
     const pc = Note.pitchClass(Note.transpose(root, iv));
     if (!pc) continue;
     const label = intervalToDegreeLabel(iv);
+    // A slash chord whose bass sits below the root arrives with a negative
+    // interval — C/F is ["-5P","1P","3M","5P"] — and parseInterval's `^(\d+)`
+    // does not match the leading minus, so the label is the "?" sentinel.
+    // Leaving it out of the maps hands the note to the distance fallback,
+    // which names it from the root and gets bVII for C/Bb. Storing it printed
+    // a literal "?" under the bass key.
+    if (label === "?") continue;
     if (!bySpelling.has(pc)) bySpelling.set(pc, label);
     const chroma = Note.chroma(pc);
     if (Number.isFinite(chroma) && !byChroma.has(chroma)) byChroma.set(chroma, label);

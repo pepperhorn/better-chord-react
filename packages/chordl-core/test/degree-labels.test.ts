@@ -103,6 +103,27 @@ describe("degreeLabelsForNotes", () => {
       .toEqual(["III", "V", "bVII", "bIX"]);
   });
 
+  /**
+   * A slash chord whose bass sits below the root resolves to a negative
+   * interval, which parseInterval cannot read — it returned the "?" sentinel
+   * and the keyboard drew a literal question mark under the bass key.
+   */
+  it("names a bass note that sits below the root instead of printing ?", () => {
+    // C/Bb — intervals ["-2M","1P","3M","5P"]
+    expect(degreeLabelsForNotes("C", ["-2M", "1P", "3M", "5P"], ["Bb", "C", "E", "G"]))
+      .toEqual(["bVII", "I", "III", "V"]);
+    // C/F — intervals ["-5P","1P","3M","5P"]
+    expect(degreeLabelsForNotes("C", ["-5P", "1P", "3M", "5P"], ["F", "C", "E", "G"]))
+      .toEqual(["XI", "I", "III", "V"]);
+  });
+
+  it("never returns the ? sentinel from the maps", () => {
+    for (const intervals of [["-2M", "1P", "3M", "5P"], ["-5P", "1P", "3M", "5P"], ["-3m", "1P", "3M", "5P"]]) {
+      const labels = degreeLabelsForNotes("C", intervals, ["Bb", "C", "E", "G"]);
+      expect(labels).not.toContain("?");
+    }
+  });
+
   it("returns undefined for every note when there are no intervals", () => {
     expect(degreeLabelsForNotes("C", undefined, ["C", "E", "G"]))
       .toEqual([undefined, undefined, undefined]);
