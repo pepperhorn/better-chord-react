@@ -137,8 +137,17 @@ export function VoicingVariantToggle({
     if (!resolved) return "";
     const parts: string[] = [];
     const p = resolved.parsed;
-    if (p.showNoteNames) {
-      if (p.noteNameMode === "midi" || p.noteNameMode === "midi+degree") {
+    /*
+     * "degree" is degree-only: no name row at all. Emitting the literal "note
+     * names" for every non-midi mode turned that card into a plain pitch-class
+     * one on the first variant click. The degrees clause has to be written down
+     * too, or the degree row and its size are dropped by the same rebuild.
+     */
+    const mode = p.noteNameMode ?? "pitch-class";
+    const wantsDegrees =
+      mode === "degree" || mode === "pitch-class+degree" || mode === "midi+degree";
+    if (p.showNoteNames && mode !== "degree") {
+      if (mode === "midi" || mode === "midi+degree") {
         parts.push("midi note names");
       } else {
         parts.push("note names");
@@ -146,6 +155,16 @@ export function VoicingVariantToggle({
       if (p.noteNameSize && p.noteNameSize !== "base") {
         parts.push(`in ${p.noteNameSize}`);
       }
+    }
+    if (wantsDegrees) {
+      // The explicit "in <size>" form: the bare-size form carries a negative
+      // lookahead so it can't swallow a following note-names shape, and there
+      // is no reason to go near that hazard here.
+      parts.push(
+        p.degreeSize && p.degreeSize !== "base"
+          ? `degrees in ${p.degreeSize}`
+          : "degrees",
+      );
     }
     if (p.customFingering) {
       parts.push(`custom fingering "${p.customFingering.join(",")}"`);;
