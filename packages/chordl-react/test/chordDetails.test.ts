@@ -125,3 +125,20 @@ describe("splitChordDetails — clauses it does not own", () => {
     });
   });
 });
+
+/**
+ * NoteNameMode gained "midi+degree" when midi names learned to combine with
+ * degrees. compose() reads the mode to pick its keyword, so a widened union
+ * that it matches exactly would quietly serialise midi state as pitch-class.
+ */
+describe("composeChordDetails keeps midi across every midi mode", () => {
+  it("writes the midi keyword for the combo mode, not just the bare one", () => {
+    expect(compose("C", { showNoteNames: true, noteNameMode: "midi+degree" }))
+      .toContain("midi note names");
+  });
+
+  it("still writes plain note names for pitch-class modes", () => {
+    expect(compose("C", { showNoteNames: true, noteNameMode: "pitch-class+degree" }))
+      .not.toContain("midi");
+  });
+});
