@@ -152,7 +152,11 @@ export function VoicingVariantToggle({
       } else {
         parts.push("note names");
       }
-      if (p.noteNameSize && p.noteNameSize !== "base") {
+      // Write the size down whenever the card has one, base included: the
+      // renderer's fallback is `degreeSize ?? noteNameSize` defaulting to lg,
+      // so leaving base off does not mean base — it means lg, and the row
+      // grew on the first pill click.
+      if (p.noteNameSize) {
         parts.push(`in ${p.noteNameSize}`);
       }
     }
@@ -160,11 +164,7 @@ export function VoicingVariantToggle({
       // The explicit "in <size>" form: the bare-size form carries a negative
       // lookahead so it can't swallow a following note-names shape, and there
       // is no reason to go near that hazard here.
-      parts.push(
-        p.degreeSize && p.degreeSize !== "base"
-          ? `degrees in ${p.degreeSize}`
-          : "degrees",
-      );
+      parts.push(p.degreeSize ? `degrees in ${p.degreeSize}` : "degrees");
     }
     if (p.customFingering) {
       parts.push(`custom fingering "${p.customFingering.join(",")}"`);;

@@ -77,6 +77,9 @@ describe("variant switching keeps the degree row", () => {
     selectSecondVariant(container);
 
     expect(degrees(container).length).toBeGreaterThan(0);
+    // Guard the row exists before matching over it — a `for` over an empty
+    // list passes, which would let the whole name row vanish unnoticed.
+    expect(names(container).length).toBeGreaterThan(0);
     // Every midi name still carries its octave: "C4", not "C".
     for (const name of names(container)) expect(name).toMatch(/^[A-G][#b]?\d+$/);
   });
@@ -121,5 +124,35 @@ describe("degree-only stays degree-only", () => {
 
     expect(fontOf(big.container, ".bc-note-name"))
       .toBeGreaterThan(fontOf(small.container, ".bc-note-name"));
+  });
+});
+
+/**
+ * An omitted size is not the same as base. PianoKeyboard falls back to
+ * `degreeSize ?? noteNameSize` with a default of lg, so a rebuild that left
+ * "base" off because it looked like the default made both rows grow on the
+ * first pill click.
+ */
+describe("an explicitly requested base size survives the rebuild", () => {
+  it("keeps the degree row at base", () => {
+    const { container } = render(
+      <VoicingVariantToggle chord="C note names in 2xl with degrees in base" />,
+    );
+    const before = fontOf(container, ".bc-degree-label");
+
+    selectSecondVariant(container);
+
+    expect(fontOf(container, ".bc-degree-label")).toBe(before);
+  });
+
+  it("keeps the note name row at base", () => {
+    const { container } = render(
+      <VoicingVariantToggle chord="C note names in base with degrees in 2xl" />,
+    );
+    const before = fontOf(container, ".bc-note-name");
+
+    selectSecondVariant(container);
+
+    expect(fontOf(container, ".bc-note-name")).toBe(before);
   });
 });
