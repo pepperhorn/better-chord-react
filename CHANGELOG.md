@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+_Nothing yet._
+
+## 2026-09-01 — first six-package release
+
+Published from `e63c630`. Everything documented below this heading shipped in
+this release; it had been accumulating under "Unreleased" since 0.3.5.
+
+| Package | Version | |
+|---|---|---|
+| `@pepperhorn/chordl-voicings` | 0.4.0 | breaking — dominant and diminished qualities stop resolving to minor voicings; `M7b5` becomes its own chord |
+| `@pepperhorn/chordl-guitar` | 0.2.0 | first publish; breaking — `OPEN_STRING_MIDI` removed in favour of `INSTRUMENTS[id].openMidi` |
+| `@pepperhorn/chordl-listen` | 0.1.0 | first publish |
+| `@pepperhorn/chordl-core` | 0.4.0 | adds hand-reach constraints (`constrainVoicing`) |
+| `@pepperhorn/chordl-react` | 0.4.0 | breaking — ESM-only, CJS build dropped, runtime dependencies externalised |
+| `@pepperhorn/chordl-board` | 0.1.0 | first publish |
+
+Listed in publish order. All six must go out together: `chordl-react` now
+imports the other packages at runtime instead of inlining them, so publishing it
+ahead of them yields a package that fails to install.
+
+Upgrading from `0.3.x` — read **"chordl-react — ship dependencies instead of
+inlining them"** and **"chordl-guitar 0.2.0"** below first. `chordl-react` is
+now ESM-only and expects `react` / `react-dom` to be supplied by the consumer.
+
 ### chordl-core / chordl-react — note-name and degree sizes are independent
 
 "note names in xl with degrees in lg" is one request carrying two sizes, and the
